@@ -6,7 +6,7 @@
 
 | Field | Value |
 |---|---|
-| **Team Name** | Mazaaaa |
+| **Team Name** | DuckDuckGo |
 | **Track** | AI |
 | **Team Lead** | Dhrumil Amin — 24cs005@charusat.edu.in |
 | **Members** | Heet Parikh, Akshat Patel, Parva Chhatrola |
