@@ -68,7 +68,7 @@ async def _run() -> int:
 
             # Full post-mortem chain over the wire, Case 6c (the honest-uncertainty case).
             sig = {"sensor_tester_01": 3.1, "sensor_12": 0.0, "sensor_45": 0.1}
-            cls = _body(await s.call_tool("classify_wafer_map", {"image_path": "case_6c.png"}))
+            cls = _body(await s.call_tool("classify_wafer_map", {"image_path": str(Path(__file__).parent / "data" / "wafer_maps" / "case_6c.npy")}))
             an = _body(await s.call_tool("score_sensor_anomaly",
                                          {"lot_id": "L-6c", "sensors": sig}))
             rc = _body(await s.call_tool("retrieve_similar_cases",

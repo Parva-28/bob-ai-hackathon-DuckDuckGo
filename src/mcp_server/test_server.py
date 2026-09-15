@@ -80,7 +80,10 @@ def main() -> int:
         sig = fx["sensor_signature"]
 
         # --- post-mortem chain, in the order Bob is instructed to call it ---
-        cls = classify(f"{cid}.png")
+        # Resolve the real map the way get_lot_data does. A synthetic "<case>.png"
+        # worked only while the classifier was a stub matching on filename stem.
+        wm = Path(__file__).parent / "data" / "wafer_maps" / f"{cid}.npy"
+        cls = classify(str(wm))
         an = anomaly_of(cid, sig)
         rc = retrieve(cls["predicted_class"], sig, 5)
         eq = sorted({c["equipment_id"] for c in rc["cases"] if c.get("equipment_id")})

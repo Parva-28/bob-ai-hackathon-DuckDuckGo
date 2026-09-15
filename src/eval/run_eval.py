@@ -74,8 +74,9 @@ async def evaluate(session: ClientSession, fx: dict, mock: bool = False) -> Resu
     sig = fx["sensor_signature"]
 
     # 1-2. evidence gathering (independent)
-    cls = _body(await session.call_tool("classify_wafer_map",
-                                        {"image_path": f"{fx['case_id']}.png"}))
+    # Real map path, as get_lot_data would return it.
+    wm = ROOT / "src" / "mcp_server" / "data" / "wafer_maps" / f"{fx['case_id']}.npy"
+    cls = _body(await session.call_tool("classify_wafer_map", {"image_path": str(wm)}))
     an = _body(await session.call_tool("score_sensor_anomaly",
                                        {"lot_id": fx["case_id"], "sensors": sig}))
 
