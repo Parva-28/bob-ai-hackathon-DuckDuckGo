@@ -142,11 +142,24 @@ this, and the rubric says so.*
 
 ---
 
-## Producing the file
+## The built deck
 
-The submission requires `presentation/slides.pdf` (preferred) or `slides.pptx`. This file is
-the content, not the deliverable — build the deck from it in Google Slides, Keynote or
-PowerPoint and export to `presentation/slides.pdf`.
+`presentation/slides.pptx` is generated from this content by `presentation/build-deck.js`
+(pptxgenjs). All 9 slides carry their speaker notes in the notes pane, not on the slide.
 
-Keep it plain: one idea per slide, the architecture diagram at full width on slide 6, and a
-real screenshot on slide 7. Do not put speaker notes on the slides.
+```bash
+npm install pptxgenjs && node presentation/build-deck.js
+```
+
+Regenerate from the script rather than hand-editing the .pptx, so this file stays the source
+of truth. To export a PDF:
+
+```bash
+soffice --headless --convert-to pdf presentation/slides.pptx
+```
+
+Design notes: the repeated motif is a wafer bin map — scratch, near-full, edge-ring and
+center patterns drawn as real defect geometries rather than stock icons, so the visual
+language is the subject matter. Dark slides bookend the deck (title, Case 6c, closing) with
+light content slides between. Two things worth swapping in before presenting: a real
+screenshot on slide 7, and the rendered architecture diagram on slide 6.
