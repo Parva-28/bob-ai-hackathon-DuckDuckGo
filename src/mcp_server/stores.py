@@ -26,7 +26,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 _DATA = Path(__file__).parent / "data"
-_FEEDBACK_PATH = Path(os.environ.get("YIELDGUARD_FEEDBACK_PATH", _DATA / "feedback.jsonl"))
+# `.get(name, default)` returns "" when the var is SET BUT EMPTY, which is exactly how
+# it appears in a .env template. Path("") then fails every write. Treat empty as unset.
+_FEEDBACK_PATH = Path(os.environ.get("YIELDGUARD_FEEDBACK_PATH") or (_DATA / "feedback.jsonl"))
 
 
 # ── similarity ────────────────────────────────────────────────────────────────

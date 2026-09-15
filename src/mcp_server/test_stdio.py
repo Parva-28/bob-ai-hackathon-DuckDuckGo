@@ -17,6 +17,7 @@ carry one tool's output into the next.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -44,7 +45,12 @@ async def _run() -> int:
         if not cond:
             fails.append(msg)
 
-    params = StdioServerParameters(command=sys.executable, args=[str(SERVER)])
+    # Pass the environment through explicitly. StdioServerParameters defaults to a
+    # minimal scrubbed env, so USE_MOCK_LLM and the WATSONX_* vars never reach the
+    # server subprocess - the harness then silently evaluates the MOCK reasoner while
+    # the shell that launched it was configured for live watsonx.
+    params = StdioServerParameters(command=sys.executable, args=[str(SERVER)],
+                                   env=dict(os.environ))
     async with stdio_client(params) as (r, w):
         async with ClientSession(r, w) as s:
             init = await s.initialize()

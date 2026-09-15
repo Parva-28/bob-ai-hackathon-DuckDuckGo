@@ -169,8 +169,16 @@ def _build_playbook_prompt(top_hypothesis: dict) -> str:
 
 def _call_watsonx(prompt: str) -> str:
     """
-    Call IBM watsonx.ai text-generation endpoint and return the raw text response.
-    Requires: ibm-watson-machine-learning or ibm-watsonx-ai installed.
+    Call watsonx.ai and return the raw text response.
+
+    Uses the **chat** endpoint, not text-generation. Granite 4 models are chat-only:
+    `/ml/v1/text/generation` is deprecated and, on `ibm/granite-4-h-small`,
+    `generate_text()` returns an EMPTY STRING rather than raising - which surfaces
+    downstream as "No JSON object found in LLM response" and looks like a parsing
+    bug rather than a wrong endpoint. Verified side by side: generate_text -> len 0,
+    chat -> valid JSON, same prompt, same model, same credentials.
+
+    Falls back to generate_text only if chat is unavailable, for older SDKs.
     """
     try:
         from ibm_watsonx_ai import APIClient, Credentials  # type: ignore
@@ -199,8 +207,13 @@ def _call_watsonx(prompt: str) -> str:
         project_id=_WATSONX_PROJECT_ID,
     )
 
-    response = model.generate_text(prompt=prompt)
-    return response
+    if hasattr(model, "chat"):
+        resp = model.chat(messages=[{"role": "user", "content": prompt}])
+        try:
+            return resp["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            raise ValueError(f"unexpected chat response shape: {str(resp)[:200]}")
+    return model.generate_text(prompt=prompt)
 
 
 # ---------------------------------------------------------------------------
@@ -820,7 +833,26 @@ def _extract_json(text: str) -> dict:
     # Strip markdown code fences if present
     cleaned = re.sub(r"```(?:json)?", "", text).strip()
     # Find the first '{' to the last '}'
+    # Granite does not always return bare JSON: it may fence it in ```json blocks or
+    # wrap it in a sentence, and `rfind("}")` then grabs a trailing brace from prose
+    # and produces invalid JSON. Prefer a fenced block, then fall back to the first
+    # brace-balanced object in the text.
+    import re as _re
+    fenced = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, _re.S)
+    if fenced:
+        return json.loads(fenced.group(1))
+
     start = cleaned.find("{")
+    if start != -1:
+        depth = 0
+        for i, ch in enumerate(cleaned[start:], start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(cleaned[start:i + 1])
+
     end = cleaned.rfind("}") + 1
     if start == -1 or end == 0:
         raise ValueError(f"No JSON object found in LLM response: {text[:200]}")

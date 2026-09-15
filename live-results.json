@@ -1,0 +1,283 @@
+{
+  "pipeline": {
+    "reasoning_mode": "live",
+    "tools": {
+      "classify_wafer_map": "real",
+      "flag_at_risk_batch": "real",
+      "get_corrective_action_playbook": "real",
+      "query_telemetry": "real",
+      "rank_root_causes": "real",
+      "retrieve_similar_cases": "real",
+      "score_sensor_anomaly": "real",
+      "submit_feedback": "real"
+    },
+    "real_count": 8,
+    "stub_count": 0,
+    "stub_reasons": {},
+    "historical_cases": 18,
+    "known_equipment": [
+      "CMP-03",
+      "ETCH-07",
+      "FILTER-B12",
+      "HANDLER-01",
+      "LITHO-02",
+      "TESTER-04"
+    ],
+    "fixtures_loaded": 18
+  },
+  "passed": 8,
+  "total": 18,
+  "results": [
+    {
+      "case_id": "case_1a",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Center",
+      "anomaly_score": 0.145,
+      "top_hypothesis": "Slurry flow rate drift from a degrading slurry pump on CMP-03",
+      "confidence": 0.85,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "Telemetry shows slurry_flow_rate on CMP-03 declining steadily over the last 6 lots, matching case HC-018 where a similar flow rate drift caused a center defect pattern"
+    },
+    {
+      "case_id": "case_1b",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Center",
+      "anomaly_score": 0.159,
+      "top_hypothesis": "CMP-03 slurry pump seal degradation causing flow rate decline and pad wear",
+      "confidence": 0.78,
+      "category": "equipment",
+      "at_risk": false,
+      "evidence": "CMP-03 slurry_flow_rate trend declining steadily over last 6 lots; case HC-018 with similar root cause of slurry pump seal issue"
+    },
+    {
+      "case_id": "case_1c",
+      "passed": false,
+      "failures": [
+        [
+          "hypothesis_wording_in_top_2",
+          "none of ['material', 'vendor', 'slurry lot', 'viscosity', 'incoming'] appeared"
+        ]
+      ],
+      "predicted_class": "Center",
+      "anomaly_score": 0.139,
+      "top_hypothesis": "Slurry pump degradation on CMP-03 causing flow rate decline",
+      "confidence": 0.78,
+      "category": "material",
+      "at_risk": true,
+      "evidence": "CMP-03 slurry_flow_rate trend declining over 6 lots"
+    },
+    {
+      "case_id": "case_2a",
+      "passed": false,
+      "failures": [
+        [
+          "category_in_top_1",
+          "expected 'equipment', top 1 = ['process']"
+        ]
+      ],
+      "predicted_class": "Edge-Ring",
+      "anomaly_score": 0.149,
+      "top_hypothesis": "Edge-ring defect caused by recent ETCH-07 chamber seasoning drift after shared-tool recipe change",
+      "confidence": 0.65,
+      "category": "process",
+      "at_risk": false,
+      "evidence": "ETCH-07 RF power edge ringing, ETCH-07 gas flow below setpoint in edge zone, HC-038 case with similar seasoning drift root cause"
+    },
+    {
+      "case_id": "case_2b",
+      "passed": false,
+      "failures": [
+        [
+          "hypotheses_returned",
+          "rank_root_causes returned none"
+        ]
+      ],
+      "predicted_class": "Edge-Ring",
+      "anomaly_score": 0.1479
+    },
+    {
+      "case_id": "case_2c",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Edge-Ring",
+      "anomaly_score": 0.138,
+      "top_hypothesis": "Chamber wall seasoning drift after a shared-tool recipe change",
+      "confidence": 0.78,
+      "category": "process",
+      "at_risk": true,
+      "evidence": "Case HC-038 similarity 1.00 with same root cause; ETCH-07 rf_power_w and gas_flow_sccm trends showing edge ringing and below setpoint since PM 2 days ago; chamber_seasoning_idx drifting since shared-tool recipe change"
+    },
+    {
+      "case_id": "case_3a",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Scratch",
+      "anomaly_score": 0.0,
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing positional misalignment not detectable by process sensors",
+      "confidence": 0.78,
+      "category": "handling",
+      "at_risk": false,
+      "evidence": "Similar case HC-042 with 0.15 similarity, end-effector wear at 50k cycles, HANDLER-01 end_effector_cycles trend at 48k cycles, process_sensor_correlation trend NO correlation"
+    },
+    {
+      "case_id": "case_3b",
+      "passed": false,
+      "failures": [
+        [
+          "hypothesis_wording_in_top_2",
+          "none of ['slot', 'cassette', 'misalign', 'position'] appeared"
+        ]
+      ],
+      "predicted_class": "Scratch",
+      "anomaly_score": 0.002,
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing scratches without process sensor correlation",
+      "confidence": 0.78,
+      "category": "handling",
+      "at_risk": false,
+      "evidence": "HANDLER-01 end_effector_cycles trend at 48k cycles (past 40k guideline) and process_sensor_correlation trend showing NO correlation with any process sensor"
+    },
+    {
+      "case_id": "case_3c",
+      "passed": false,
+      "failures": [
+        [
+          "honest_uncertainty",
+          "overconfident: 0.65 > 0.5"
+        ]
+      ],
+      "predicted_class": "Scratch",
+      "anomaly_score": 0.0,
+      "top_hypothesis": "CMP-03 slurry pump seal degradation causing flow rate drop and pad wear, leading to scratches",
+      "confidence": 0.65,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "CMP-03 slurry_flow_rate declining steadily over last 6 lots, pad_life_pct approaching limit, case HC-018 with similar slurry pump issue"
+    },
+    {
+      "case_id": "case_4a",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Donut",
+      "anomaly_score": 0.146,
+      "top_hypothesis": "Stepper lens thermal drift due to ambient temperature tracking",
+      "confidence": 0.78,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "LITHO-02 lens_temp_c trend tracking ambient fab temperature swings; case HC-051 with similar root cause"
+    },
+    {
+      "case_id": "case_4b",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Donut",
+      "anomaly_score": 0.16,
+      "top_hypothesis": "Reticle contamination introduced during a recent reticle swap",
+      "confidence": 0.85,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "Donut defect classification with confidence 1.00, high similarity to historical case HC-053 (reticle contamination) with similarity 1.00"
+    },
+    {
+      "case_id": "case_4c",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Donut",
+      "anomaly_score": 0.155,
+      "top_hypothesis": "CMP-03 slurry flow rate drift causing wafer defects",
+      "confidence": 0.78,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "CMP-03 slurry_flow_rate parameter shows steady decline over last 6 lots, matching historical case HC-018 where slurry pump degradation led to yield loss"
+    },
+    {
+      "case_id": "case_5a",
+      "passed": false,
+      "failures": [
+        [
+          "hypotheses_returned",
+          "rank_root_causes returned none"
+        ]
+      ],
+      "predicted_class": "Random",
+      "anomaly_score": 0.1416
+    },
+    {
+      "case_id": "case_5b",
+      "passed": false,
+      "failures": [
+        [
+          "hypotheses_returned",
+          "rank_root_causes returned none"
+        ]
+      ],
+      "predicted_class": "Random",
+      "anomaly_score": 0.1367
+    },
+    {
+      "case_id": "case_5c",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Random",
+      "anomaly_score": 0.134,
+      "top_hypothesis": "Degraded HEPA filter causing particle contamination",
+      "confidence": 0.85,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "FILTER-B12 particle_count_per_m3 trend rising 3 days before wafer defect trend; case HC-061 with identical root cause"
+    },
+    {
+      "case_id": "case_6a",
+      "passed": false,
+      "failures": [
+        [
+          "hypothesis_wording_in_top_1",
+          "none of ['power', 'supply', 'excursion', 'cascade'] appeared"
+        ]
+      ],
+      "predicted_class": "Near-full",
+      "anomaly_score": 0.143,
+      "top_hypothesis": "Test equipment (TESTER-04) contact resistance drift and calibration drift causing false fail readings",
+      "confidence": 0.85,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "TESTER-04 parameter 'contact_resistance_ohm' shows rising trend across all probe channels; 'test_head_calibration_drift' indicates drift since last calibration 42 days ago; top deviating sensors are TESTER-04 sensors"
+    },
+    {
+      "case_id": "case_6b",
+      "passed": false,
+      "failures": [
+        [
+          "hypothesis_wording_in_top_2",
+          "none of ['software', 'interlock', 'routing', 'automation', 'misroute'] appeared"
+        ]
+      ],
+      "predicted_class": "Near-full",
+      "anomaly_score": 0.137,
+      "top_hypothesis": "Test equipment (TESTER-04) contact resistance drift and calibration drift causing false fail readings",
+      "confidence": 0.85,
+      "category": "software",
+      "at_risk": true,
+      "evidence": "TESTER-04 contact_resistance_ohm trend rising across all probe channels; TESTER-04 test_head_calibration_drift trend drifting since last calibration 42 days ago; highest anomaly score 0.14 indicates likely measurement artifact"
+    },
+    {
+      "case_id": "case_6c",
+      "passed": false,
+      "failures": [
+        [
+          "honest_uncertainty",
+          "overconfident: 0.85 > 0.75"
+        ]
+      ],
+      "predicted_class": "Near-full",
+      "anomaly_score": 0.137,
+      "top_hypothesis": "Test head calibration drift on TESTER-04 causing false fail readings",
+      "confidence": 0.85,
+      "category": "measurement",
+      "at_risk": true,
+      "evidence": "TESTER-04 parameter test_head_calibration_drift shows drifting since last calibration 42 days ago; case HC-077 had identical root cause of test head miscalibration producing false failures"
+    }
+  ]
+}

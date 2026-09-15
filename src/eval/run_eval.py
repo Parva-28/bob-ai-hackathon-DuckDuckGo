@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 import anyio
@@ -42,7 +44,18 @@ if not sys.stdout.isatty():
 
 
 def _body(res):
-    return json.loads(res.content[0].text)
+    """
+    Tool results are JSON, except when a tool raised — then MCP returns a plain-text
+    error block. Decoding that blindly crashes the whole run on one bad case, which
+    is the opposite of what an eval harness should do.
+    """
+    if not getattr(res, "content", None):
+        return {"error": "empty tool result"}
+    txt = getattr(res.content[0], "text", "")
+    try:
+        return json.loads(txt)
+    except json.JSONDecodeError:
+        return {"error": txt[:400] or "non-JSON tool result"}
 
 
 class Result:
@@ -206,7 +219,12 @@ async def _run(args) -> int:
         print(f"no fixtures matched --case {args.case}")
         return 2
 
-    params = StdioServerParameters(command=sys.executable, args=[str(SERVER)])
+    # Pass the environment through explicitly. StdioServerParameters defaults to a
+    # minimal scrubbed env, so USE_MOCK_LLM and the WATSONX_* vars never reach the
+    # server subprocess - the harness then silently evaluates the MOCK reasoner while
+    # the shell that launched it was configured for live watsonx.
+    params = StdioServerParameters(command=sys.executable, args=[str(SERVER)],
+                                   env=dict(os.environ))
     async with stdio_client(params) as (rd, wr):
         async with ClientSession(rd, wr) as session:
             await session.initialize()
@@ -228,7 +246,18 @@ async def _run(args) -> int:
                       f"for the real result.{RST}")
             print()
 
-            results = [await evaluate(session, fx, mock) for fx in fixtures]
+            # Stream each case as it lands. Against live watsonx a full run is ~36
+            # API calls at 3-6s each, and buffering the table until the end makes a
+            # working run indistinguishable from a hang.
+            results = []
+            for i, fx in enumerate(fixtures, 1):
+                t0 = time.monotonic()
+                r = await evaluate(session, fx, mock)
+                results.append(r)
+                print(f"  [{i:>2}/{len(fixtures)}] {r.case_id:<9} "
+                      f"{'ok' if r.passed else 'FAIL':<4} {time.monotonic()-t0:>5.1f}s",
+                      flush=True)
+            print()
 
     # ---- report ----
     w = 54
