@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>YieldGuard · analyst console</title>
+<style>
+:root{
+  --ink:#0b1622; --panel:#111f2e; --panel2:#152738; --line:#22384c;
+  --fg:#d6e2ec; --dim:#7b93a6; --dimmer:#54697a;
+  --teal:#2aa5a0; --amber:#e0913a; --crim:#c1503c; --good:#3f9b6d;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--ink);color:var(--fg);font:13px/1.45 var(--mono);
+     display:grid;grid-template-columns:232px 1fr;overflow:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#24384a}
+
+/* ---- left rail ---- */
+aside{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel)}
+.brand{padding:13px 14px;border-bottom:1px solid var(--line)}
+.brand b{font-size:13px;letter-spacing:.14em;font-weight:600}
+.brand span{display:block;color:var(--dimmer);font-size:10px;letter-spacing:.09em;margin-top:3px}
+.grp{padding:11px 14px 5px;color:var(--dimmer);font-size:9.5px;letter-spacing:.16em}
+.lot{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 14px;
+     cursor:pointer;border-left:2px solid transparent}
+.lot:hover{background:var(--panel2)}
+.lot.on{background:var(--panel2);border-left-color:var(--teal)}
+.lot i{font-style:normal;font-size:12.5px;letter-spacing:.02em}
+.lot u{grid-column:1/-1;text-decoration:none;color:var(--dimmer);font-size:10px}
+.y{font-variant-numeric:tabular-nums;font-size:12px}
+.y.bad{color:var(--crim)} .y.mid{color:var(--amber)} .y.ok{color:var(--dim)}
+
+/* ---- main ---- */
+main{overflow-y:auto;padding:0 0 28px}
+header{display:flex;align-items:baseline;gap:14px;padding:13px 18px;
+       border-bottom:1px solid var(--line);background:var(--panel);
+       position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:17px;letter-spacing:.05em;font-weight:600}
+header .meta{color:var(--dim);font-size:11px}
+.pill{border:1px solid var(--line);padding:2px 7px;font-size:10px;letter-spacing:.08em;color:var(--dim)}
+.pill.live{border-color:#2c5a45;color:var(--good)}
+.pill.mock{border-color:#6b5324;color:var(--amber)}
+.pill.pre{border-color:#2c4a64;color:#63a6d8}
+
+.grid{display:grid;gap:12px;padding:14px 18px}
+.c2{grid-template-columns:300px 1fr}
+.c3{grid-template-columns:1fr 1fr 1fr}
+section{border:1px solid var(--line);background:var(--panel)}
+h2{margin:0;padding:8px 12px;font-size:9.5px;letter-spacing:.17em;color:var(--dimmer);
+   font-weight:500;border-bottom:1px solid var(--line)}
+.body{padding:12px}
+
+/* ---- wafer ---- */
+#wafer{display:block;margin:2px auto;image-rendering:pixelated}
+.cls{display:flex;justify-content:space-between;align-items:baseline;
+     padding:9px 12px;border-top:1px solid var(--line)}
+.cls b{font-size:17px;font-weight:600;letter-spacing:.02em}
+.cls span{color:var(--dim);font-size:11px}
+
+/* ---- metric rows ---- */
+.kv{display:grid;grid-template-columns:auto 1fr auto;gap:7px 10px;align-items:center}
+.kv label{color:var(--dim);font-size:11px;white-space:nowrap}
+.kv .v{text-align:right;font-variant-numeric:tabular-nums;font-size:12px}
+.bar{height:3px;background:#1b2e3f;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--teal)}
+.bar.a i{background:var(--amber)} .bar.c i{background:var(--crim)}
+
+/* ---- hypotheses ---- */
+.hyp{border-top:1px solid var(--line);padding:11px 12px}
+.hyp:first-child{border-top:none}
+.hyp .top{display:flex;gap:9px;align-items:baseline}
+.rank{color:var(--dimmer);font-size:11px;min-width:14px}
+.hyp .d{flex:1;font-size:13px;line-height:1.4}
+.conf{font-variant-numeric:tabular-nums;font-size:13px;min-width:38px;text-align:right}
+.cat{display:inline-block;margin-top:5px;font-size:9.5px;letter-spacing:.11em;
+     color:var(--dimmer);border:1px solid var(--line);padding:1px 5px}
+.cat.derived{border-style:dashed}
+.ev{margin-top:7px;padding-left:10px;border-left:1px solid #26405a;
+    color:var(--dim);font-size:11px;line-height:1.5}
+.ev b{color:var(--teal);font-weight:400}
+
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{text-align:left;color:var(--dimmer);font-weight:500;font-size:9.5px;
+   letter-spacing:.12em;padding:0 8px 6px 0}
+td{padding:4px 8px 4px 0;border-top:1px solid #1a2c3d;vertical-align:top}
+td.n{font-variant-numeric:tabular-nums;text-align:right}
+.up{color:var(--crim)} .dn{color:#63a6d8} .flat{color:var(--dimmer)}
+
+/* ---- actions ---- */
+.act{display:grid;grid-template-columns:auto 1fr;gap:9px;padding:7px 0;
+     border-top:1px solid #1a2c3d;font-size:12px;line-height:1.45}
+.act:first-child{border-top:none}
+.pr{font-size:9px;letter-spacing:.1em;padding:1px 5px;height:16px;border:1px solid}
+.pr.high{color:var(--crim);border-color:#4a2620}
+.pr.medium{color:var(--amber);border-color:#4a3a1c}
+.pr.low{color:var(--dim);border-color:var(--line)}
+
+/* ---- trace ---- */
+.trace{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
+.step{border:1px solid var(--line);padding:3px 8px;font-size:10.5px;color:var(--dim)}
+.step b{color:var(--fg);font-weight:400}
+.step em{font-style:normal;color:var(--dimmer)}
+.arrow{color:var(--dimmer);align-self:center;font-size:10px}
+
+footer{padding:9px 18px;color:var(--dimmer);font-size:10.5px;border-top:1px solid var(--line)}
+.empty{padding:40px 18px;color:var(--dimmer)}
+</style></head>
+<body>
+<aside>
+  <div class="brand"><b>YIELDGUARD</b><span>ANALYST CONSOLE</span></div>
+  <div id="rail"></div>
+</aside>
+<main><div id="view" class="empty">Select a lot.</div></main>
+
+<script>
+const $ = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstChild; };
+const esc = (s) => String(s??'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let STATUS = null, CURRENT = null;
+
+function yieldClass(y){ return y==null ? 'ok' : y < 40 ? 'bad' : y < 75 ? 'mid' : 'ok'; }
+
+async function boot(){
+  STATUS = await (await fetch('/api/status')).json();
+  const rail = document.getElementById('rail');
+  const tested  = Object.entries(STATUS.lots).filter(([,v])=>v.status==='tested');
+  const planned = Object.entries(STATUS.lots).filter(([,v])=>v.status==='planned');
+  const add = (title, rows) => {
+    rail.appendChild($(`<div class="grp">${title}</div>`));
+    rows.forEach(([id,v])=>{
+      const y = v.yield==null ? '—' : v.yield.toFixed(1);
+      const el = $(`<div class="lot" data-lot="${id}">
+        <i>${id}</i><span class="y ${yieldClass(v.yield)}">${y}</span>
+        <u>${esc(v.line)} · ${esc((v.equipment||[])[0]||'')}</u></div>`);
+      el.onclick = ()=>select(id);
+      rail.appendChild(el);
+    });
+  };
+  add('COMPLETED &nbsp;·&nbsp; YIELD %', tested);
+  add('SCHEDULED &nbsp;·&nbsp; NOT RUN', planned);
+  select(tested[0][0]);
+}
+
+async function select(lot){
+  CURRENT = lot;
+  document.querySelectorAll('.lot').forEach(e=>e.classList.toggle('on', e.dataset.lot===lot));
+  const v = document.getElementById('view');
+  v.className='empty'; v.textContent='Running tool chain…';
+  const d = await (await fetch('/api/analyze?lot='+encodeURIComponent(lot))).json();
+  render(d);
+}
+
+function drawWafer(grid){
+  const c = document.getElementById('wafer'); if(!c||!grid) return;
+  const n = grid.length, px = 4; c.width = c.height = n*px;
+  const x = c.getContext('2d');
+  x.fillStyle='#0b1622'; x.fillRect(0,0,c.width,c.height);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+    const val = grid[i][j]; if(!val) continue;            // 0 = outside wafer
+    x.fillStyle = val===1 ? '#1d3346' : '#c1503c';        // 1 = pass die, 2 = fail die
+    x.fillRect(j*px, i*px, px, px);
+  }
+}
+
+function render(d){
+  const v = document.getElementById('view'); v.className='';
+  if(d.error){ v.className='empty'; v.textContent = d.error; return; }
+  const L = d.lot, pre = d.mode === 'pre_run';
+  const hyps = (d.ranked && d.ranked.hypotheses) || [];
+  const reasoning = STATUS.reasoning_mode;
+
+  v.innerHTML = '';
+  v.appendChild($(`<header>
+    <h1>${esc(L.lot_id)}</h1>
+    <span class="meta">${esc(L.product_id)} · ${esc(L.fab_line)} · ${esc((L.equipment_ids||[]).join(', '))}</span>
+    <span style="flex:1"></span>
+    ${pre ? `<span class="pill pre">PRE-RUN · NOT YET PROCESSED</span>`
+          : `<span class="pill">FINAL YIELD ${L.final_yield_pct?.toFixed(1) ?? '—'}%</span>`}
+    <span class="pill ${reasoning==='mock'?'mock':'live'}">REASONING ${esc(reasoning||'?').toUpperCase()}</span>
+    <span class="pill live">${STATUS.real_count}/${STATUS.real_count+STATUS.stub_count} TOOLS TRAINED</span>
+  </header>`));
+
+  // ---- evidence row ----
+  const top = $(`<div class="grid c2"></div>`);
+  if(pre){
+    const r = d.risk||{};
+    top.appendChild($(`<section><h2>PRE-RUN RISK</h2><div class="body">
+      <div class="kv">
+        <label>similarity to low-yield</label>
+        <div class="bar ${r.at_risk?'c':''}"><i style="width:${(r.similarity_to_historical_low_yield||0)*100}%"></i></div>
+        <div class="v">${(r.similarity_to_historical_low_yield??0).toFixed(3)}</div>
+        <label>threshold</label><div></div><div class="v">${r.threshold_used!=null?r.threshold_used.toFixed(2):'—'}</div>
+        <label>verdict</label><div></div>
+        <div class="v" style="color:${r.at_risk?'var(--crim)':'var(--good)'}">${r.at_risk?'AT RISK':'CLEAR'}</div>
+        <label>matched cases</label><div></div><div class="v">${(r.matched_case_ids||[]).join(' ')||'—'}</div>
+      </div>
+      <div class="ev" style="margin-top:11px">No wafer map and no test result exist for this lot.
+      Image and sensor evidence are unavailable by construction — risk is scored from planned
+      process parameters alone.</div></div></section>`));
+  } else {
+    const c = d.classification||{}, a = d.anomaly||{};
+    const sens = Object.entries(L.sensor_signature||{});
+    top.appendChild($(`<section><h2>WAFER MAP · WM-811K</h2>
+      <canvas id="wafer"></canvas>
+      <div class="cls"><b>${esc(c.predicted_class||'—')}</b>
+        <span>confidence ${(c.confidence??0).toFixed(3)}</span></div></section>`));
+    const quiet = (a.anomaly_score??0) < 0.03;
+    top.appendChild($(`<section><h2>SENSOR ANOMALY · SECOM</h2><div class="body">
+      <div class="kv">
+        <label>anomaly score</label>
+        <div class="bar ${(a.anomaly_score??0)>0.12?'a':''}"><i style="width:${Math.min(1,(a.anomaly_score??0)*5)*100}%"></i></div>
+        <div class="v">${(a.anomaly_score??0).toFixed(4)}</div>
+      </div>
+      ${quiet ? `<div class="ev" style="margin-top:9px">Process sensors are <b>quiet</b>.
+        Scored on a full 582-feature vector, so this is measured evidence — not a missing
+        measurement. A clean sensor profile points away from process causes.</div>` : ''}
+      <table style="margin-top:11px"><tr><th>NAMED DEVIATION</th><th style="text-align:right">σ</th></tr>
+      ${sens.map(([k,val])=>`<tr><td>${esc(k)}</td>
+        <td class="n ${Math.abs(val)>=1.5?'up':'flat'}">${val>0?'+':''}${Number(val).toFixed(1)}</td></tr>`).join('')}
+      </table></div></section>`));
+  }
+  v.appendChild(top);
+
+  // ---- hypotheses ----
+  const g2 = $(`<div class="grid"></div>`);
+  const hs = $(`<section><h2>RANKED ROOT CAUSES ${hyps.length>1?'· ALTERNATIVES REMAIN LIVE':''}</h2></section>`);
+  if(reasoning==='mock') hs.appendChild($(`<div class="body ev" style="border-bottom:1px solid var(--line)">
+    Reasoning layer is running on <b>canned responses keyed by defect pattern</b>
+    (USE_MOCK_LLM=true), so sub-cases sharing a pattern return identical text. Category
+    badges marked <i style="border:1px dashed var(--line);padding:0 4px;font-style:normal">derived</i>
+    come from the retrieved precedent rather than the reasoner, and can disagree with the
+    wording above. Set USE_MOCK_LLM=false for live watsonx.ai output.</div>`));
+  if(!hyps.length) hs.appendChild($(`<div class="body ev">${esc(d.ranked?.warning||'No hypothesis carried cited evidence.')}</div>`));
+  hyps.forEach((h,i)=>{
+    const ev = esc(h.evidence_summary||'').replace(/(HC-\d+|sensor_[a-z0-9_]+|[a-z_]+_(?:rate|sccm|w|c|pct|idx|hours|days|ohm))/g,'<b>$1</b>');
+    hs.appendChild($(`<div class="hyp">
+      <div class="top"><span class="rank">${i+1}</span>
+        <div class="d">${esc(h.description)}
+          ${h.category?`<div><span class="cat${h._category_source?' derived':''}">${esc(h.category).toUpperCase()}${
+             h._category_source?` · derived from ${esc(String(h._category_source).split(':').pop())}`:''}</span></div>`:''}</div>
+        <span class="conf" style="color:${h.confidence>=.7?'var(--fg)':h.confidence>=.5?'var(--amber)':'var(--dim)'}">${(h.confidence??0).toFixed(2)}</span></div>
+      <div class="ev">${ev||'—'}</div></div>`));
+  });
+  g2.appendChild(hs);
+  v.appendChild(g2);
+
+  // ---- actions + telemetry + precedent ----
+  const g3 = $(`<div class="grid c3"></div>`);
+  const acts = (d.actions&&d.actions.actions)||[];
+  g3.appendChild($(`<section><h2>${pre?'PREVENTIVE ACTIONS':'CORRECTIVE ACTIONS'}</h2><div class="body">
+    ${acts.map(a=>`<div class="act"><span class="pr ${esc(a.priority)}">${esc(a.priority).toUpperCase()}</span>
+      <span>${esc(a.description)}</span></div>`).join('')||'<span class="ev">—</span>'}</div></section>`));
+
+  const tel = (d.telemetry&&d.telemetry.telemetry)||[];
+  g3.appendChild($(`<section><h2>EQUIPMENT TELEMETRY · 14d</h2><div class="body">
+    <table><tr><th>TOOL</th><th>PARAMETER</th><th style="text-align:right">σ</th></tr>
+    ${tel.filter(t=>t.parameter).map(t=>`<tr><td>${esc(t.equipment_id)}</td>
+      <td>${esc(t.parameter)}<div style="color:var(--dimmer);font-size:10px">${esc(t.direction)}</div></td>
+      <td class="n ${Math.abs(t.magnitude_sigma||0)>=1.5?'up':'flat'}">${t.magnitude_sigma>0?'+':''}${Number(t.magnitude_sigma??0).toFixed(1)}</td></tr>`).join('')}
+    </table></div></section>`));
+
+  const cs = (d.cases&&d.cases.cases)||[];
+  g3.appendChild($(`<section><h2>HISTORICAL PRECEDENT</h2><div class="body">
+    <table><tr><th>CASE</th><th>CONFIRMED CAUSE</th><th style="text-align:right">SIM</th></tr>
+    ${cs.slice(0,5).map(c=>`<tr><td>${esc(c.case_id)}</td>
+      <td>${esc(c.confirmed_root_cause)}</td>
+      <td class="n ${Number(c.similarity??0)<0.15?'flat':''}">${Number(c.similarity??0).toFixed(2)}</td></tr>`).join('')}
+    </table>
+    ${cs.length && cs.every(c=>Number(c.similarity??0)<0.15) ? `<div class="ev" style="margin-top:9px">
+      No close precedent. Similarities are near zero, so these rows are the nearest
+      available rather than genuine matches — weight them accordingly.</div>`:''}
+    </div></section>`));
+  v.appendChild(g3);
+
+  // ---- tool trace: the orchestration, made visible ----
+  const tr = $(`<div class="grid"><section><h2>MCP TOOL CHAIN · EXECUTED IN ORDER</h2>
+    <div class="trace"></div></section></div>`);
+  const t = tr.querySelector('.trace');
+  d.steps.forEach((s,i)=>{
+    if(i) t.appendChild($(`<span class="arrow">▸</span>`));
+    t.appendChild($(`<span class="step"><b>${esc(s.tool)}</b> <em>${esc(s.arg)}</em></span>`));
+  });
+  v.appendChild(tr);
+
+  v.appendChild($(`<footer>Every value above is returned by the same MCP tools IBM Bob calls — no separate
+    code path. Historical cases are constructed from the WM-811K taxonomy and documented failure modes,
+    not disclosed fab incidents. SECOM and WM-811K are unrelated public datasets; any wafer-map/sensor
+    pairing is a constructed pairing. Confidence values are relative rankings, not calibrated
+    probabilities.</footer>`));
+
+  if(!pre && d.wafer) drawWafer(d.wafer);
+}
+boot();
+</script></body></html>

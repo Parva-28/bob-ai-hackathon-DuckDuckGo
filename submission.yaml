@@ -13,14 +13,14 @@ team:
   track: "AI"                          # REQUIRED — one of: AI | DevOps | Sustainability | Open
   lead:
     name: "Dhrumil Amin"               # REQUIRED
-    email: "amin.kh@northeastern.edu"  # REQUIRED
+    email: "24cs005@charusat.edu.in"  # REQUIRED
   members:
     - name: "Parva Chhatrola"
       email: "24cs013@charusat.edu.in"
     - name: "Akshat Patel"
-      email: ""                        # TODO: add institutional email
-    - name: "Heet P"
-      email: ""                        # TODO: add institutional email
+      email: "24cs060@charusat.edu.in"                        # TODO: add institutional email
+    - name: "Heet Parikh"
+      email: "24cs058@charusat.edu.in"                        # TODO: add institutional email
 
 submission:
   title: "YieldGuard — Wafer Yield Root Cause & Defect Pattern Analyser"   # REQUIRED
