@@ -1,0 +1,15 @@
+# Track 4 — Root Cause Reasoning (watsonx.ai / IBM Granite)
+# ============================================================
+# Install:  pip install -r requirements-reasoning.txt
+#
+# The mock LLM path (USE_MOCK_LLM=true, default) requires NO external packages.
+# The real watsonx.ai path requires the IBM libraries listed below.
+
+# ── watsonx.ai SDK (IBM Watson Machine Learning / watsonx.ai) ──────────────
+# Either of these packages provides the watsonx.ai inference client.
+# Install the newer ibm-watsonx-ai if available; fall back to ibm-watson-machine-learning.
+ibm-watsonx-ai>=0.1.0         # newer unified SDK (preferred)
+# ibm-watson-machine-learning>=1.0.312  # legacy fallback — uncomment if ibm-watsonx-ai unavailable
+
+# ── Standard utilities (no external deps required for mock path) ───────────
+# (json, os, re, textwrap, logging, pathlib are all stdlib)
