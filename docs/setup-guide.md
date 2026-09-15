@@ -173,7 +173,8 @@ exhaust that quickly.
 |---|---|---|
 | Server logic | `src/mcp_server/test_server.py` | `PASS - 18 fixtures` |
 | MCP transport | `src/mcp_server/test_stdio.py` | `PASS - MCP stdio transport` |
-| Full eval | `src/eval/run_eval.py` | `16/18 sub-cases passed` |
+| Full eval | `src/eval/run_eval.py` | `17/18 sub-cases passed` |
+| Held-out model performance | `src/eval/holdout_eval.py` | recall 0.286 / precision 0.194 on the fail class |
 | Real vs stub | ask Bob, or call `pipeline_status` | `7 real / 1 stub` once Tracks 2 and 4 are installed |
 | Bob wiring | ask Bob a novel-phrasing question | Bob calls several tools in sequence |
 
@@ -197,18 +198,29 @@ exhaust that quickly.
 
 ## Known limitations in the current build
 
-- **The pre-run flag does not fire on sub-cases 1a and 5a (16/18).** This is FR-8, the
-  capability the design treats as its differentiator, and against the real Track 2 model it
-  returns `at_risk=False` at similarity 0.43 against a 0.60 threshold, with no matched cases.
-  Cause: the fixtures express planned parameters in physical terms (`slurry_flow_rate`,
-  `hepa_runtime_hours`) while the model compares against SECOM's 582 anonymised sensor
-  features, so the two vectors share no keys and the similarity is meaningless. Either the
-  fixtures need SECOM-space parameters or the model needs a named-parameter mapping. Left
-  failing rather than masked by a lower threshold.
-- **Real anomaly scores read ~0.00 on most fixtures** for the same reason — fixture sensor
-  names do not map onto SECOM features, so values impute to the median and score as normal.
-  Negative-evidence sub-cases (3a, 3b, 3c) therefore pass trivially rather than being
-  genuinely exercised.
+- **Anomaly detection performance on unseen data is weak, and this is the measured number.**
+  On the held-out SECOM validation split (314 lots, 21 fails) the Isolation Forest achieves
+  **recall 0.286, precision 0.194, F1 0.231, ROC-AUC 0.583** at its locked threshold. It
+  catches 6 of 21 failing lots and raises 25 false alarms — an engineer reviews 31 lots to
+  find 6. ROC-AUC 0.583 is only modestly better than random (0.500), and this is *below* the
+  55–70% recall range the literature reports for unsupervised Isolation Forest on SECOM.
+  These figures reproduce Track 2's own reported metrics exactly and are what must be quoted
+  — never accuracy, which reads 0.873 while the all-pass baseline scores 0.933 and catches
+  nothing. Run `src/eval/holdout_eval.py --sweep` for the threshold trade-off.
+- **Batch-risk similarity is poorly separated.** With the parameter mapping in place, FR-8
+  fires correctly on the designed at-risk lots (1a, 5a at ~0.598), but all 18 sub-cases land
+  in a narrow 0.41–0.60 band and 12 of 18 cross the 0.45 threshold. That threshold sits only
+  ~0.02 above the documented uninformative-median baseline of 0.4288, so the signal is thin.
+  Cosine similarity in 582 dimensions where only two or three features carry information is
+  dominated by the median-imputed remainder.
+- **The physical-to-SECOM parameter mapping is a constructed correspondence.** SECOM's
+  features are anonymised by the dataset authors, so no true physical mapping exists. The
+  table in `src/mcp_server/param_map.py` targets features that genuinely separate SECOM's
+  fail class from its pass class, but it is not a claim that `sensor_103` is a slurry flow
+  meter — it is the same category of construction as the wafer-map/sensor pairings.
+- **The vision classifier has never been trained.** No WM-811K data is downloaded and no
+  checkpoint exists, so `classify_wafer_map` is the one remaining stub and there is no
+  macro-F1 to report.
 - **Sub-cases 3a and 3b are indistinguishable by sensor similarity alone.** Both are Scratch
   patterns with deliberately clean sensors, so retrieval cannot separate "end-effector wear"
   from "cassette slot misalignment". Separating them needs non-sensor context (slot number,

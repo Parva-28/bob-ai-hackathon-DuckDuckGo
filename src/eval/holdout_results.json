@@ -1,0 +1,18 @@
+{
+  "dataset": "SECOM held-out validation",
+  "n": 314,
+  "fails": 21,
+  "threshold": 0.37331143360651575,
+  "fail_class": {
+    "tp": 6,
+    "fp": 25,
+    "fn": 15,
+    "tn": 268,
+    "recall": 0.2857142857142857,
+    "precision": 0.1935483870967742,
+    "f1": 0.23076923076923075,
+    "accuracy": 0.8726114649681529
+  },
+  "roc_auc": 0.5826426133593369,
+  "baseline_all_pass_accuracy": 0.9331210191082803
+}

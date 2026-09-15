@@ -65,7 +65,10 @@ submission:
     than a go/no-go gate. The eval suite reports 16/18 - sub-cases 3a and 3b are left failing
     because similarity retrieval cannot separate two deliberately clean-sensor scratch cases
     without non-sensor context. Call pipeline_status to see which tools are backed by trained
-    models and which are still stubs.
+    models and which are still stubs. On the held-out SECOM split the anomaly detector
+    achieves recall 0.286 and precision 0.194 on the fail class (ROC-AUC 0.583) - it catches
+    6 of 21 failing lots and raises 25 false alarms. The wafer classifier is untrained, so no
+    macro-F1 is reported.
 ```
 
 ---

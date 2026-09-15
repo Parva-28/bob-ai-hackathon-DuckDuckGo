@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from mcp.server.mcpserver import MCPServer
 
 import adapters
+from param_map import to_secom_space
 from stores import CaseStore, FeedbackStore, TelemetryStore
 
 mcp = MCPServer(
@@ -281,8 +282,16 @@ def get_corrective_action_playbook(top_hypothesis: dict, preventive: bool = Fals
                       "not an automated go/no-go gate.")
 def flag_at_risk_batch(lot_id: str, planned_process_params: dict[str, float]) -> dict:
     if adapters.real_flag_at_risk_batch:
-        return adapters.real_flag_at_risk_batch(
-            {"lot_id": lot_id, "planned_process_params": planned_process_params})
+        # Translate physically-named parameters into SECOM feature space first.
+        # Without this every planned-parameter dict imputes to the training median
+        # and scores ~0.4288 - the uninformative baseline - so FR-8 never fires.
+        secom_params, unmapped = to_secom_space(planned_process_params)
+        result = adapters.real_flag_at_risk_batch(
+            {"lot_id": lot_id, "planned_process_params": secom_params})
+        result["_mapped_params"] = secom_params
+        if unmapped:
+            result["_unmapped_params"] = unmapped
+        return result
     # Match on planned_process_params, NOT sensor_signature - different key spaces.
     fx = adapters.nearest_fixture(planned_process_params, field="planned_process_params")
     hits = cases.search(None, planned_process_params, top_k=2)
