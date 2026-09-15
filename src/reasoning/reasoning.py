@@ -106,6 +106,42 @@ def _build_rank_prompt(
     5. If no process sensor shows significant deviation (|z-score| < 0.5), you must
        rank non-process causes (mechanical, handling, test-equipment) above process
        causes.
+    6. Add a "category" field to every hypothesis, exactly one of:
+       process | equipment | material | handling | software | measurement
+
+    ## Confidence calibration -- these are CEILINGS, not suggestions
+    Confidence is a relative ranking of how well the evidence supports a hypothesis.
+    Anchor it to the evidence you actually have, not to how plausible the story sounds:
+
+      0.80-0.90  Multiple independent signals agree: a matching historical case AND
+                 a deviating sensor AND corroborating telemetry all point the same way.
+      0.60-0.79  Two independent signals agree, or one very strong signal.
+      0.40-0.59  One signal only, or signals that point in different directions.
+      0.10-0.39  Weak, circumstantial, or a single non-repeating occurrence.
+
+    Hard caps, which override the bands above:
+    - A MEASUREMENT / test-equipment-artifact hypothesis MUST NOT exceed 0.70.
+      Asserting the measurement is wrong is asserting the data is untrustworthy; you
+      cannot be highly confident about a wafer whose measurement you are disputing.
+      Cap it even when the tester signal is very strong -- especially then.
+    - A hypothesis resting on a SINGLE, NON-REPEATING event (one mis-pick, one manual
+      intervention, no trend across lots) MUST NOT exceed 0.50. One occurrence is not
+      a pattern.
+    - If two hypotheses of DIFFERENT categories are within 0.10 of each other, neither
+      may exceed 0.55, and both evidence summaries must say the evidence does not
+      discriminate between them.
+    - Never assign 0.90 or above. The system does not produce certainties.
+
+    ## Evidence is mandatory
+    A hypothesis whose evidence_summary does not name a concrete sensor ID, case_id or
+    telemetry parameter is DISCARDED by the caller -- it will not reach the engineer.
+    If you cannot name a source, lower the confidence and say what is missing; do not
+    omit the field or write a generality.
+
+    GOOD: "sensor_12 at -2.4 sigma across 6 lots; matches case HC-018 (similarity 1.00);
+           telemetry slurry_flow_rate decreasing on CMP-03"
+    BAD:  "process drift observed"            (names nothing -- discarded)
+    BAD:  "the sensors indicate a problem"    (names nothing -- discarded)
 
     ## Output format (strict JSON, no extra text)
     {{
@@ -113,6 +149,7 @@ def _build_rank_prompt(
         {{
           "description": "<concise root cause description>",
           "confidence": <float 0.0-1.0>,
+          "category": "<process|equipment|material|handling|software|measurement>",
           "evidence_summary": "<specific named evidence: sensor ID / case_id / telemetry parameter>"
         }}
       ]
@@ -167,6 +204,16 @@ def _build_playbook_prompt(top_hypothesis: dict) -> str:
 # LLM call -- real (watsonx.ai) path
 # ---------------------------------------------------------------------------
 
+def _quiet_sdk_logging() -> None:
+    """
+    The watsonx SDK logs every HTTP request at INFO, which floods stderr and buries
+    the harness's own output. Warnings and errors still surface.
+    """
+    import logging
+    for name in ("ibm_watsonx_ai", "ibm_watson_machine_learning", "httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
 def _call_watsonx(prompt: str) -> str:
     """
     Call watsonx.ai and return the raw text response.
@@ -188,6 +235,8 @@ def _call_watsonx(prompt: str) -> str:
         from ibm_watson_machine_learning import APIClient  # type: ignore
         from ibm_watson_machine_learning.foundation_models import Model as ModelInference  # type: ignore
         from ibm_watson_machine_learning.metanames import GenTextParamsMetaNames as Params  # type: ignore
+
+    _quiet_sdk_logging()
 
     credentials = {
         "url": _WATSONX_URL,

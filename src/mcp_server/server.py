@@ -306,6 +306,67 @@ def rank_root_causes(classification: dict | None = None,
     # The frozen contract returns no id, but submit_feedback requires one and the
     # ER model has it as a PK - so FR-10 was unimplementable as written
     # (PLAN_REVIEW P0-3). Minting server-side keeps Track 4 a stateless function.
+    # ---- confidence discipline, enforced rather than requested --------------
+    # The prompt asks the model to cap measurement-artifact hypotheses at 0.70 and
+    # single-occurrence ones at 0.50. Live Granite does not reliably comply: on Case
+    # 6c it returns "TESTER-04 test head calibration drift causing false failures" at
+    # 0.85 and labels it `equipment`, so its own cap never fires. Asking is not
+    # enforcing, and this is the one behaviour the whole design claims. So the server
+    # applies the ceiling itself, the same way it already enforces evidence citation.
+    #
+    # Every cap is recorded on the hypothesis, so a capped value is visible as a
+    # deliberate act rather than silently rewritten.
+    # Matched against the DESCRIPTION only. Matching the evidence summary too was
+    # over-broad: a CMP pad-life hypothesis whose evidence merely mentioned
+    # "calibration" got relabelled `measurement` and capped for the wrong reason.
+    # Terms here must name the measurement path itself, not any drifting instrument.
+    _MEASUREMENT_HINTS = ("test head", "test equipment", "tester", "probe card",
+                          "probe contact", "measurement artifact", "metrology",
+                          "false fail", "false failure", "measurement error")
+    _HANDLING_HINTS = ("end-effector", "end effector", "cassette", "wafer handler",
+                       "handling robot", "handler robot", "mis-pick", "mispick",
+                       "slot misalign")
+    _SINGLE_EVENT_HINTS = ("one-off", "single occurrence", "single event", "one occurrence",
+                           "non-repeating", "isolated incident", "operator-assisted")
+
+    for h in hyps:
+        desc = str(h.get("description", "")).lower()
+        blob = f"{desc} {str(h.get('evidence_summary','')).lower()}"
+        # Re-derive the category from what the hypothesis actually SAYS when the model's
+        # own label contradicts it — a tester-drift cause is not an equipment cause, and
+        # end-effector wear is handling rather than equipment.
+        derived = ("measurement" if any(k in desc for k in _MEASUREMENT_HINTS)
+                   else "handling" if any(k in desc for k in _HANDLING_HINTS)
+                   else None)
+        if derived and h.get("category") != derived:
+            h["_category_declared"] = h.get("category")
+            h["category"] = derived
+        cap = None
+        if h.get("category") == "measurement":
+            cap = 0.70
+        if any(k in blob for k in _SINGLE_EVENT_HINTS):
+            cap = min(cap or 1.0, 0.50)
+        if cap is not None and float(h.get("confidence") or 0) > cap:
+            h["_confidence_uncapped"] = h["confidence"]
+            h["confidence"] = cap
+            h["_capped_because"] = (
+                "a claim that the measurement is wrong is a claim the data is untrustworthy"
+                if h["category"] == "measurement" else
+                "single non-repeating occurrence is not a pattern")
+
+    # Competing categories that the evidence does not separate must not look decisive.
+    ranked_now = sorted(hyps, key=lambda x: -float(x.get("confidence") or 0))
+    if len(ranked_now) > 1:
+        a, b = ranked_now[0], ranked_now[1]
+        if (a.get("category") != b.get("category")
+                and abs(float(a.get("confidence") or 0) - float(b.get("confidence") or 0)) <= 0.10):
+            for h in (a, b):
+                if float(h.get("confidence") or 0) > 0.55:
+                    h.setdefault("_confidence_uncapped", h["confidence"])
+                    h["confidence"] = 0.55
+                    h["_capped_because"] = ("a competing hypothesis of a different category "
+                                            "is equally well supported")
+
     # CONTRACTS A1 makes `category` recommended, not required, and the reasoning
     # layer does not emit it. Rather than losing the field - the eval fixtures and
     # the corrective-action playbook both key off it - backfill it from the
