@@ -18,9 +18,9 @@ team:
     - name: "Parva Chhatrola"
       email: "24cs013@charusat.edu.in"
     - name: "Akshat Patel"
-      email: "24cs060@charusat.edu.in"                        # TODO: add institutional email
+      email: "24cs060@charusat.edu.in"                        
     - name: "Heet Parikh"
-      email: "24cs058@charusat.edu.in"                        # TODO: add institutional email
+      email: "24cs058@charusat.edu.in"                        
 
 submission:
   title: "YieldGuard — Wafer Yield Root Cause & Defect Pattern Analyser"   # REQUIRED
