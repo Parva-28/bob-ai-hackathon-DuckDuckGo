@@ -27,7 +27,8 @@ from stores import cosine_similarity
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "eval" / "fixtures"
 
-MODE: dict[str, str] = {}   # tool name -> "real" | "stub"
+MODE: dict[str, str] = {}     # tool name -> "real" | "stub"
+REASON: dict[str, str] = {}   # tool name -> why it fell back to a stub
 
 
 def _load_fixtures() -> list[dict]:
@@ -70,12 +71,28 @@ def fixture_by_pattern(pattern: str) -> dict | None:
     return next((f for f in FIXTURES if f.get("wafer_map_pattern") == pattern), None)
 
 
-def _try(tool: str, importer):
-    """Resolve a real implementation, recording the mode. None => caller stubs."""
+def _try(tool: str, importer, probe=None):
+    """
+    Resolve a real implementation, recording the mode. None => caller stubs.
+
+    `probe` is a sample input the function is actually CALLED with before being
+    accepted. Importing cleanly is not enough: Track 2's `_load_artifacts()`
+    assigns the model global before it loads its preprocessing artifacts and
+    short-circuits on `if _model is not None`, so the first call raises and the
+    SECOND returns successfully having loaded nothing. Without a probe call this
+    layer reported a tool as "real" that would then fail on first use - the exact
+    failure mode it exists to prevent.
+
+    Probes must be cheap and side-effect free. Tools whose probe would cost a
+    watsonx.ai call are accepted on import alone.
+    """
     try:
         fn = importer()
-    except Exception:
+        if probe is not None:
+            fn(*probe)
+    except Exception as e:
         MODE[tool] = "stub"
+        REASON[tool] = f"{type(e).__name__}: {e}"
         return None
     MODE[tool] = "real"
     return fn
@@ -86,6 +103,22 @@ def _import_classify():
     root = str(Path(__file__).resolve().parents[2])
     if root not in sys.path:
         sys.path.insert(0, root)
+
+    # Track 1's classifier.py and train.py use implicit top-level imports
+    # (`from model import ...`), which only resolve when run from inside their own
+    # directory - so `import src.models.vision` raises ModuleNotFoundError and the
+    # tool falls back to a stub even once a checkpoint exists.
+    #
+    # Fixed here rather than in their files: the integration brief says to fix the
+    # call site rather than ask a track to change its internals under time
+    # pressure. Putting their package directory on sys.path lets `model` resolve as
+    # a top-level module. The proper fix is a relative import on their side
+    # (`from .model import ...`) - raised with Track 1; this keeps the pipeline
+    # working either way.
+    vision_dir = str(Path(root) / "src" / "models" / "vision")
+    if vision_dir not in sys.path:
+        sys.path.append(vision_dir)
+
     from src.models.vision.classifier import classify_wafer_map  # noqa
     # Touch the model so an untrained checkpoint downgrades us to stub now,
     # rather than throwing mid-demo on the first real call.
@@ -107,6 +140,12 @@ def _import_tabular(name: str):
     return _imp
 
 
+# Track 4 shipped the module as `reasoning.py`; CONTRACTS.md A6 asked for
+# `reasoner.py`. Accepting both is a two-line change here versus a rename plus a
+# re-test on their side, so the adapter adapts - which is its job.
+_REASONING_MODULES = ("src.reasoning.reasoning", "src.reasoning.reasoner")
+
+
 def _import_reasoning(name: str):
     def _imp():
         import sys
@@ -114,16 +153,31 @@ def _import_reasoning(name: str):
         if root not in sys.path:
             sys.path.insert(0, root)
         import importlib
-        mod = importlib.import_module("src.reasoning.reasoner")
-        return getattr(mod, name)
+        last = None
+        for modname in _REASONING_MODULES:
+            try:
+                mod = importlib.import_module(modname)
+            except Exception as e:
+                last = e
+                continue
+            if hasattr(mod, name):
+                return getattr(mod, name)
+            last = AttributeError(f"{modname} has no {name}")
+        raise last or ModuleNotFoundError("no reasoning module found")
     return _imp
 
 
 real_classify_wafer_map = _try("classify_wafer_map", _import_classify)
-real_score_sensor_anomaly = _try("score_sensor_anomaly", _import_tabular("score_sensor_anomaly"))
-real_flag_at_risk_batch = _try("flag_at_risk_batch", _import_tabular("flag_at_risk_batch"))
+real_score_sensor_anomaly = _try(
+    "score_sensor_anomaly", _import_tabular("score_sensor_anomaly"),
+    probe=({"lot_id": "_probe", "sensors": {"sensor_12": 0.0}},))
+real_flag_at_risk_batch = _try(
+    "flag_at_risk_batch", _import_tabular("flag_at_risk_batch"),
+    probe=({"lot_id": "_probe", "planned_process_params": {"slurry_flow_rate": 0.8}},))
+# No probe on the reasoning tools: a probe call could spend live watsonx.ai tokens.
 real_rank_root_causes = _try("rank_root_causes", _import_reasoning("rank_root_causes"))
-real_playbook = _try("get_corrective_action_playbook", _import_reasoning("get_corrective_action_playbook"))
+real_playbook = _try("get_corrective_action_playbook",
+                     _import_reasoning("get_corrective_action_playbook"))
 
 # Track 3 owns these outright - always real.
 MODE["retrieve_similar_cases"] = "real"
@@ -131,9 +185,36 @@ MODE["query_telemetry"] = "real"
 MODE["submit_feedback"] = "real"
 
 
+def reasoning_mode() -> str:
+    """
+    "mock" | "live" | "none".
+
+    Matters for evaluation: in mock mode the reasoning layer returns canned
+    responses keyed by defect pattern, so every sub-case of a case study gets an
+    identical answer. Asserting sub-case-level wording against that tests the
+    mock, not the system - so the harness needs to know which mode it is in.
+    """
+    if not real_rank_root_causes:
+        return "none"
+    try:
+        import importlib
+        for modname in _REASONING_MODULES:
+            try:
+                mod = importlib.import_module(modname)
+            except Exception:
+                continue
+            if hasattr(mod, "_USE_MOCK"):
+                return "mock" if mod._USE_MOCK else "live"
+    except Exception:
+        pass
+    return "live"
+
+
 def describe_pipeline() -> dict:
     return {
+        "reasoning_mode": reasoning_mode(),
         "tools": dict(sorted(MODE.items())),
         "real_count": sum(1 for v in MODE.values() if v == "real"),
         "stub_count": sum(1 for v in MODE.values() if v == "stub"),
+        "stub_reasons": dict(sorted(REASON.items())),
     }

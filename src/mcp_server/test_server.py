@@ -44,6 +44,10 @@ def main() -> int:
         return cond
 
     st = status()
+    mock = st.get("reasoning_mode") == "mock"
+    if mock:
+        print("reasoning: MOCK (canned per defect pattern) — sub-case semantic "
+              "assertions are skipped\n")
     print(f"pipeline: {st['real_count']} real / {st['stub_count']} stub"
           f"  |  {st['historical_cases']} cases, {st['fixtures_loaded']} fixtures")
     for name, mode in st["tools"].items():
@@ -60,9 +64,13 @@ def main() -> int:
     bad = feedback("H-x", "maybe")
     check(bad["status"] == "error", "submit_feedback must reject an invalid verdict")
 
-    uncited = rank(cases={"cases": []}, telemetry={"telemetry": []})
-    check(uncited.get("warning") is not None,
-          "rank_root_causes must warn rather than invent when there is no evidence")
+    if not mock:
+        # The mock reasoner answers from a canned table regardless of input, so it
+        # always returns something cited-looking. Only meaningful against the real
+        # reasoning layer.
+        uncited = rank(cases={"cases": []}, telemetry={"telemetry": []})
+        check(uncited.get("warning") is not None,
+              "rank_root_causes must warn rather than invent when there is no evidence")
 
     print(f"{'case':<9} {'class':<10} {'anom':>5}  {'top hypothesis':<52} {'conf':>5}  {'cat':<12} risk")
     print("-" * 108)
@@ -99,10 +107,10 @@ def main() -> int:
         # --- fixture expectations ---
         cats = [h.get("category") for h in hyps]
         k = fx.get("expected_in_top_k", 1)
-        if fx.get("expected_category"):
+        if fx.get("expected_category") and not mock:
             check(fx["expected_category"] in cats[:k],
                   f"{cid}: expected category '{fx['expected_category']}' not in top {k} (got {cats[:k]})")
-        if fx.get("max_confidence_ceiling") is not None:
+        if fx.get("max_confidence_ceiling") is not None and not mock:
             check(top["confidence"] <= fx["max_confidence_ceiling"],
                   f"{cid}: overconfident - {top['confidence']} > ceiling "
                   f"{fx['max_confidence_ceiling']} (honest-uncertainty case)")

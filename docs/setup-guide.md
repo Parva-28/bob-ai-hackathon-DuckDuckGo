@@ -60,12 +60,20 @@ Expect `handshake OK -> yieldguard`, `tools exposed: 9`, then
 ```
 
 ```
-16/18 sub-cases passed (275/277 assertions)
-by case study: 1:3/3  2:3/3  3:1/3  4:3/3  5:3/3  6:3/3
+16/18 sub-cases passed (237/239 assertions, 36 skipped)
+by case study: 1:2/3  2:3/3  3:3/3  4:3/3  5:2/3  6:3/3
 ```
 
-**16/18 is the expected result today, not a broken install.** Sub-cases 3a and 3b currently
-fail a known limitation documented below and in `README.md`. Useful flags:
+**16/18 with skips is the expected result today, not a broken install.**
+
+The skips are honest: with `USE_MOCK_LLM=true` (the default) the reasoning layer returns
+canned responses keyed by defect *pattern*, so all three sub-cases of a case study get an
+identical answer. Asserting sub-case wording against that would test the mock, not the
+system, so the harness skips those assertions and says so. Contract-level assertions —
+evidence citation, `hypothesis_id`, value ranges, rank ordering — still run.
+
+The two failures are real: **`flag_at_risk_batch` does not fire on sub-cases 1a and 5a**,
+which are the fixtures designed to be at-risk. See Known Limitations. Useful flags:
 
 ```bash
 .venv/bin/python src/eval/run_eval.py --case 6        # one case study
@@ -166,7 +174,7 @@ exhaust that quickly.
 | Server logic | `src/mcp_server/test_server.py` | `PASS - 18 fixtures` |
 | MCP transport | `src/mcp_server/test_stdio.py` | `PASS - MCP stdio transport` |
 | Full eval | `src/eval/run_eval.py` | `16/18 sub-cases passed` |
-| Real vs stub | ask Bob, or call `pipeline_status` | `3 real / 5 stub` before training |
+| Real vs stub | ask Bob, or call `pipeline_status` | `7 real / 1 stub` once Tracks 2 and 4 are installed |
 | Bob wiring | ask Bob a novel-phrasing question | Bob calls several tools in sequence |
 
 ---
@@ -189,13 +197,25 @@ exhaust that quickly.
 
 ## Known limitations in the current build
 
-- **Sub-cases 3a and 3b fail (16/18).** Both are Scratch patterns with deliberately clean
-  sensors, and their signatures are near-identical, so similarity retrieval cannot separate
-  "end-effector wear" from "cassette slot misalignment" and returns them swapped. The
-  *category* (handling) is correct in both; the specific cause is not. Distinguishing them
-  requires non-sensor context — slot number and handler cycle count — which
-  `retrieve_similar_cases` does not currently receive. This is a genuine capability gap, and
-  it is left failing rather than masked by a weaker assertion.
+- **The pre-run flag does not fire on sub-cases 1a and 5a (16/18).** This is FR-8, the
+  capability the design treats as its differentiator, and against the real Track 2 model it
+  returns `at_risk=False` at similarity 0.43 against a 0.60 threshold, with no matched cases.
+  Cause: the fixtures express planned parameters in physical terms (`slurry_flow_rate`,
+  `hepa_runtime_hours`) while the model compares against SECOM's 582 anonymised sensor
+  features, so the two vectors share no keys and the similarity is meaningless. Either the
+  fixtures need SECOM-space parameters or the model needs a named-parameter mapping. Left
+  failing rather than masked by a lower threshold.
+- **Real anomaly scores read ~0.00 on most fixtures** for the same reason — fixture sensor
+  names do not map onto SECOM features, so values impute to the median and score as normal.
+  Negative-evidence sub-cases (3a, 3b, 3c) therefore pass trivially rather than being
+  genuinely exercised.
+- **Sub-cases 3a and 3b are indistinguishable by sensor similarity alone.** Both are Scratch
+  patterns with deliberately clean sensors, so retrieval cannot separate "end-effector wear"
+  from "cassette slot misalignment". Separating them needs non-sensor context (slot number,
+  handler cycle count) that `retrieve_similar_cases` does not receive.
+- **The reasoning layer emits no `category` field.** The MCP server backfills it from the
+  cited or nearest retrieved case, so the field is always present, but it reflects
+  *retrieval*, not the reasoner's own judgement. `_category_source` records which.
 - **5 of 9 tools are stubs** until the models are trained. Stubs are fixture-derived and
   schema-valid, so the pipeline is coherent end-to-end, but a green eval run proves the
   **wiring and contract compliance, not model accuracy**. `pipeline_status` always reports

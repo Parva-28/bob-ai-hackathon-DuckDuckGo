@@ -188,7 +188,7 @@ def rank_root_causes(classification: dict | None = None,
     if adapters.real_rank_root_causes:
         result = adapters.real_rank_root_causes(classification or {}, anomaly or {},
                                                 cases or {}, telemetry or {})
-        hyps = result.get("hypotheses", [])
+        hyps = [dict(h) for h in result.get("hypotheses", [])]
     else:
         hyps = _stub_rank(classification, anomaly, cases, telemetry)
 
@@ -196,6 +196,23 @@ def rank_root_causes(classification: dict | None = None,
     # The frozen contract returns no id, but submit_feedback requires one and the
     # ER model has it as a PK - so FR-10 was unimplementable as written
     # (PLAN_REVIEW P0-3). Minting server-side keeps Track 4 a stateless function.
+    # CONTRACTS A1 makes `category` recommended, not required, and the reasoning
+    # layer does not emit it. Rather than losing the field - the eval fixtures and
+    # the corrective-action playbook both key off it - backfill it from the
+    # retrieved cases, which the server already has in hand. Prefer the case the
+    # hypothesis actually cites; fall back to the closest retrieved case.
+    retrieved = (cases or {}).get("cases", []) or []
+    for h in hyps:
+        if h.get("category"):
+            continue
+        blob = f"{h.get('description','')} {h.get('evidence_summary','')}"
+        cited = next((c for c in retrieved if c.get("case_id") and c["case_id"] in blob), None)
+        src = cited or (retrieved[0] if retrieved else None)
+        if src and src.get("category"):
+            h["category"] = src["category"]
+            h["_category_source"] = ("cited_case:" + src["case_id"]) if cited else \
+                                    ("nearest_case:" + str(src.get("case_id")))
+
     run = uuid.uuid4().hex[:6]
     validated, rejected = [], []
     for i, h in enumerate(sorted(hyps, key=lambda x: -float(x.get("confidence") or 0.0)), 1):

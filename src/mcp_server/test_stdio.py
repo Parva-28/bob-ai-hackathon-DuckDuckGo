@@ -61,7 +61,9 @@ async def _run() -> int:
                 print(f"    {name:<32} required={(t.input_schema or {}).get('required', [])}")
 
             st = _body(await s.call_tool("pipeline_status", {}))
-            print(f"\npipeline: {st['real_count']} real / {st['stub_count']} stub")
+            mock = st.get("reasoning_mode") == "mock"
+            print(f"\npipeline: {st['real_count']} real / {st['stub_count']} stub"
+                  f"  reasoning={st.get('reasoning_mode')}")
 
             # Full post-mortem chain over the wire, Case 6c (the honest-uncertainty case).
             sig = {"sensor_tester_01": 3.1, "sensor_12": 0.0, "sensor_45": 0.1}
@@ -79,13 +81,14 @@ async def _run() -> int:
             check(rk["hypotheses"], "rank_root_causes returned nothing over stdio")
             top = rk["hypotheses"][0]
             print(f"chain -> {cls['predicted_class']} | anomaly {an['anomaly_score']:.2f} "
-                  f"| {top['category']} @ {top['confidence']}")
+                  f"| {top.get('category')} @ {top['confidence']}")
 
             check(top.get("hypothesis_id"), "no hypothesis_id returned over stdio")
-            check(top["category"] == "measurement",
-                  f"Case 6c should rank a measurement cause first, got {top['category']}")
-            check(top["confidence"] <= 0.75,
-                  f"Case 6c overconfident over stdio: {top['confidence']}")
+            if not mock:
+                check(top.get("category") == "measurement",
+                      f"Case 6c should rank a measurement cause first, got {top.get('category')}")
+                check(top["confidence"] <= 0.75,
+                      f"Case 6c overconfident over stdio: {top['confidence']}")
 
             pb = _body(await s.call_tool("get_corrective_action_playbook",
                                          {"top_hypothesis": top}))
