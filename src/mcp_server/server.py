@@ -110,7 +110,15 @@ def get_lot_data(lot_id: str) -> dict:
                        "use flag_at_risk_batch with planned_process_params.")
     else:
         out["final_yield_pct"] = lot.get("final_yield_pct")
-        out["wafer_map_ref"] = f"{lot['case_id']}.png"
+        # A real path to a real WM-811K map, not a symbolic name. The stub matched
+        # on the filename stem so any string worked; a trained classifier opens the
+        # file, and a ref that does not resolve fails the whole post-mortem path.
+        wm = Path(__file__).parent / "data" / "wafer_maps" / f"{lot['case_id']}.npy"
+        out["wafer_map_ref"] = str(wm) if wm.exists() else None
+        if not wm.exists():
+            out["wafer_map_note"] = ("No wafer map on file for this lot. Skip "
+                                     "classify_wafer_map and say the image evidence "
+                                     "is unavailable - do not invent a path.")
         out["sensor_signature"] = fx["sensor_signature"]
     return out
 
