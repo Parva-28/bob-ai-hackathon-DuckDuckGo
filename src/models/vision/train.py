@@ -123,8 +123,9 @@ def train():
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=LR_DECAY, patience=PATIENCE, verbose=True
-    )
+        optimizer, mode="max", factor=LR_DECAY, patience=PATIENCE
+    )  # NOTE: `verbose` was deprecated in torch 2.2 and removed in later 2.x.
+       # Passing it raises TypeError on torch>=2.14 before the first epoch runs.
 
     best_f1  = 0.0
     log      = []

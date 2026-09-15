@@ -189,6 +189,8 @@ exhaust that quickly.
 | Bob ignores `SKILL.md` | Skills need **Advanced mode**; a skill with no `description` frontmatter is silently ignored | Switch to Advanced mode; confirm the frontmatter has both `name` and `description` |
 | `run_eval.py` reports 16/18 | Expected — known limitation on 3a/3b | See Known Limitations below |
 | `pipeline_status` still shows a tool as `stub` after training | The checkpoint is missing, or the module does not import | Run that track's `test_*.py` standalone first. Track 1 note: `classifier.py` uses `from model import ...` instead of `from .model import ...`, which makes `import src.models.vision` fail and forces a stub fallback |
+| `TypeError: ReduceLROnPlateau.__init__() got an unexpected keyword argument 'verbose'` | `verbose` was deprecated in torch 2.2 and removed in later 2.x; it raised before epoch 1 | Fixed in `train.py`. If you see it, you are on an older checkout |
+| `RuntimeError: ... expected input[1, 128, 64, 64] to have 1 channels` | `X_*.npy` lacks the channel dimension | `data_prep.py` must save `(N, 1, 64, 64)`. Re-run it rather than hand-building arrays |
 | `FileNotFoundError: Model checkpoint not found` | Model not trained | Intentional — the module refuses to guess. Run `data_prep.py` then `train.py` |
 | watsonx auth fails with a confusing 404 | Region mismatch between `WATSONX_URL` and the project | Match the URL to your project's region |
 | Eval passes but results look identical each run | Stubs are deterministic by design | Check `pipeline_status`; train a model to get real inference |
@@ -218,9 +220,12 @@ exhaust that quickly.
   table in `src/mcp_server/param_map.py` targets features that genuinely separate SECOM's
   fail class from its pass class, but it is not a claim that `sensor_103` is a slurry flow
   meter — it is the same category of construction as the wafer-map/sensor pairings.
-- **The vision classifier has never been trained.** No WM-811K data is downloaded and no
-  checkpoint exists, so `classify_wafer_map` is the one remaining stub and there is no
-  macro-F1 to report.
+- **The vision classifier has never been trained.** WM-811K requires a Kaggle account, and
+  `LSWMD.pkl` is not present in this checkout, so `classify_wafer_map` is the one remaining
+  stub and **there is no macro-F1 to report.** The training and inference path itself is
+  verified end-to-end (data -> train -> checkpoint -> `classify_wafer_map`) on a synthetic
+  stand-in, so the only thing missing is the dataset. Download `LSWMD.pkl` to
+  `src/models/vision/data/`, then run `data_prep.py` and `train.py`.
 - **Sub-cases 3a and 3b are indistinguishable by sensor similarity alone.** Both are Scratch
   patterns with deliberately clean sensors, so retrieval cannot separate "end-effector wear"
   from "cassette slot misalignment". Separating them needs non-sensor context (slot number,
