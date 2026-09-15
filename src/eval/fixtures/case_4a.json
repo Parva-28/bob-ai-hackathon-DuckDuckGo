@@ -1,0 +1,19 @@
+{
+  "case_id": "case_4a",
+  "wafer_map_pattern": "Donut",
+  "description": "Donut defect: annular ring of failures at an intermediate radius (not at edge, not at centre). Root cause hypothesis: CMP over-polish at intermediate radius due to pad wear profile, or photoresist spin non-uniformity.",
+  "sensor_signature": {
+    "sensor_55": 1.7,
+    "sensor_60": 1.5,
+    "sensor_12": 0.3
+  },
+  "planned_process_params": {
+    "polish_pad_age_wafers": 1450,
+    "slurry_flow_rate": 0.75,
+    "spin_speed_rpm": 2800
+  },
+  "expected_hypothesis_contains": "pad",
+  "expected_predicted_class": "Donut",
+  "expected_confidence_min": 0.60,
+  "notes": "Donut is one of the rarer WM-811K classes; confidence threshold intentionally lower. Constructed scenario — not a real incident. Sensor signature reflects intermediate-radius polishing deviation."
+}

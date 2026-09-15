@@ -1,0 +1,22 @@
+{
+  "case_id": "case_6c",
+  "wafer_map_pattern": "Near-full",
+  "description": "Near-full defect: nearly all dies show failure. AMBIGUOUS CASE: high anomaly score on test equipment sensor (sensor_tester_01) but minimal deviation on process sensors. Top hypothesis should be 'possible test equipment artifact / measurement error' — not a wafer defect. This is the honesty test case.",
+  "sensor_signature": {
+    "sensor_tester_01": 3.1,
+    "sensor_12":         0.0,
+    "sensor_45":         0.1,
+    "sensor_87":        -0.1
+  },
+  "planned_process_params": {
+    "test_head_maintenance_days_ago": 42,
+    "contact_resistance_ohm": 0.95,
+    "slurry_flow_rate": 0.79
+  },
+  "expected_hypothesis_contains": "test equipment",
+  "expected_predicted_class": "Near-full",
+  "expected_confidence_min": 0.50,
+  "honest_uncertainty": true,
+  "demo_use": "PRIMARY — use in demo video as 'we handle ambiguity honestly' moment",
+  "notes": "KEY CASE for differentiator: the system must NOT confidently declare a wafer process excursion when the primary signal is on the test head, not the process. Top hypothesis should explicitly mention test-equipment artifact. Constructed scenario — not a real incident. See PRD Section 6, non-obvious design point 2."
+}

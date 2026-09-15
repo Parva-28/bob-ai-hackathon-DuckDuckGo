@@ -1,0 +1,19 @@
+{
+  "case_id": "case_5a",
+  "wafer_map_pattern": "Random",
+  "description": "Random defect: spatially scattered failures with no geometric structure. Root cause hypothesis: particle contamination (random particles on wafer surface), or random gate-oxide pinhole defects.",
+  "sensor_signature": {
+    "sensor_102": 2.1,
+    "sensor_78":  1.6,
+    "sensor_34":  0.5
+  },
+  "planned_process_params": {
+    "cleanroom_particle_count": 420,
+    "ambient_humidity_pct": 47,
+    "gate_oxide_thickness_nm": 3.8
+  },
+  "expected_hypothesis_contains": "particle",
+  "expected_predicted_class": "Random",
+  "expected_confidence_min": 0.65,
+  "notes": "Constructed scenario — not a real incident. Random pattern is one of the more common WM-811K classes. Particle contamination is the canonical first-order root cause hypothesis for spatially random failures."
+}

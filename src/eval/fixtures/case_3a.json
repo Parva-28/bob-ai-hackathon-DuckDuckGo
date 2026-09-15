@@ -1,0 +1,21 @@
+{
+  "case_id": "case_3a",
+  "wafer_map_pattern": "Scratch",
+  "description": "Scratch defect: thin linear band of failures crossing the wafer. Notable: NO correlated process-sensor deviation detected. Negative evidence pushes root cause toward mechanical/handling causes rather than process excursion.",
+  "sensor_signature": {
+    "sensor_12":  0.1,
+    "sensor_45": -0.2,
+    "sensor_87":  0.0,
+    "sensor_3":   0.1
+  },
+  "planned_process_params": {
+    "handler_speed_mm_s": 310,
+    "robot_arm_pressure": 0.4,
+    "cassette_slot": 12
+  },
+  "expected_hypothesis_contains": "mechanical",
+  "expected_predicted_class": "Scratch",
+  "expected_confidence_min": 0.65,
+  "negative_evidence": true,
+  "notes": "KEY CASE: absence of sensor deviation is the signal here. The reasoning tool should rank mechanical/handling above process hypotheses precisely because no sensor shows deviation. Constructed scenario — not a real incident. See PRD Section 6 (non-obvious design point 1)."
+}

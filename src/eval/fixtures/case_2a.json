@@ -1,0 +1,19 @@
+{
+  "case_id": "case_2a",
+  "wafer_map_pattern": "Edge-Ring",
+  "description": "Edge-ring defect: annular band of failures near the wafer periphery. Root cause hypothesis: photolithography focus/dose at edge, edge bead removal issue, or wafer clamping non-uniformity during etch.",
+  "sensor_signature": {
+    "sensor_3":  1.9,
+    "sensor_21": 2.4,
+    "sensor_67": -0.3
+  },
+  "planned_process_params": {
+    "edge_exclusion_mm": 2.0,
+    "chuck_vacuum_torr": 720,
+    "etch_rate_nm_min": 112
+  },
+  "expected_hypothesis_contains": "edge",
+  "expected_predicted_class": "Edge-Ring",
+  "expected_confidence_min": 0.70,
+  "notes": "Constructed scenario, not a real fab incident — see PRD Section 9/15. Edge-ring geometry from WM-811K taxonomy. Sensor signature constructed to reflect edge-process deviation."
+}
