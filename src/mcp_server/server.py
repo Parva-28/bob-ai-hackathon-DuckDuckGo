@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from mcp.server.mcpserver import MCPServer
 
 import adapters
-from param_map import to_secom_space
+import lot_sensors
+from param_map import sigma_to_secom_raw, to_secom_space
 from stores import CaseStore, FeedbackStore, TelemetryStore
 
 mcp = MCPServer(
@@ -57,6 +58,14 @@ DEFECT_CLASSES = ["Center", "Donut", "Edge-Loc", "Edge-Ring",
 # ── lot lookup ────────────────────────────────────────────────────────────────
 
 _LOTS = json.loads((Path(__file__).parent / "data" / "lots.json").read_text())["lots"]
+# Which SECOM class a lot's sensor vector is built from. Cases whose premise is that
+# the PROCESS sensors are genuinely quiet must be based on a pass-class row, or the
+# negative-evidence test is meaningless: Scratch handling damage (3a-3c), an interlock
+# software fault (6b), and the test-head artifact (6c), where the deviation sits on the
+# tester rather than on any process sensor.
+_LOT_PROFILE = {lid: ("pass" if l["case_id"] in ("case_3a", "case_3b", "case_3c",
+                                                 "case_6b", "case_6c") else "fail")
+                for lid, l in _LOTS.items()}
 
 
 @mcp.tool(description="Look up an existing or planned lot by its lot_id and return the "
@@ -128,9 +137,47 @@ def classify_wafer_map(image_path: str) -> dict:
                       "an empty dict scores 0.0 and means NO DATA, not a clean lot. "
                       "A genuinely LOW score on real data is meaningful evidence: it points "
                       "away from process causes toward handling or measurement.")
-def score_sensor_anomaly(lot_id: str, sensors: dict[str, float]) -> dict:
+def score_sensor_anomaly(lot_id: str, sensors: dict[str, float],
+                         units: str = "sigma") -> dict:
+    if not sensors:
+        # An empty dict is NO DATA. Scoring it returns 0.0, which reads as "clean lot"
+        # and is the opposite of the truth. Refuse rather than mislead.
+        return {"error": "no sensor data supplied",
+                "hint": "Call get_lot_data(lot_id) and pass its sensor_signature. "
+                        "An empty dict is not a clean lot, it is a missing measurement.",
+                "anomaly_score": None, "top_deviating_sensors": []}
+
     if adapters.real_score_sensor_anomaly:
-        return adapters.real_score_sensor_anomaly({"lot_id": lot_id, "sensors": sensors})
+        payload, unknown = sensors, []
+        # A 3-sensor signature cannot be scored: the other ~579 features impute to the
+        # median, and a near-all-median vector is maximally typical to an Isolation
+        # Forest, so the score pins to 0.0 regardless of what the named sensors say.
+        # Expand to a full realistic vector instead - a representative SECOM row of the
+        # lot's profile with the named deviations overlaid. The full vector stays
+        # server-side; Bob only ever sees the sparse signature.
+        profile = _LOT_PROFILE.get(lot_id, "fail" if any(abs(float(v)) >= 1.5
+                                                         for v in sensors.values()) else "pass")
+        full = lot_sensors.build_vector(sensors, profile) if units == "sigma" else None
+        if full:
+            out = dict(adapters.real_score_sensor_anomaly({"lot_id": lot_id, "sensors": full}))
+            out["_units_in"] = units
+            out["_scored_on"] = f"full 582-feature vector, {profile}-class base"
+            out["_named_deviations"] = sensors
+            return out
+        if units == "sigma":
+            # Fixtures, telemetry and evidence summaries all speak sigma; the model
+            # expects raw instrument units and standardises internally. See
+            # param_map.sigma_to_secom_raw for why passing sigma straight through
+            # manufactures outliers rather than merely losing signal.
+            means, scales = adapters.secom_scaler_stats()
+            if means:
+                payload, unknown = sigma_to_secom_raw(sensors, means, scales)
+        out = dict(adapters.real_score_sensor_anomaly(
+            {"lot_id": lot_id, "sensors": payload}))
+        out["_units_in"] = units
+        if unknown:
+            out["_unknown_sensors"] = unknown
+        return out
     ranked = sorted(sensors.items(), key=lambda kv: -abs(kv[1]))
     peak = abs(ranked[0][1]) if ranked else 0.0
     return {

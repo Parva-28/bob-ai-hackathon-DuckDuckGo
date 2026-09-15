@@ -131,3 +131,42 @@ def to_secom_space(planned: dict[str, float]) -> tuple[dict[str, float], list[st
             out[feature] = round(contribution, 4)
 
     return out, unmapped
+
+
+# ── sensor signature: sigma space -> SECOM raw space ──────────────────────────
+
+def sigma_to_secom_raw(signature: dict[str, float],
+                       means: dict[str, float],
+                       scales: dict[str, float]) -> tuple[dict[str, float], list[str]]:
+    """
+    Convert a sensor signature expressed in SIGMA (standard deviations from normal)
+    into the raw units SECOM's scaler expects.
+
+    Everything else in this system speaks sigma: the fixtures say `sensor_12: -2.4`
+    meaning "2.4 standard deviations low", the telemetry returns `magnitude_sigma`,
+    and the evidence summaries read "sensor_12 at -2.4 sigma". The anomaly model
+    expects raw instrument readings and standardises them itself.
+
+    Passing sigma where raw is expected does not merely lose signal, it manufactures
+    noise. sensor_45 has mean 136.7 and scale 7.9, so a signature value of 0.1 -
+    intended as "essentially nominal" - standardises to **-17.3 sigma**, the most
+    extreme value in the vector. Meanwhile sensor_23 (mean -3799, scale 1398) turned
+    2.8 into +2.7 sigma by luck. The resulting vector is arbitrary.
+
+    raw = mean + z * scale  inverts the scaler exactly, so standardising the result
+    returns the z the caller meant.
+
+    Unknown sensor names are dropped and returned, rather than silently imputed to a
+    median that would read as "measured and normal".
+    """
+    out: dict[str, float] = {}
+    unknown: list[str] = []
+    for name, z in (signature or {}).items():
+        if name not in means or name not in scales:
+            unknown.append(name)
+            continue
+        try:
+            out[name] = float(means[name]) + float(z) * float(scales[name])
+        except (TypeError, ValueError):
+            unknown.append(name)
+    return out, unknown

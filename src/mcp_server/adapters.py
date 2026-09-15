@@ -210,6 +210,25 @@ def reasoning_mode() -> str:
     return "live"
 
 
+def secom_scaler_stats() -> tuple[dict, dict]:
+    """
+    Per-feature mean and scale from Track 2's fitted StandardScaler, so the MCP
+    boundary can convert a sigma-space signature into the raw units the model
+    expects. Returns ({}, {}) when the model is not loaded, and the caller then
+    passes the signature through untouched.
+    """
+    try:
+        import importlib
+        mod = importlib.import_module("src.models.tabular.anomaly")
+        if mod._scaler is None or not mod._feature_names:
+            return {}, {}
+        names = list(mod._feature_names)
+        return ({n: float(m) for n, m in zip(names, mod._scaler.mean_)},
+                {n: float(s) for n, s in zip(names, mod._scaler.scale_)})
+    except Exception:
+        return {}, {}
+
+
 def describe_pipeline() -> dict:
     return {
         "reasoning_mode": reasoning_mode(),

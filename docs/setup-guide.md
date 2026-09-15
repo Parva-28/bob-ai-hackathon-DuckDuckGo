@@ -230,6 +230,15 @@ exhaust that quickly.
 
 ## Known limitations in the current build
 
+- **Sensor signatures are expanded to a full vector before scoring.** A case study names
+  three or four sensors; the model needs all 582. A sparse signature imputes the rest to
+  the median, and a near-all-median vector is maximally *typical* to an Isolation Forest,
+  so it scores 0.0 regardless of the named sensors. The MCP boundary therefore expands a
+  signature into a representative SECOM row of the lot's class with the named deviations
+  overlaid in sigma. Clean-sensor cases (3a-3c, 6b, 6c) build from a pass-class row and
+  score 0.000-0.002; excursion cases build from a fail-class row and score 0.134-0.160.
+  This is a constructed pairing like every other in the project — a real observation with
+  the case's stated deviation overlaid, not a real lot's trace.
 - **Anomaly detection performance on unseen data is weak, and this is the measured number.**
   On the held-out SECOM validation split (314 lots, 21 fails) the Isolation Forest achieves
   **recall 0.286, precision 0.194, F1 0.231, ROC-AUC 0.583** at its locked threshold. It
