@@ -33,9 +33,10 @@ ROOT = Path(__file__).resolve().parents[2]
 CFG = ROOT / ".bob" / "mcp.json"
 SKILL = ROOT / ".bob" / "skills" / "yieldguard" / "SKILL.md"
 EXPECTED = {
-    "classify_wafer_map", "score_sensor_anomaly", "retrieve_similar_cases",
-    "query_telemetry", "rank_root_causes", "get_corrective_action_playbook",
-    "flag_at_risk_batch", "submit_feedback", "pipeline_status",
+    "get_lot_data", "classify_wafer_map", "score_sensor_anomaly",
+    "retrieve_similar_cases", "query_telemetry", "rank_root_causes",
+    "get_corrective_action_playbook", "flag_at_risk_batch", "submit_feedback",
+    "pipeline_status",
 }
 
 fails: list[str] = []

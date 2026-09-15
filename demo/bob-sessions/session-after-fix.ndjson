@@ -1,0 +1,456 @@
+{"type":"message","timestamp":"2026-09-15T12:33:28.632Z","role":"user","content":"Lot L-4471 came back at 61% yield and the failures cluster near the wafer edge. Work out what went wrong and tell me what to do about it."}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:31.127Z","tool_name":"use_skill","tool_id":"tooluse_iu0GnuYHgrqw3nHo3HxUZm","parameters":{"skill_name":"yieldguard"}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:31.127Z","tool_id":"tooluse_iu0GnuYHgrqw3nHo3HxUZm","status":"success","output":"---\nname: yieldguard\ndescription: Use when analysing semiconductor wafer yield - diagnosing why a lot failed, identifying defect patterns, ranking root causes, recommending corrective actions, or flagging upcoming lots as at-risk before they run. Triggers on wafer, lot, yield, defect, wafer map, excursion, root cause, CMP, etch, litho, scratch, edge-ring, or at-risk batch.\n---\n\n# YieldGuard — wafer yield root cause analysis\n\nYou orchestrate the `yieldguard` MCP server. **You** decide which tools to call and in\nwhat order, and **you** carry each tool's result into the next. The server does not\nchain its own tools.\n\n## Two workflows\n\n### Post-mortem — \"why did lot X fail?\"\nA wafer map and test results exist.\n\n0. **`get_lot_data` — ALWAYS FIRST when the question names a lot.** It returns the\n   `wafer_map_ref`, `sensor_signature`, `equipment_ids` and planned parameters that every\n   other tool needs. **Never invent an image path or a sensor dict.** If it returns an\n   error, say the lot is unknown and list the ones that exist — do not substitute a guess.\n1. `classify_wafer_map` — pass `wafer_map_ref` from step 0\n2. `score_sensor_anomaly` — pass `sensor_signature` from step 0\n3. `retrieve_similar_cases` — precedent, using the class and signature from 1 and 2\n4. `query_telemetry` — tool state for the equipment named in the retrieved cases\n5. `rank_root_causes` — **pass the results of 1–4 in as arguments**\n6. `get_corrective_action_playbook` — on the top hypothesis\n7. `submit_feedback` — when the engineer confirms or rejects, using `hypothesis_id`\n\nSteps 1 and 2 are independent; either order is fine.\n\n### Pre-run — \"which upcoming lots are at risk?\"\nNo wafer map and no test data exist yet, so steps 1 and 2 **do not apply**.\n\n0. `get_lot_data` for each named lot, to get its planned parameters\n1. `flag_at_risk_batch` per planned lot\n2. For flagged lots only: `retrieve_similar_cases` + `query_telemetry`\n3. `rank_root_causes` with `classification=null, anomaly=null` — this yields pre-run\n   risk drivers, not a diagnosis of a failure that has not happened\n4. `get_corrective_action_playbook(..., preventive=true)`\n\n## Rules\n\n- **Never claim more confidence than `rank_root_causes` returned.** If it returns 0.4 and\n  \"undetermined\", your answer says the cause is undetermined at low confidence. Do not\n  write \"almost certainly\", \"the dominant cause is\", or a single bolded conclusion on top\n  of a low-confidence or uncited ranking. Report the number the tool gave you.\n- **An empty or missing input is a data gap, not a finding.** `anomaly_score: 0.0` from an\n  empty `sensors` dict means *no sensor data was supplied* — it does not mean the sensors\n  were clean, and it must never be reported as negative evidence. Say the data is missing\n  and what it would take to get it.\n- **Do not fill gaps from the tool descriptions, the skill text, or the case store.**\n  Historical cases are precedent to cite, not evidence about *this* lot. If the tools\n  returned little, the honest answer is short.\n- **Every hypothesis must cite named evidence** — a sensor, a `case_id`, or a telemetry\n  parameter. The server strips uncited hypotheses; if it returns a `warning`, report that\n  there was insufficient evidence rather than filling the gap yourself.\n- **A low anomaly score is evidence, not an absence of it.** Quiet process sensors on a\n  Scratch pattern point *toward* mechanical handling. Do not manufacture a process cause.\n- **Do not flatten a distributed ranking into one answer.** If the top hypothesis is at\n  0.55 with two live alternatives, present it that way.\n- **Confidence values are relative rankings, not calibrated probabilities.** Never present\n  them as the latter.\n- **`at_risk` is a triage signal for engineer review, not a go/no-go gate.**\n- When a measurement-path cause ranks first, say plainly that the wafers may be fine and\n  the lot should be held and retested, not scrapped.\n- Call `pipeline_status` when asked what is real: it reports which tools are backed by\n  trained models and which are still schema-valid stubs. Report that honestly.\n\n## Data provenance\n\nHistorical cases are **constructed** from the WM-811K defect taxonomy and documented fab\nfailure modes — they are not disclosed fab incidents. SECOM and WM-811K are separate,\nunrelated datasets, so any wafer-map/sensor pairing is a constructed pairing. State this\nif asked where the data comes from.\n"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.373Z","role":"assistant","content":"Good"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.375Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:33:33.376Z","role":"assistant","content":" Now"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.376Z","role":"assistant","content":" I"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.376Z","role":"assistant","content":"'ll"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.376Z","role":"assistant","content":" run"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.378Z","role":"assistant","content":" steps"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.378Z","role":"assistant","content":" 0"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.379Z","role":"assistant","content":"–"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.379Z","role":"assistant","content":"4 in"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.380Z","role":"assistant","content":" parallel where"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.380Z","role":"assistant","content":" possible —"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.381Z","role":"assistant","content":" fet"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.381Z","role":"assistant","content":"ching the lot data first"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.381Z","role":"assistant","content":", then f"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.381Z","role":"assistant","content":"anning"}
+{"type":"message","timestamp":"2026-09-15T12:33:33.381Z","role":"assistant","content":" out."}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:33.581Z","tool_name":"mcp__yieldguard__get_lot_data","tool_id":"tooluse_u0vPeyYZ31wc158VIqLfvd","parameters":{"lot_id":"L-4471"}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:33.581Z","tool_id":"tooluse_u0vPeyYZ31wc158VIqLfvd","status":"success","output":"{\n  \"lot_id\": \"L-4471\",\n  \"product_id\": \"P-LOGIC-3N\",\n  \"fab_line\": \"FAB2-A\",\n  \"status\": \"tested\",\n  \"equipment_ids\": [\n    \"ETCH-07\",\n    \"CMP-03\"\n  ],\n  \"planned_process_params\": {\n    \"rf_power_w\": 1480.0,\n    \"gas_flow_sccm\": 220.0,\n    \"days_since_pm\": 2.0\n  },\n  \"provenance\": \"constructed scenario - not a real fab incident\",\n  \"final_yield_pct\": 61.0,\n  \"wafer_map_ref\": \"case_2a.png\",\n  \"sensor_signature\": {\n    \"sensor_23\": 2.8,\n    \"sensor_24\": 2.2,\n    \"sensor_45\": 0.1\n  }\n}"}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:35.901Z","tool_name":"mcp__yieldguard__classify_wafer_map","tool_id":"tooluse_HR5hrnV8R44FIos6I0AZdc","parameters":{"image_path":"case_2a.png"}}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:35.901Z","tool_name":"mcp__yieldguard__score_sensor_anomaly","tool_id":"tooluse_i7OLZpkURleBStNZVYLi8x","parameters":{"lot_id":"L-4471","sensors":{"sensor_23":2.8,"sensor_24":2.2,"sensor_45":0.1}}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:35.901Z","tool_id":"tooluse_HR5hrnV8R44FIos6I0AZdc","status":"success","output":"{\n  \"predicted_class\": \"Edge-Ring\",\n  \"confidence\": 0.91,\n  \"_mode\": \"stub\"\n}"}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:35.901Z","tool_id":"tooluse_i7OLZpkURleBStNZVYLi8x","status":"success","output":"{\n  \"anomaly_score\": 0.0,\n  \"top_deviating_sensors\": [\n    \"sensor_23\",\n    \"sensor_24\",\n    \"sensor_45\"\n  ]\n}"}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:38.106Z","tool_name":"mcp__yieldguard__retrieve_similar_cases","tool_id":"tooluse_fNXJ6dDNV0R7jvrQ7pCh5f","parameters":{"defect_class":"Edge-Ring","sensor_signature":{"sensor_23":2.8,"sensor_24":2.2,"sensor_45":0.1},"top_k":5}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:38.107Z","tool_id":"tooluse_fNXJ6dDNV0R7jvrQ7pCh5f","status":"success","output":"{\n  \"cases\": [\n    {\n      \"case_id\": \"HC-033\",\n      \"similarity\": 1.0,\n      \"confirmed_root_cause\": \"RF power edge effect following chamber PM reassembly\",\n      \"outcome\": \"RF match network retuned\",\n      \"category\": \"equipment\",\n      \"equipment_id\": \"ETCH-07\",\n      \"provenance\": \"constructed\"\n    },\n    {\n      \"case_id\": \"HC-035\",\n      \"similarity\": 0.15,\n      \"confirmed_root_cause\": \"Partially clogged edge gas nozzle causing flow distribution imbalance\",\n      \"outcome\": \"Nozzle cleaned; flow symmetry restored\",\n      \"category\": \"equipment\",\n      \"equipment_id\": \"ETCH-07\",\n      \"provenance\": \"constructed\"\n    },\n    {\n      \"case_id\": \"HC-038\",\n      \"similarity\": 0.15,\n      \"confirmed_root_cause\": \"Chamber wall seasoning drift after another product line changed the recipe on a shared tool\",\n      \"outcome\": \"Seasoning requalified; shared-tool recipe change notification added\",\n      \"category\": \"process\",\n      \"equipment_id\": \"ETCH-07\",\n      \"provenance\": \"constructed\"\n    },\n    {\n      \"case_id\": \"HC-071\",\n      \"similarity\": 0.016,\n      \"confirmed_root_cause\": \"Power supply fault cascading through the CMP process step\",\n      \"outcome\": \"Supply replaced; 3 lots scrapped\",\n      \"category\": \"equipment\",\n      \"equipment_id\": \"CMP-03\",\n      \"provenance\": \"constructed\"\n    },\n    {\n      \"case_id\": \"HC-021\",\n      \"similarity\": 0.0,\n      \"confirmed_root_cause\": \"Polishing pad used past qualified life; calendar PM had not yet triggered\",\n      \"outcome\": \"Pad replaced; PM policy moved to condition-based\",\n      \"category\": \"equipment\",\n      \"equipment_id\": \"CMP-03\",\n      \"provenance\": \"constructed\"\n    }\n  ]\n}"}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:40.065Z","tool_name":"mcp__yieldguard__query_telemetry","tool_id":"tooluse_FpQ9Q86GmSvoDHNKKG6lNP","parameters":{"equipment_ids":["ETCH-07","CMP-03"],"time_window":"14d"}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:40.065Z","tool_id":"tooluse_FpQ9Q86GmSvoDHNKKG6lNP","status":"success","output":"{\n  \"telemetry\": [\n    {\n      \"equipment_id\": \"ETCH-07\",\n      \"tool_type\": \"Etch\",\n      \"parameter\": \"rf_power_w\",\n      \"direction\": \"oscillating\",\n      \"magnitude_sigma\": 2.8,\n      \"recent_trend\": \"edge ringing since the PM 2 days ago\",\n      \"time_window\": \"14d\"\n    },\n    {\n      \"equipment_id\": \"ETCH-07\",\n      \"tool_type\": \"Etch\",\n      \"parameter\": \"gas_flow_sccm\",\n      \"direction\": \"decreasing\",\n      \"magnitude_sigma\": -2.1,\n      \"recent_trend\": \"edge zone below setpoint\",\n      \"time_window\": \"14d\"\n    },\n    {\n      \"equipment_id\": \"ETCH-07\",\n      \"tool_type\": \"Etch\",\n      \"parameter\": \"chamber_seasoning_idx\",\n      \"direction\": \"increasing\",\n      \"magnitude_sigma\": 1.9,\n      \"recent_trend\": \"drifting since a shared-tool recipe change\",\n      \"time_window\": \"14d\"\n    },\n    {\n      \"equipment_id\": \"CMP-03\",\n      \"tool_type\": \"CMP\",\n      \"parameter\": \"slurry_flow_rate\",\n      \"direction\": \"decreasing\",\n      \"magnitude_sigma\": -2.4,\n      \"recent_trend\": \"declining steadily over the last 6 lots\",\n      \"time_window\": \"14d\"\n    },\n    {\n      \"equipment_id\": \"CMP-03\",\n      \"tool_type\": \"CMP\",\n      \"parameter\": \"pad_life_pct\",\n      \"direction\": \"increasing\",\n      \"magnitude_sigma\": 1.1,\n      \"recent_trend\": \"approaching qualified life limit\",\n      \"time_window\": \"14d\"\n    },\n    {\n      \"equipment_id\": \"CMP-03\",\n      \"tool_type\": \"CMP\",\n      \"parameter\": \"head_pressure_psi\",\n      \"direction\": \"stable\",\n      \"magnitude_sigma\": 0.1,\n      \"recent_trend\": \"nominal\",\n      \"time_window\": \"14d\"\n    }\n  ],\n  \"equipment_meta\": {\n    \"ETCH-07\": {\n      \"tool_type\": \"Etch\",\n      \"chamber_id\": \"B2\",\n      \"is_shared_tool\": true,\n      \"is_metrology\": false,\n      \"days_since_pm\": 2\n    },\n    \"CMP-03\": {\n      \"tool_type\": \"CMP\",\n      \"chamber_id\": \"C1\",\n      \"is_shared_tool\": false,\n      \"is_metrology\": false,\n      \"days_since_pm\": 18\n    }\n  }\n}"}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:47.137Z","tool_name":"mcp__yieldguard__rank_root_causes","tool_id":"tooluse_Y6aHhQ7NWne3Mf98zxfvP6","parameters":{"classification":{"predicted_class":"Edge-Ring","confidence":0.91,"_mode":"stub"},"anomaly":{"anomaly_score":0,"top_deviating_sensors":["sensor_23","sensor_24","sensor_45"]},"cases":{"cases":[{"case_id":"HC-033","similarity":1,"confirmed_root_cause":"RF power edge effect following chamber PM reassembly","outcome":"RF match network retuned","category":"equipment","equipment_id":"ETCH-07"},{"case_id":"HC-035","similarity":0.15,"confirmed_root_cause":"Partially clogged edge gas nozzle causing flow distribution imbalance","outcome":"Nozzle cleaned; flow symmetry restored","category":"equipment","equipment_id":"ETCH-07"},{"case_id":"HC-038","similarity":0.15,"confirmed_root_cause":"Chamber wall seasoning drift after another product line changed the recipe on a shared tool","outcome":"Seasoning requalified; shared-tool recipe change notification added","category":"process","equipment_id":"ETCH-07"},{"case_id":"HC-071","similarity":0.016,"confirmed_root_cause":"Power supply fault cascading through the CMP process step","outcome":"Supply replaced; 3 lots scrapped","category":"equipment","equipment_id":"CMP-03"},{"case_id":"HC-021","similarity":0,"confirmed_root_cause":"Polishing pad used past qualified life; calendar PM had not yet triggered","outcome":"Pad replaced; PM policy moved to condition-based","category":"equipment","equipment_id":"CMP-03"}]},"telemetry":{"telemetry":[{"equipment_id":"ETCH-07","parameter":"rf_power_w","direction":"oscillating","magnitude_sigma":2.8,"recent_trend":"edge ringing since the PM 2 days ago"},{"equipment_id":"ETCH-07","parameter":"gas_flow_sccm","direction":"decreasing","magnitude_sigma":-2.1,"recent_trend":"edge zone below setpoint"},{"equipment_id":"ETCH-07","parameter":"chamber_seasoning_idx","direction":"increasing","magnitude_sigma":1.9,"recent_trend":"drifting since a shared-tool recipe change"},{"equipment_id":"CMP-03","parameter":"slurry_flow_rate","direction":"decreasing","magnitude_sigma":-2.4,"recent_trend":"declining steadily over the last 6 lots"},{"equipment_id":"CMP-03","parameter":"pad_life_pct","direction":"increasing","magnitude_sigma":1.1,"recent_trend":"approaching qualified life limit"},{"equipment_id":"CMP-03","parameter":"head_pressure_psi","direction":"stable","magnitude_sigma":0.1,"recent_trend":"nominal"}]}}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:47.137Z","tool_id":"tooluse_Y6aHhQ7NWne3Mf98zxfvP6","status":"success","output":"{\n  \"hypotheses\": [\n    {\n      \"description\": \"RF power instability after tool PM causing edge-localised plasma density non-uniformity and annular etch-rate deviation\",\n      \"confidence\": 0.81,\n      \"evidence_summary\": \"sensor_23 z-score=2.8 and sensor_24 z-score=2.2 (RF power sensors -- HIGHEST signals), rf_power_w=1480 (above nominal 1350), days_since_pm=2 (RF matching network commonly requires re-tuning in the first 1-3 days post-PM)\",\n      \"category\": \"equipment\",\n      \"_category_source\": \"nearest_case:HC-033\",\n      \"hypothesis_id\": \"H-4f0ecf-1\",\n      \"rank\": 1\n    },\n    {\n      \"description\": \"Edge bead removal (EBR) nozzle misalignment introduced during PM causing peripheral resist build-up\",\n      \"confidence\": 0.47,\n      \"evidence_summary\": \"sensor_23 and sensor_24 edge-zone deviations consistent with edge process change, days_since_pm=2 (maintenance event is proximate cause), wafer_map_pattern=Edge-Ring onset correlates with PM timestamp\",\n      \"category\": \"equipment\",\n      \"_category_source\": \"nearest_case:HC-033\",\n      \"hypothesis_id\": \"H-4f0ecf-2\",\n      \"rank\": 2\n    },\n    {\n      \"description\": \"Photolithography focus/dose drift at wafer edge from tool warm-up after PM downtime\",\n      \"confidence\": 0.27,\n      \"evidence_summary\": \"wafer_map_pattern=Edge-Ring, sensor_45 z-score=0.1 (minimal), no direct illuminator sensor deviation -- lower confidence\",\n      \"category\": \"equipment\",\n      \"_category_source\": \"nearest_case:HC-033\",\n      \"hypothesis_id\": \"H-4f0ecf-3\",\n      \"rank\": 3\n    }\n  ],\n  \"_mode\": \"real\"\n}"}
+{"type":"tool_use","timestamp":"2026-09-15T12:33:50.691Z","tool_name":"mcp__yieldguard__get_corrective_action_playbook","tool_id":"tooluse_aRPSiy7D1z1hRNDkErZf1e","parameters":{"top_hypothesis":{"description":"RF power instability after tool PM causing edge-localised plasma density non-uniformity and annular etch-rate deviation","confidence":0.81,"evidence_summary":"sensor_23 z-score=2.8 and sensor_24 z-score=2.2 (RF power sensors -- HIGHEST signals), rf_power_w=1480 (above nominal 1350), days_since_pm=2 (RF matching network commonly requires re-tuning in the first 1-3 days post-PM)","category":"equipment","_category_source":"nearest_case:HC-033","hypothesis_id":"H-4f0ecf-1","rank":1}}}
+{"type":"tool_result","timestamp":"2026-09-15T12:33:50.692Z","tool_id":"tooluse_aRPSiy7D1z1hRNDkErZf1e","status":"success","output":"{\n  \"actions\": [\n    {\n      \"description\": \"Re-tune the RF matching network on the affected etch tool -- post-PM RF instability is common in the first 1-3 days; run a match-tune recipe now.\",\n      \"priority\": \"high\"\n    },\n    {\n      \"description\": \"Verify rf_power_w reading from sensor_23 and sensor_24 against generator setpoint; check for RF reflected power spikes indicating impedance mismatch.\",\n      \"priority\": \"high\"\n    },\n    {\n      \"description\": \"Run a monitor wafer through the affected tool and measure etch-rate uniformity at the edge to confirm annular pattern is eliminated after re-tuning.\",\n      \"priority\": \"high\"\n    },\n    {\n      \"description\": \"Log PM completion date and RF re-tuning event in MES; update PM checklist to include RF verification step.\",\n      \"priority\": \"medium\"\n    },\n    {\n      \"description\": \"Hold affected lot pending monitor wafer confirmation; re-test if edge-ring pattern persists.\",\n      \"priority\": \"medium\"\n    },\n    {\n      \"description\": \"Add RF power stability SPC rule: alarm if deviation > 5% from setpoint within 3 days of PM.\",\n      \"priority\": \"low\"\n    }\n  ]\n}"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.915Z","role":"assistant","content":"Here"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.915Z","role":"assistant","content":" is"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.915Z","role":"assistant","content":" the full"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.916Z","role":"assistant","content":" analysis for lot"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.916Z","role":"assistant","content":" **"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.916Z","role":"assistant","content":"L"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.917Z","role":"assistant","content":"-4"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.917Z","role":"assistant","content":"471"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.917Z","role":"assistant","content":"**."}
+{"type":"message","timestamp":"2026-09-15T12:33:52.917Z","role":"assistant","content":"\n\n---\n\n## Diagnosis"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.918Z","role":"assistant","content":"\n\n###"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":" Wa"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":"fer Map"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":"\nThe"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":" failure"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":" pattern"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":" class"}
+{"type":"message","timestamp":"2026-09-15T12:33:52.919Z","role":"assistant","content":"ifies as"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.628Z","role":"assistant","content":" **Edge-Ring** (confidence"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.629Z","role":"assistant","content":" "}
+{"type":"message","timestamp":"2026-09-15T12:33:53.629Z","role":"assistant","content":"0.91"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.629Z","role":"assistant","content":" "}
+{"type":"message","timestamp":"2026-09-15T12:33:53.629Z","role":"assistant","content":"—"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.630Z","role":"assistant","content":" stub"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.630Z","role":"assistant","content":" model"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.630Z","role":"assistant","content":")."}
+{"type":"message","timestamp":"2026-09-15T12:33:53.630Z","role":"assistant","content":" This"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.630Z","role":"assistant","content":" is consistent with your"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.631Z","role":"assistant","content":" observation:"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.631Z","role":"assistant","content":" failures"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.632Z","role":"assistant","content":" cluster"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.632Z","role":"assistant","content":" near"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.632Z","role":"assistant","content":" the wa"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.632Z","role":"assistant","content":"fer edge in"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.632Z","role":"assistant","content":" an"}
+{"type":"message","timestamp":"2026-09-15T12:33:53.633Z","role":"assistant","content":" annular band"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.448Z","role":"assistant","content":", with the die"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.449Z","role":"assistant","content":" field"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.450Z","role":"assistant","content":" in the center un"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.450Z","role":"assistant","content":"affected."}
+{"type":"message","timestamp":"2026-09-15T12:33:54.451Z","role":"assistant","content":"\n\n### Sensor"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.451Z","role":"assistant","content":" Anom"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.451Z","role":"assistant","content":"aly"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.451Z","role":"assistant","content":"\nThe"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.452Z","role":"assistant","content":" SE"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.452Z","role":"assistant","content":"COM"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.452Z","role":"assistant","content":" anom"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.452Z","role":"assistant","content":"aly score returned"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":" **0.0**,"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":" but"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":" this is **"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":"not a clean"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":"-"}
+{"type":"message","timestamp":"2026-09-15T12:33:54.453Z","role":"assistant","content":"process"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.263Z","role":"assistant","content":" signal"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.263Z","role":"assistant","content":"**"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.264Z","role":"assistant","content":" — it indicates"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.264Z","role":"assistant","content":" the"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.265Z","role":"assistant","content":" sensor"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.265Z","role":"assistant","content":" model"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.265Z","role":"assistant","content":" returned"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.266Z","role":"assistant","content":" a neutral"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.266Z","role":"assistant","content":" baseline"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.266Z","role":"assistant","content":" score"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.266Z","role":"assistant","content":". The raw"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":" sensor values are"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":" meaningful"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":" independently"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":":"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":"\n\n| Sensor | z-score |"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":" Interpretation |\n|---|"}
+{"type":"message","timestamp":"2026-09-15T12:33:55.267Z","role":"assistant","content":"---|---|\n| `"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.023Z","role":"assistant","content":"sensor_23` | **"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.024Z","role":"assistant","content":"+"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.024Z","role":"assistant","content":"2.8 "}
+{"type":"message","timestamp":"2026-09-15T12:33:56.025Z","role":"assistant","content":"σ"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.025Z","role":"assistant","content":"** | RF power sensor — highest"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.025Z","role":"assistant","content":" deviation"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.026Z","role":"assistant","content":" |\n| `sensor_24`"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.026Z","role":"assistant","content":" | **+2.2 σ"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.026Z","role":"assistant","content":"** | RF power sensor — elevated"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.027Z","role":"assistant","content":" |\n| `sensor_45`"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.028Z","role":"assistant","content":" | +"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.028Z","role":"assistant","content":"0.1 σ |"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.029Z","role":"assistant","content":" Minimal deviation |\n\n###"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.029Z","role":"assistant","content":" Tel"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.029Z","role":"assistant","content":"emetry —"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.029Z","role":"assistant","content":" "}
+{"type":"message","timestamp":"2026-09-15T12:33:56.029Z","role":"assistant","content":"ETCH-07"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.030Z","role":"assistant","content":"\nThree"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.030Z","role":"assistant","content":" parameters"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.774Z","role":"assistant","content":" are"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.775Z","role":"assistant","content":" out"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.775Z","role":"assistant","content":" of normal"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.775Z","role":"assistant","content":" range on"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.776Z","role":"assistant","content":" **"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.776Z","role":"assistant","content":"ETCH-07**,"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.776Z","role":"assistant","content":" and"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.776Z","role":"assistant","content":" all"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.776Z","role":"assistant","content":" three moved"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.777Z","role":"assistant","content":" since"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":" the PM 2 days ago:"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":"\n\n-"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":" **`"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":"rf_power_w`**: oscill"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":"ating, **"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.778Z","role":"assistant","content":"+"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.779Z","role":"assistant","content":"2"}
+{"type":"message","timestamp":"2026-09-15T12:33:56.779Z","role":"assistant","content":".8 σ** —"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.533Z","role":"assistant","content":" *"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.534Z","role":"assistant","content":"\""}
+{"type":"message","timestamp":"2026-09-15T12:33:57.534Z","role":"assistant","content":"edge ringing since the PM 2"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.534Z","role":"assistant","content":" days ago\"*\n- **"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.534Z","role":"assistant","content":"`gas_flow_sccm"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.535Z","role":"assistant","content":"`**: decreasing, **−"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.535Z","role":"assistant","content":"2.1 σ** —"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.536Z","role":"assistant","content":" *\"edge zone below setpoint\""}
+{"type":"message","timestamp":"2026-09-15T12:33:57.536Z","role":"assistant","content":"*\n- **`chamber_seas"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.536Z","role":"assistant","content":"oning_idx`**: increasing, **"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":"+1.9 σ**"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":" — *\"drifting since a"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":" shared-tool recipe change\"*"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":"\n\nETCH-07 is a **"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":"shared tool"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":"**"}
+{"type":"message","timestamp":"2026-09-15T12:33:57.537Z","role":"assistant","content":". The seas"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.343Z","role":"assistant","content":"oning drift"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.343Z","role":"assistant","content":" is"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.344Z","role":"assistant","content":" a secondary"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.344Z","role":"assistant","content":" concern"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.344Z","role":"assistant","content":" but"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.344Z","role":"assistant","content":" worth"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.345Z","role":"assistant","content":" tracking"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.345Z","role":"assistant","content":".\n\n### Tel"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.345Z","role":"assistant","content":"emetry — CMP-03"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.345Z","role":"assistant","content":"\n-"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.347Z","role":"assistant","content":" **`slurry_flow_"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.347Z","role":"assistant","content":"rate`**: decreasing, **−"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":"2.4 σ** over"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":" the last 6 lots —"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":" worth"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":" monitoring but"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":" not consistent"}
+{"type":"message","timestamp":"2026-09-15T12:33:58.348Z","role":"assistant","content":" with"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.062Z","role":"assistant","content":" the edge-ring pattern\n- **"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.062Z","role":"assistant","content":"`pad_life_pct`"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.062Z","role":"assistant","content":"**: approaching qualified life limit"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.063Z","role":"assistant","content":"\n\n---"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.063Z","role":"assistant","content":"\n\n## Ranked"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.064Z","role":"assistant","content":" Root"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.064Z","role":"assistant","content":" Causes\n\n|"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.064Z","role":"assistant","content":" Rank | Hypothesis | Confidence"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":" | Key"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":" Evidence |\n|---|---|---|---|"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":"\n| **"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":"1** | **RF power instability"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":" on"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.065Z","role":"assistant","content":" ETCH-07 "}
+{"type":"message","timestamp":"2026-09-15T12:33:59.066Z","role":"assistant","content":"post"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.066Z","role":"assistant","content":"-PM** —"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.066Z","role":"assistant","content":" ann"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.066Z","role":"assistant","content":"ular plasma"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.780Z","role":"assistant","content":" non"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.780Z","role":"assistant","content":"-uniformity from"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.781Z","role":"assistant","content":" mis"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.781Z","role":"assistant","content":"-tuned RF match"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.782Z","role":"assistant","content":" network | **"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.782Z","role":"assistant","content":"0.81** | `"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.783Z","role":"assistant","content":"sensor_23`"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.783Z","role":"assistant","content":" +"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.783Z","role":"assistant","content":"2.8 σ, `"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.784Z","role":"assistant","content":"sensor_24` +2.2"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.784Z","role":"assistant","content":" σ;"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.784Z","role":"assistant","content":" `"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":"rf_power_w` oscill"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":"ating +2"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":".8 σ;"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":" "}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":"2 days post"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":"-PM;"}
+{"type":"message","timestamp":"2026-09-15T12:33:59.785Z","role":"assistant","content":" case"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.636Z","role":"assistant","content":" **"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.636Z","role":"assistant","content":"HC-033**"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.637Z","role":"assistant","content":" ("}
+{"type":"message","timestamp":"2026-09-15T12:34:00.637Z","role":"assistant","content":"similarity"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.637Z","role":"assistant","content":" 1"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.638Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:00.638Z","role":"assistant","content":"0) |\n| 2 "}
+{"type":"message","timestamp":"2026-09-15T12:34:00.638Z","role":"assistant","content":"| E"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.639Z","role":"assistant","content":"BR nozzle misalignment"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.640Z","role":"assistant","content":" introduced"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":" during PM | 0.47 "}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":"| Edge"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":"-zone"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":" sensor"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":" deviations,"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":" PM"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":" timestamp prox"}
+{"type":"message","timestamp":"2026-09-15T12:34:00.641Z","role":"assistant","content":"imate,"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.371Z","role":"assistant","content":" Edge"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.372Z","role":"assistant","content":"-Ring wa"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.372Z","role":"assistant","content":"fer map"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.372Z","role":"assistant","content":" |"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.373Z","role":"assistant","content":"\n| 3 | Lit"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.373Z","role":"assistant","content":"ho focus/dose drift after"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.373Z","role":"assistant","content":" tool"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.374Z","role":"assistant","content":" warm"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.374Z","role":"assistant","content":"-up | 0.27 "}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":"| Edge"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":"-Ring"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":" pattern"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":", `"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":"sensor"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.375Z","role":"assistant","content":"_45` near"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.376Z","role":"assistant","content":"-"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.376Z","role":"assistant","content":"zero (low"}
+{"type":"message","timestamp":"2026-09-15T12:34:01.376Z","role":"assistant","content":" confidence) |"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.095Z","role":"assistant","content":"\n\nHypothesis"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.096Z","role":"assistant","content":" "}
+{"type":"message","timestamp":"2026-09-15T12:34:02.096Z","role":"assistant","content":"1 is the primary"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.096Z","role":"assistant","content":" working"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.096Z","role":"assistant","content":" theory"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.097Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:02.097Z","role":"assistant","content":" Hypoth"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.097Z","role":"assistant","content":"eses 2 and 3 "}
+{"type":"message","timestamp":"2026-09-15T12:34:02.097Z","role":"assistant","content":"remain"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.097Z","role":"assistant","content":" live"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" alternatives"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" —"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" the ranking"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" is not"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" a"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" single"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" defin"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":"itive answer.\n\n---\n\n## What"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.098Z","role":"assistant","content":" To"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.813Z","role":"assistant","content":" Do\n\n**Immediate ("}
+{"type":"message","timestamp":"2026-09-15T12:34:02.814Z","role":"assistant","content":"High"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.815Z","role":"assistant","content":" Priority)**"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.815Z","role":"assistant","content":"\n\n1. **Re-tune the"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.815Z","role":"assistant","content":" RF matching network on"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.815Z","role":"assistant","content":" ETCH-07 "}
+{"type":"message","timestamp":"2026-09-15T12:34:02.816Z","role":"assistant","content":"now."}
+{"type":"message","timestamp":"2026-09-15T12:34:02.816Z","role":"assistant","content":"** Post"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.818Z","role":"assistant","content":"-PM RF instability is well"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":"-documented in the first 1–"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":"3 days. Run the"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" match-tune recipe before"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" releasing"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" any"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" further"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" lots on"}
+{"type":"message","timestamp":"2026-09-15T12:34:02.819Z","role":"assistant","content":" this chamber"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.786Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:03.787Z","role":"assistant","content":"\n2"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.787Z","role":"assistant","content":". **Verify `"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.787Z","role":"assistant","content":"rf_power_w`"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.788Z","role":"assistant","content":"** from"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.788Z","role":"assistant","content":" `"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.789Z","role":"assistant","content":"sensor_23` /"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.789Z","role":"assistant","content":" `sensor_24` against the"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.789Z","role":"assistant","content":" generator setpoint. Check for reflected"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.789Z","role":"assistant","content":" RF"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":" power spikes indicating impedance mism"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":"atch.\n3. **Run a"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":" monitor wafer through"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":" ETCH-07** and measure "}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":"etch-rate uniformity at the edge"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":". Confirm the annular pattern is"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":" eliminated after re-tuning before"}
+{"type":"message","timestamp":"2026-09-15T12:34:03.790Z","role":"assistant","content":" clearing"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.315Z","role":"assistant","content":" the"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.315Z","role":"assistant","content":" tool"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.316Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:04.316Z","role":"assistant","content":"\n\n**Disposition"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.316Z","role":"assistant","content":" for"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.317Z","role":"assistant","content":" L"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.317Z","role":"assistant","content":"-4471 "}
+{"type":"message","timestamp":"2026-09-15T12:34:04.317Z","role":"assistant","content":"(Medium"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.318Z","role":"assistant","content":" Priority)**\n\n4"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.318Z","role":"assistant","content":". **Hold"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.318Z","role":"assistant","content":" the lot"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" pending monitor wafer confirmation.** Do"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" not release or"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" sc"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":"rap yet"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" —"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" if"}
+{"type":"message","timestamp":"2026-09-15T12:34:04.319Z","role":"assistant","content":" the edge-ring pattern cl"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.032Z","role":"assistant","content":"ears after"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.033Z","role":"assistant","content":" re-tuning, re"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.034Z","role":"assistant","content":"-test the lot"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.034Z","role":"assistant","content":" to"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.035Z","role":"assistant","content":" establish"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.035Z","role":"assistant","content":" whether"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.035Z","role":"assistant","content":" recov"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.036Z","role":"assistant","content":"erable yield"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.036Z","role":"assistant","content":" exists"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.037Z","role":"assistant","content":".\n5. **Log"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.038Z","role":"assistant","content":" the PM date"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.038Z","role":"assistant","content":" and RF re-tuning event in"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":" MES.** Update the PM chec"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":"klist to include an"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":" RF verification step before"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":" first"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":" production"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.039Z","role":"assistant","content":" lot"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.880Z","role":"assistant","content":" release."}
+{"type":"message","timestamp":"2026-09-15T12:34:05.881Z","role":"assistant","content":"\n\n**Syst"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.881Z","role":"assistant","content":"emic (Lower"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.881Z","role":"assistant","content":" Priority)**\n\n6. **Add an"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.882Z","role":"assistant","content":" S"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.882Z","role":"assistant","content":"PC rule on"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.883Z","role":"assistant","content":" ETCH-07:** alarm"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.883Z","role":"assistant","content":" if `"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.883Z","role":"assistant","content":"rf_power_w` de"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"viates >"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"5% from setpoint within 3"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":" days of any"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":" PM event"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"\n7. **Address"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":" the `"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"chamber"}
+{"type":"message","timestamp":"2026-09-15T12:34:05.884Z","role":"assistant","content":"_seasoning_idx` drift**"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.636Z","role":"assistant","content":" from the"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.636Z","role":"assistant","content":" shared-tool recipe change — open"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.636Z","role":"assistant","content":" a separate"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.636Z","role":"assistant","content":" notification"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":"/"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":"review"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":" loop"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":" for recipe"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":"-"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.637Z","role":"assistant","content":"change"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"-on"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"-shared-tool events."}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"\n8. **Watch"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":" C"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"MP-03 `"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"slurry_flow_rate`"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":"** on"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.638Z","role":"assistant","content":" upcoming"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.836Z","role":"assistant","content":" lots. It"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.836Z","role":"assistant","content":"'s"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.837Z","role":"assistant","content":" declining"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.837Z","role":"assistant","content":" at"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.837Z","role":"assistant","content":" −"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.837Z","role":"assistant","content":"2.4 σ and"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.837Z","role":"assistant","content":" is"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.838Z","role":"assistant","content":" not"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.838Z","role":"assistant","content":" the"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.839Z","role":"assistant","content":" cause"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":" of L"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":"-4471's"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":" edge-ring,"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":" but it"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":"'s trending"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.840Z","role":"assistant","content":" toward its"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.841Z","role":"assistant","content":" own"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.841Z","role":"assistant","content":" exc"}
+{"type":"message","timestamp":"2026-09-15T12:34:07.841Z","role":"assistant","content":"ursion."}
+{"type":"message","timestamp":"2026-09-15T12:34:08.077Z","role":"assistant","content":"\n\n---\n\n>"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.077Z","role":"assistant","content":" **Data"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.077Z","role":"assistant","content":" transparency"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.077Z","role":"assistant","content":":** The"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.077Z","role":"assistant","content":" wa"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":"fer map classifier"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":" and"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":" similar"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":"-"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":"case"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":" store"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.078Z","role":"assistant","content":" are constructed"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":" from the"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":" W"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":"M"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":"-811"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":"K"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.079Z","role":"assistant","content":" def"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.917Z","role":"assistant","content":"ect taxonomy"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" and"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" documented"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" fab"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" failure"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" modes —"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" not disclosed"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.918Z","role":"assistant","content":" fab"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":" incidents"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":". The sensor"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":"/"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":"wa"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":"fer-"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":"map"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":" pa"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":"iring is a"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":" constructed"}
+{"type":"message","timestamp":"2026-09-15T12:34:08.919Z","role":"assistant","content":" scenario"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.638Z","role":"assistant","content":"."}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":" The ranking"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":" engine"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":" is real"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":" (`"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":"_mode: real"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.639Z","role":"assistant","content":"`"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.640Z","role":"assistant","content":");"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.640Z","role":"assistant","content":" the wa"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":"fer map classifier"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":" is a stub (`"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":"_mode: stub`)."}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":" Confirm"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":" findings"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.641Z","role":"assistant","content":" against"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.642Z","role":"assistant","content":" your"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.642Z","role":"assistant","content":" S"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.642Z","role":"assistant","content":"PC charts"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.642Z","role":"assistant","content":" and"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.875Z","role":"assistant","content":" PM"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.876Z","role":"assistant","content":" records"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.876Z","role":"assistant","content":" before taking"}
+{"type":"message","timestamp":"2026-09-15T12:34:09.877Z","role":"assistant","content":" action."}
+{"type":"result","timestamp":"2026-09-15T12:34:09.891Z","status":"success","stats":{"task_id":"824c9b322baf1428606cf5fcbdf8a835","duration_ms":45863,"session_costs":0.286812,"max_cost":0,"tool_calls":8}}

@@ -137,6 +137,13 @@ Then, in Bob:
    >
    > *"How much of this pipeline is actually trained right now?"* (calls `pipeline_status`)
 
+   Lots that exist in the registry: `L-4471`, `L-4402`, `L-4418`, `L-3310`, `L-4815`,
+   `L-5120`, `L-5502`, `L-5540` (already run) and `L-4502`, `L-4507`, `L-4511`, `L-4515`
+   (planned, for the pre-run path). Asking about any other lot id returns an explicit
+   "unknown lot" with the list — the system will not invent data for it.
+
+   Verified transcripts of Bob doing exactly this are in `demo/bob-sessions/`.
+
 Leave `alwaysAllow` empty so you can watch each tool call being approved — that visibility
 is the point of the demo.
 

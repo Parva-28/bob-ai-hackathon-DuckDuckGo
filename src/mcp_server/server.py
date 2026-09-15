@@ -13,6 +13,7 @@ Run as an MCP server (Bob does): python src/mcp_server/server.py
 
 from __future__ import annotations
 
+import json
 import sys
 import uuid
 from pathlib import Path
@@ -53,11 +54,63 @@ DEFECT_CLASSES = ["Center", "Donut", "Edge-Loc", "Edge-Ring",
                   "Local", "Random", "Scratch", "Near-full", "None"]
 
 
+# ── lot lookup ────────────────────────────────────────────────────────────────
+
+_LOTS = json.loads((Path(__file__).parent / "data" / "lots.json").read_text())["lots"]
+
+
+@mcp.tool(description="Look up an existing or planned lot by its lot_id and return the "
+                      "evidence needed to analyse it: the wafer map reference, the sensor "
+                      "signature, the equipment it ran on, and its planned process "
+                      "parameters. CALL THIS FIRST for any question that names a lot - the "
+                      "other tools need these values and cannot derive them from a lot_id.")
+def get_lot_data(lot_id: str) -> dict:
+    # Without this tool an engineer's real question ("why did lot L-4471 fail?") has no
+    # entry point: classify_wafer_map wants an image path and score_sensor_anomaly wants a
+    # sensor dict, and nothing maps a lot_id to either. Observed in testing, the agent
+    # filled the gap by inventing an image path and passing an empty sensor dict, which
+    # produced an anomaly score of 0.0 and a defect class contradicting the question.
+    lot = _LOTS.get(lot_id)
+    if lot is None:
+        return {
+            "error": f"unknown lot_id '{lot_id}'",
+            "known_lots": sorted(_LOTS),
+            "hint": "Use one of known_lots. Do not guess values for a lot that is not listed.",
+        }
+    fx = next((f for f in adapters.FIXTURES if f["case_id"] == lot["case_id"]), None)
+    if fx is None:
+        return {"error": f"lot '{lot_id}' references missing fixture '{lot['case_id']}'"}
+
+    planned = lot.get("status") == "planned"
+    out = {
+        "lot_id": lot_id,
+        "product_id": lot.get("product_id"),
+        "fab_line": lot.get("fab_line"),
+        "status": lot.get("status"),
+        "equipment_ids": lot.get("equipment_ids", []),
+        "planned_process_params": fx["planned_process_params"],
+        "provenance": "constructed scenario - not a real fab incident",
+    }
+    if planned:
+        # A planned lot has no wafer map and no test result, by construction.
+        out["scheduled_start"] = lot.get("scheduled_start")
+        out["wafer_map_ref"] = None
+        out["sensor_signature"] = None
+        out["note"] = ("This lot has NOT run. No wafer map or sensor data exists. "
+                       "classify_wafer_map and score_sensor_anomaly do not apply - "
+                       "use flag_at_risk_batch with planned_process_params.")
+    else:
+        out["final_yield_pct"] = lot.get("final_yield_pct")
+        out["wafer_map_ref"] = f"{lot['case_id']}.png"
+        out["sensor_signature"] = fx["sensor_signature"]
+    return out
+
+
 # ── evidence tools ────────────────────────────────────────────────────────────
 
 @mcp.tool(description="Classify a wafer bin map into one of the 9 WM-811K defect "
-                      "pattern classes. Returns the predicted class and a confidence "
-                      "score. Use for post-mortem analysis of a lot that has run.")
+                      "pattern classes. Pass the wafer_map_ref returned by get_lot_data - "
+                      "do not invent a path. Returns the predicted class and confidence.")
 def classify_wafer_map(image_path: str) -> dict:
     if adapters.real_classify_wafer_map:
         return adapters.real_classify_wafer_map(image_path)
@@ -71,9 +124,10 @@ def classify_wafer_map(image_path: str) -> dict:
 
 
 @mcp.tool(description="Score a lot's sensor vector for anomaly against the SECOM-trained "
-                      "normality model. Returns an anomaly score 0-1 and the top deviating "
-                      "sensors. A LOW score is itself meaningful evidence - it points away "
-                      "from process causes and toward handling or measurement causes.")
+                      "normality model. Pass the sensor_signature returned by get_lot_data - "
+                      "an empty dict scores 0.0 and means NO DATA, not a clean lot. "
+                      "A genuinely LOW score on real data is meaningful evidence: it points "
+                      "away from process causes toward handling or measurement.")
 def score_sensor_anomaly(lot_id: str, sensors: dict[str, float]) -> dict:
     if adapters.real_score_sensor_anomaly:
         return adapters.real_score_sensor_anomaly({"lot_id": lot_id, "sensors": sensors})

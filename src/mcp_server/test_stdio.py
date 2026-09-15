@@ -26,9 +26,10 @@ from mcp.client.stdio import stdio_client
 
 SERVER = Path(__file__).parent / "server.py"
 EXPECTED_TOOLS = {
-    "classify_wafer_map", "score_sensor_anomaly", "retrieve_similar_cases",
-    "query_telemetry", "rank_root_causes", "get_corrective_action_playbook",
-    "flag_at_risk_batch", "submit_feedback", "pipeline_status",
+    "get_lot_data", "classify_wafer_map", "score_sensor_anomaly",
+    "retrieve_similar_cases", "query_telemetry", "rank_root_causes",
+    "get_corrective_action_playbook", "flag_at_risk_batch", "submit_feedback",
+    "pipeline_status",
 }
 
 
