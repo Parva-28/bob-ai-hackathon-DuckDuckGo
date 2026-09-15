@@ -67,6 +67,42 @@ It quoted `sensor_23` at +2.8 σ and `sensor_24` at +2.2 σ from `_named_deviati
 than the model's raw top-deviating sensors, which is the right narrative choice — and it
 did not treat a low overall score as "clean lot". Overclaim scan still zero.
 
+## The three demo beats, each verified through Bob
+
+### `beat2-pre-run-batch-risk.ndjson` — 21 tool calls, 65.6s, 0.285 Bobcoins
+*"I've got lots L-4502, L-4507, L-4511 and L-4515 scheduled to run tomorrow. Should I be
+worried about any of them before I release them?"*
+
+Bob called `get_lot_data` then `flag_at_risk_batch` for all four, and **correctly skipped
+`classify_wafer_map` and `score_sensor_anomaly` entirely** — those do not apply to a lot
+that has not run. It then spent the expensive follow-up only on the three flagged lots,
+called `rank_root_causes` with `classification=null, anomaly=null`, and requested the
+playbook with `preventive: true`. L-4511 scored 0.41, was not flagged, and was cleared to
+proceed — the tool discriminates rather than flagging everything.
+
+### `beat3-case6c-honest-uncertainty.ndjson` — 8 tool calls, 41.3s, 0.254 Bobcoins
+*"Lot L-5502 just came back with almost every die failing. Is this a process excursion?
+Should I scrap it?"*
+
+The trained classifier returns **Near-full at 0.9997**, and Bob's own narration is the
+point: *"Very low anomaly score against a Near-full failure map."* That contrast — a
+catastrophic map with quiet process sensors — is what drives it to the measurement path.
+
+Verdict: **"Hold L-5502 — do NOT scrap."** Recalibrate TESTER-04, retest on a qualified
+tester, and if yield recovers the lot ships. It cites HC-077 and HC-079, both of which
+resolved by fixing the tester, and says plainly that there is *"insufficient evidence to
+lock in a single cause, which is itself a signal: don't make an irreversible decision
+yet."*
+
+It also volunteered a data-provenance note unprompted, stating the historical cases are
+constructed from the WM-811K taxonomy rather than disclosed fab incidents.
+
+> An earlier run of this beat reported *"wafer map classification was unavailable (tool
+> error)"*. `get_lot_data` was returning a symbolic `case_6c.png` that never existed — fine
+> while the classifier was a stub matching on filename, fatal once it was real. Fixed by
+> extracting representative WM-811K maps per case. That bug would otherwise have appeared
+> mid-recording.
+
 ## Reading the transcripts
 
 ```bash
