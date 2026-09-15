@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "yieldguard": {
+      "command": "/Users/dhrumilamin/Projects/ddg/.venv/bin/python",
+      "args": ["/Users/dhrumilamin/Projects/ddg/src/mcp_server/server.py"],
+      "cwd": "/Users/dhrumilamin/Projects/ddg",
+      "env": {},
+      "alwaysAllow": [],
+      "disabled": false
+    }
+  }
+}

@@ -1,19 +1,29 @@
 {
   "case_id": "case_2a",
+  "case_study": 2,
   "wafer_map_pattern": "Edge-Ring",
-  "description": "Edge-ring defect: annular band of failures near the wafer periphery. Root cause hypothesis: photolithography focus/dose at edge, edge bead removal issue, or wafer clamping non-uniformity during etch.",
+  "description": "RF power showing edge ringing immediately after a tool PM.",
   "sensor_signature": {
-    "sensor_3":  1.9,
-    "sensor_21": 2.4,
-    "sensor_67": -0.3
+    "sensor_23": 2.8,
+    "sensor_24": 2.2,
+    "sensor_45": 0.1
   },
   "planned_process_params": {
-    "edge_exclusion_mm": 2.0,
-    "chuck_vacuum_torr": 720,
-    "etch_rate_nm_min": 112
+    "rf_power_w": 1480.0,
+    "gas_flow_sccm": 220.0,
+    "days_since_pm": 2.0
   },
-  "expected_hypothesis_contains": "edge",
   "expected_predicted_class": "Edge-Ring",
-  "expected_confidence_min": 0.70,
-  "notes": "Constructed scenario, not a real fab incident — see PRD Section 9/15. Edge-ring geometry from WM-811K taxonomy. Sensor signature constructed to reflect edge-process deviation."
+  "expected_hypothesis_contains": "rf",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "rf",
+    "power",
+    "edge"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Time-correlation against a discrete logged event; onset must post-date the PM timestamp",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
 }

@@ -1,19 +1,30 @@
 {
   "case_id": "case_4a",
+  "case_study": 4,
   "wafer_map_pattern": "Donut",
-  "description": "Donut defect: annular ring of failures at an intermediate radius (not at edge, not at centre). Root cause hypothesis: CMP over-polish at intermediate radius due to pad wear profile, or photoresist spin non-uniformity.",
+  "description": "Stepper lens thermal drift correlating with ambient fab temperature swings.",
   "sensor_signature": {
-    "sensor_55": 1.7,
-    "sensor_60": 1.5,
-    "sensor_12": 0.3
+    "sensor_61": 1.9,
+    "sensor_62": 2.1,
+    "sensor_99": 1.4
   },
   "planned_process_params": {
-    "polish_pad_age_wafers": 1450,
-    "slurry_flow_rate": 0.75,
-    "spin_speed_rpm": 2800
+    "lens_temp_c": 23.8,
+    "ambient_temp_c": 22.9,
+    "overlay_nm": 6.2
   },
-  "expected_hypothesis_contains": "pad",
   "expected_predicted_class": "Donut",
-  "expected_confidence_min": 0.60,
-  "notes": "Donut is one of the rarer WM-811K classes; confidence threshold intentionally lower. Constructed scenario — not a real incident. Sensor signature reflects intermediate-radius polishing deviation."
+  "expected_hypothesis_contains": "lens",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "lens",
+    "thermal",
+    "drift",
+    "temperature"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Fuses FACILITY-LEVEL data (HVAC) into root cause, not just tool-level telemetry",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
 }

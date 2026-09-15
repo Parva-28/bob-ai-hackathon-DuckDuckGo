@@ -1,0 +1,31 @@
+{
+  "case_id": "case_1c",
+  "case_study": 1,
+  "wafer_map_pattern": "Center",
+  "description": "New slurry vendor lot with different viscosity. Equipment is nominal.",
+  "sensor_signature": {
+    "sensor_12": -0.9,
+    "sensor_45": -1.1,
+    "sensor_91": 1.7
+  },
+  "planned_process_params": {
+    "slurry_flow_rate": 0.79,
+    "pad_life_pct": 0.3,
+    "slurry_lot_age_days": 3.0
+  },
+  "expected_predicted_class": "Center",
+  "expected_hypothesis_contains": "material",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "material",
+    "vendor",
+    "slurry lot",
+    "viscosity",
+    "incoming"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "material",
+  "require_evidence_citation": true,
+  "tests": "NON-EQUIPMENT root cause. A top hypothesis blaming the tool is a FAIL - the agent must consider incoming material",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

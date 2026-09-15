@@ -1,0 +1,30 @@
+{
+  "case_id": "case_2c",
+  "case_study": 2,
+  "wafer_map_pattern": "Edge-Ring",
+  "description": "Chamber wall seasoning drifted after a recipe change made by ANOTHER product line on a shared tool.",
+  "sensor_signature": {
+    "sensor_23": 1.2,
+    "sensor_51": 2.0,
+    "sensor_52": 1.8
+  },
+  "planned_process_params": {
+    "rf_power_w": 1495.0,
+    "gas_flow_sccm": 219.0,
+    "chamber_shared": 1.0
+  },
+  "expected_predicted_class": "Edge-Ring",
+  "expected_hypothesis_contains": "seasoning",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "seasoning",
+    "chamber wall",
+    "shared tool",
+    "recipe change"
+  ],
+  "expected_in_top_k": 3,
+  "expected_category": "process",
+  "require_evidence_citation": true,
+  "tests": "Shared-tool cross-contamination - the cause originates outside this lot's own process history",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

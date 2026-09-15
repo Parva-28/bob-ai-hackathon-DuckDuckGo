@@ -1,21 +1,30 @@
 {
   "case_id": "case_3a",
+  "case_study": 3,
   "wafer_map_pattern": "Scratch",
-  "description": "Scratch defect: thin linear band of failures crossing the wafer. Notable: NO correlated process-sensor deviation detected. Negative evidence pushes root cause toward mechanical/handling causes rather than process excursion.",
+  "description": "Linear scratch trail. NO process sensor correlation - all sensors nominal. The absence of signal is itself the diagnostic evidence.",
   "sensor_signature": {
-    "sensor_12":  0.1,
-    "sensor_45": -0.2,
-    "sensor_87":  0.0,
-    "sensor_3":   0.1
+    "sensor_12": 0.1,
+    "sensor_45": -0.1,
+    "sensor_87": 0.0
   },
   "planned_process_params": {
-    "handler_speed_mm_s": 310,
-    "robot_arm_pressure": 0.4,
-    "cassette_slot": 12
+    "handler_cycles_since_pm": 48000.0,
+    "slurry_flow_rate": 0.8
   },
-  "expected_hypothesis_contains": "mechanical",
   "expected_predicted_class": "Scratch",
-  "expected_confidence_min": 0.65,
-  "negative_evidence": true,
-  "notes": "KEY CASE: absence of sensor deviation is the signal here. The reasoning tool should rank mechanical/handling above process hypotheses precisely because no sensor shows deviation. Constructed scenario — not a real incident. See PRD Section 6 (non-obvious design point 1)."
+  "expected_hypothesis_contains": "end-effector",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "end-effector",
+    "handling",
+    "robot",
+    "mechanical"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "handling",
+  "require_evidence_citation": true,
+  "expected_anomaly_low": true,
+  "tests": "NEGATIVE EVIDENCE. Anomaly score is LOW yet a confident handling hypothesis must still rank #1. Correct citation form is evidence_type=absence_of_signal",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
 }

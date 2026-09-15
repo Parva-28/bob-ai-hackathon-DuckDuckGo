@@ -94,3 +94,7 @@ logs/
 .terraform/
 *.tfstate
 *.tfstate.backup
+
+# Track 3 — MCP server
+.venv/
+src/mcp_server/data/feedback.jsonl

@@ -1,0 +1,29 @@
+{
+  "case_id": "case_2b",
+  "case_study": 2,
+  "wafer_map_pattern": "Edge-Ring",
+  "description": "Gas flow imbalance from a partially clogged edge nozzle. Three correlated flow sensors deviate together.",
+  "sensor_signature": {
+    "sensor_31": -2.1,
+    "sensor_32": -1.9,
+    "sensor_33": -1.7
+  },
+  "planned_process_params": {
+    "rf_power_w": 1500.0,
+    "gas_flow_sccm": 181.0,
+    "days_since_pm": 40.0
+  },
+  "expected_predicted_class": "Edge-Ring",
+  "expected_hypothesis_contains": "gas flow",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "gas flow",
+    "nozzle",
+    "flow distribution"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Requires cross-referencing MULTIPLE correlated sensors - at least 2 distinct sensors must appear in the evidence citations",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}
