@@ -67,8 +67,9 @@ submission:
     without non-sensor context. Call pipeline_status to see which tools are backed by trained
     models and which are still stubs. On the held-out SECOM split the anomaly detector
     achieves recall 0.286 and precision 0.194 on the fail class (ROC-AUC 0.583) - it catches
-    6 of 21 failing lots and raises 25 false alarms. The wafer classifier is untrained, so no
-    macro-F1 is reported.
+    6 of 21 failing lots and raises 25 false alarms. The wafer classifier reaches macro-F1
+    0.8576 on a held-out 9,357-map split, but its weakest class is Scratch at F1 0.695
+    (precision 0.572), which is the class Case Study 3 depends on.
 ```
 
 ---

@@ -259,12 +259,12 @@ exhaust that quickly.
   table in `src/mcp_server/param_map.py` targets features that genuinely separate SECOM's
   fail class from its pass class, but it is not a claim that `sensor_103` is a slurry flow
   meter — it is the same category of construction as the wafer-map/sensor pairings.
-- **The vision classifier has never been trained.** WM-811K requires a Kaggle account, and
-  `LSWMD.pkl` is not present in this checkout, so `classify_wafer_map` is the one remaining
-  stub and **there is no macro-F1 to report.** The training and inference path itself is
-  verified end-to-end (data -> train -> checkpoint -> `classify_wafer_map`) on a synthetic
-  stand-in, so the only thing missing is the dataset. Download `LSWMD.pkl` to
-  `src/models/vision/data/`, then run `data_prep.py` and `train.py`.
+- **The vision classifier is trained: macro-F1 0.8576** on a held-out 9,357-map split,
+  40 epochs on a Colab T4. Weakest class is **Scratch at F1 0.695 (precision 0.572)**, which
+  is also Case Study 3's beat — it classifies the case-study map at 0.987 confidence but is
+  not generally reliable on that class. Near-full's F1 of 0.917 rests on only 22 validation
+  samples. Full per-class table in `src/models/vision/NOTES.md`. Quote macro-F1, not accuracy:
+  "None" is 59% of the split, so predicting it always already scores 0.591.
 - **Sub-cases 3a and 3b are indistinguishable by sensor similarity alone.** Both are Scratch
   patterns with deliberately clean sensors, so retrieval cannot separate "end-effector wear"
   from "cassette slot misalignment". Separating them needs non-sensor context (slot number,
