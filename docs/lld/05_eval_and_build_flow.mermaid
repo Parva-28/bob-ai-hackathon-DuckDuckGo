@@ -1,0 +1,94 @@
+%% YieldGuard — LLD 5/5: Build sequencing + eval harness flow
+%% Neither existed as a diagram. Two things this makes visible:
+%%   (a) Phase 0 is a HARD serial gate — four people idle until the stub lands.
+%%       Split it: fixtures ship first (unblocks everyone), stub + Bob spike follow.
+%%   (b) The Bob spike is a GO/NO-GO, not a task. If Bob will not conditionally
+%%       chain tools, four tracks are building on an integration that does not work.
+flowchart TD
+    START([Kickoff]) --> P0A
+
+    subgraph PHASE0["Phase 0 — lead solo - CRITICAL PATH"]
+        direction TB
+        P0A["Freeze CONTRACTS.md<br/>+ src/contracts/ schemas"]
+        P0B["Write 18 sub-case fixtures<br/>case_1a..case_6c"]
+        P0C["Stub MCP server:<br/>8 tools, schema-valid canned responses"]
+        P0D{"BOB SPIKE — GO / NO-GO<br/>Does Bob conditionally chain tools<br/>from novel phrasing?"}
+        P0A --> P0B
+        P0A --> P0C
+        P0C --> P0D
+    end
+
+    P0B -.->|"ships FIRST — unblocks<br/>Tracks 1, 2, 4 immediately"| FANOUT
+    P0D -->|"GO"| FANOUT
+    P0D -->|"NO-GO"| ESCALATE["STOP. Re-plan the interaction surface<br/>BEFORE more code lands on it.<br/>This is the 10-pt Criterion 5 risk."]
+
+    FANOUT{{"Phase 1 — parallel, directory-isolated"}}
+
+    subgraph TRACKS["Phase 1 — five independent branches"]
+        direction LR
+        TR1["Track 1 · vision<br/>classify_wafer_map<br/><b>self-test: 6 patterns</b>"]
+        TR2["Track 2 · tabular<br/>score_sensor_anomaly<br/>flag_at_risk_batch<br/><b>self-test: fail-class recall</b>"]
+        TR3["Track 3 · lead<br/>retrieve_similar_cases<br/>query_telemetry<br/>submit_feedback"]
+        TR4["Track 4 · reasoning<br/>rank_root_causes<br/>get_corrective_action_playbook<br/><b>USE_MOCK_LLM unblocks infra wait</b>"]
+        TR5["Track 5 · docs/eval/demo<br/>run_eval.py<br/><b>runs vs STUB first</b>"]
+    end
+
+    FANOUT --> TR1 & TR2 & TR3 & TR4 & TR5
+
+    TR1 & TR2 & TR3 & TR4 & TR5 --> SYNC1{"Sync 1 — schema conformance<br/>Every track posts self-test output.<br/>Lead diffs actual shapes vs CONTRACTS.md."}
+
+    SYNC1 -->|"shape mismatch found"| FIXSHAPE["Lead fixes the CALL SITE,<br/>not the track's internals"]
+    FIXSHAPE --> SYNC1
+    SYNC1 -->|"all conformant"| SYNC2
+
+    subgraph INTEG["Sync 2 — integration, one tool at a time"]
+        direction TB
+        SYNC2["Swap ONE stub for real code"]
+        RUNEVAL["Re-run run_eval.py<br/>across all 18 sub-cases"]
+        GATE{"All previously-passing<br/>cases still pass?"}
+        SYNC2 --> RUNEVAL --> GATE
+        GATE -->|"no — this swap broke it"| REVERT["Revert that ONE swap.<br/>Blast radius stays at one tool."]
+        REVERT --> SYNC2
+        GATE -->|"yes"| MORE{"Stubs remaining?"}
+        MORE -->|"yes"| SYNC2
+    end
+
+    MORE -->|"no — pipeline fully real"| SYNC3
+
+    subgraph FINAL["Sync 3 — freeze"]
+        direction TB
+        SYNC3["Live Bob run-through,<br/>judge-style novel phrasing"]
+        S3A["Reconcile docs/architecture.md<br/>against code as built"]
+        S3B["Record demo: Case 1 - clean win<br/>+ Case 6c - honest ambiguity"]
+        S3C["Freeze README.md + submission.yaml<br/>Paste MEASURED metrics, not placeholders"]
+        S3D{"Validate Submission<br/>Action green?"}
+        SYNC3 --> S3A --> S3B --> S3C --> S3D
+    end
+
+    S3D -->|"no"| S3C
+    S3D -->|"yes"| DONE([Submit])
+
+    subgraph EVALDETAIL["run_eval.py — per sub-case assertion chain"]
+        direction TB
+        E1["Load case_N.json fixture"]
+        E2["classify -> anomaly -> retrieve<br/>-> telemetry -> rank -> actions"]
+        E3{"Assertions"}
+        E3A["expected_class matches"]
+        E3B["expected_hypothesis_matches_any<br/><i>list, not one substring</i>"]
+        E3C["expected_in_top_k<br/><i>Case 6c: right answer may rank 2nd</i>"]
+        E3D["max_confidence_ceiling<br/><i>Case 3c: must NOT be confident</i>"]
+        E3E["expected_category<br/><i>measurement / software / material</i>"]
+        E3F["EVERY hypothesis cites<br/>a named evidence source"]
+        E1 --> E2 --> E3
+        E3 --> E3A & E3B & E3C & E3D & E3E & E3F
+    end
+
+    RUNEVAL -.->|"harness detail"| E1
+
+    classDef gate fill:#7f1d1d,stroke:#450a0a,color:#fff,stroke-width:2px
+    classDef ok fill:#14532d,stroke:#052e16,color:#fff
+    classDef work fill:#e8f1fa,stroke:#1f4e79,color:#12344d
+    classDef assert fill:#fdf6e3,stroke:#b58900,color:#3d3524
+    class P0D,ESCALATE,GATE,S3D gate
+    class DONE,START ok
+    class E3A,E3B,E3C,E3D,E3E,E3F assert

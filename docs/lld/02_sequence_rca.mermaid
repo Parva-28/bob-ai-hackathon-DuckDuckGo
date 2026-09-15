@@ -1,0 +1,74 @@
+%% YieldGuard — LLD 2/5: Runtime sequence, POST-MORTEM root-cause path
+%% Lot X failed. Why, and what do I do?
+%% Bob decides the tool order · the MCP server never calls its own tools.
+sequenceDiagram
+    autonumber
+    actor Eng as Process Engineer
+    participant Bob as IBM Bob (agent loop)
+    participant MCP as YieldGuard MCP Server
+    participant CNN as CNN Classifier (Track 1)
+    participant IF as Isolation Forest (Track 2)
+    participant VDB as Vector Store
+    participant Tel as Simulated SECS/GEM
+    participant WX as watsonx.ai (Granite)
+
+    Eng->>Bob: Lot L-4471 came back at 61% yield. What happened?
+    Note over Bob: Bob plans: need image evidence +<br/>sensor evidence before it can reason
+
+    par Evidence gathering (independent, no ordering dependency)
+        Bob->>MCP: classify_wafer_map(lot L-4471 map)
+        MCP->>CNN: forward pass on 64x64 normalised map
+        CNN-->>MCP: logits
+        MCP-->>Bob: predicted_class:Center, confidence:0.91
+    and
+        Bob->>MCP: score_sensor_anomaly(lot L-4471 sensors)
+        MCP->>IF: decision_function(imputed, scaled vector)
+        IF-->>MCP: raw score
+        MCP-->>Bob: anomaly_score:0.87,<br/>top_deviating_sensors:[sensor_12, sensor_45, ...]
+    end
+
+    alt anomaly_score >= threshold OR defect_class != None
+        Note over Bob: Bob now has a defect class and a sensor<br/>signature — enough to retrieve precedent
+
+        Bob->>MCP: retrieve_similar_cases(Center, sensor_signature, top_k=5)
+        MCP->>VDB: embed(signature) -> similarity search
+        VDB-->>MCP: top-k cases + confirmed_root_cause
+        MCP-->>Bob: cases:[case_id:HC-018, similarity:0.88, ...]
+
+        Bob->>MCP: query_telemetry([CMP-03], 14d)
+        MCP->>Tel: parameter history window
+        Tel-->>MCP: trend series
+        MCP-->>Bob: telemetry:[parameter:slurry_flow_rate,<br/>direction:decreasing, magnitude_sigma:2.4]
+
+        Note over Bob,WX: THE ORCHESTRATION POINT — Bob passes all four<br/>results in as arguments. The server does not fetch them.
+        Bob->>MCP: rank_root_causes(classification, anomaly, cases, telemetry)
+        MCP->>WX: fused evidence bundle + every hypothesis<br/>MUST name its evidence source constraint
+        WX-->>MCP: ranked hypotheses
+        MCP->>MCP: validate: reject any hypothesis whose<br/>evidence_summary names no sensor/case_id/parameter
+        MCP-->>Bob: hypotheses:[hypothesis_id:H-1, description:slurry flow<br/>rate drift, confidence:0.72, evidence_summary:sensor_12 at<br/>-2.4 sigma for 6 lots · matches case HC-018, ...]
+
+        Bob->>MCP: get_corrective_action_playbook(H-1)
+        MCP->>WX: refine actions for this hypothesis
+        WX-->>MCP: prioritised actions
+        MCP-->>Bob: actions:[description:Verify slurry pump flow<br/>calibration on CMP-03, priority:high, ...]
+
+        Bob-->>Eng: Ranked causes + cited evidence + corrective actions
+
+        opt Engineer closes the loop
+            Eng->>Bob: Confirmed — it was the slurry pump.
+            Bob->>MCP: submit_feedback(H-1, confirmed, notes)
+            MCP->>VDB: upsert verdict-tagged case
+            VDB-->>MCP: ok
+            MCP-->>Bob: status:ok
+            Bob-->>Eng: Logged — this case now informs future retrievals
+        end
+
+    else anomaly_score < threshold AND defect_class == None
+        Bob-->>Eng: Lot is within normal range on both image and sensor<br/>evidence. No root-cause analysis warranted.
+        Note over Bob: Graceful stop — does NOT invent a cause<br/>just because it was asked a why question
+    end
+
+    opt Any MCP tool fails (NFR: graceful degradation)
+        MCP-->>Bob: error:vector store unreachable
+        Bob-->>Eng: Reports the gap and returns partial evidence.<br/>Never substitutes a confident-sounding guess.
+    end

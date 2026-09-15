@@ -1,49 +1,174 @@
 # Architecture
 
-## System Architecture
+IBM Bob is the interaction surface **and the orchestrator**. The engineer chats with Bob;
+Bob decides which MCP tools to call, in what order, and carries each tool's result into the
+next. The YieldGuard MCP server exposes capabilities — it never chains its own tools.
 
-[Describe the overall architecture of your system. Replace the Mermaid diagram below with your actual architecture.]
+## System architecture
 
 ```mermaid
 graph TD
-    A[User / Browser] -->|HTTP| B[Frontend - React]
-    B -->|REST API| C[Backend - FastAPI]
-    C -->|SDK| D[watsonx.ai]
-    C -->|Query| E[PostgreSQL]
-    C -->|Publish| F[Slack Webhook]
-    D -->|Inference Result| C
+    U([Process / Yield Engineer])
+    BOB{{"IBM Bob — agent loop<br/>ORCHESTRATOR"}}
+
+    U -->|natural-language question| BOB
+    BOB -->|rendered ranked report| U
+    U -.->|confirm / reject| BOB
+
+    subgraph MCP["YieldGuard MCP Server — stdio"]
+        direction TB
+        subgraph EVID["Evidence tools — independent"]
+            T1[classify_wafer_map]
+            T2[score_sensor_anomaly]
+            T3[retrieve_similar_cases]
+            T4[query_telemetry]
+        end
+        subgraph REASON["Reasoning — consumes evidence as arguments"]
+            T5[rank_root_causes]
+            T6[get_corrective_action_playbook]
+        end
+        T7[flag_at_risk_batch]
+        T8[submit_feedback]
+    end
+
+    BOB ==> T1
+    BOB ==> T2
+    BOB ==> T3
+    BOB ==> T4
+    BOB ==>|passes T1-T4 results IN| T5
+    BOB ==> T6
+    BOB ==> T7
+    BOB ==> T8
+
+    subgraph MODELS["Models & stores"]
+        M1[CNN classifier<br/>WM-811K]
+        M2[Isolation Forest<br/>SECOM]
+        M3[(Case store<br/>shared case_id space)]
+        M4[Simulated SECS/GEM]
+        M5[[watsonx.ai<br/>Granite]]
+    end
+
+    T1 --> M1
+    T2 --> M2
+    T3 --> M3
+    T4 --> M4
+    T5 --> M5
+    T6 --> M5
+    T7 --> M3
+    T8 -->|verdict-tagged case| M3
+    M3 -.->|feedback enriches retrieval| T3
 ```
+
+**The critical edge is `BOB ==>|passes T1-T4 results IN| T5`.** An earlier revision of this
+diagram had `rank_root_causes` reading the other tools directly — which contradicted its own
+contract signature and handed orchestration to the server. Bob must be the thing doing the
+chaining.
+
+Four more diagrams — post-mortem sequence, **pre-run sequence**, data model, and the eval
+and build flow — are in [`lld/`](lld/README.md). All five are verified to render.
 
 ## Components
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| Frontend | [e.g., React 18] | [e.g., Dashboard UI, user interaction] |
-| Backend API | [e.g., FastAPI] | [e.g., Business logic, orchestration] |
-| AI / ML | [e.g., watsonx.ai] | [e.g., Anomaly scoring, classification] |
-| Database | [e.g., PostgreSQL] | [e.g., Storing pipeline events and scores] |
-| Notifications | [e.g., Slack API] | [e.g., Alerting on threshold breaches] |
+| Interaction & orchestration | **IBM Bob** (CLI / IDE agent) + `.bob/skills/yieldguard` | Tool selection, chaining, conversation state |
+| Tool server | Python + `mcp` SDK 2.x (`MCPServer`, stdio) | Exposes 8 contract tools + `pipeline_status` |
+| Defect classifier | PyTorch CNN (`WaferCNN`, ~340k params), WM-811K | `classify_wafer_map` |
+| Anomaly detector | scikit-learn Isolation Forest, SECOM pass-class only | `score_sensor_anomaly` |
+| Batch risk | Cosine similarity vs low-yield parameter profiles | `flag_at_risk_batch` |
+| Case store | JSON + pure-Python cosine similarity | `retrieve_similar_cases`, feedback write-back |
+| Telemetry | Simulated SECS/GEM lookup | `query_telemetry` |
+| Reasoning | **watsonx.ai** (IBM Granite), called from inside the MCP server | `rank_root_causes`, `get_corrective_action_playbook` |
+| Eval harness | `mcp` client over stdio | 18 sub-cases, contract assertions |
 
-## Data Flow
+**Bob does not use watsonx.ai as its own backend** — Bob routes across its own models.
+watsonx.ai is called *by our server*: `Bob → MCP → YieldGuard server → ibm-watsonx-ai SDK →
+Granite`. This matches the reference architecture and is why the reasoning call lives behind
+a tool rather than in Bob's prompt.
 
-[Describe how data moves through your system from input to output.]
+## Data flow
 
-1. [e.g., Pipeline logs are ingested via a webhook from GitHub Actions]
-2. [e.g., Logs are preprocessed and chunked into 512-token segments]
-3. [e.g., Each chunk is sent to the watsonx.ai inference endpoint]
-4. [e.g., Anomaly scores are stored in PostgreSQL]
-5. [e.g., The React dashboard polls the API every 30 seconds to refresh]
+**Post-mortem.** Bob calls `classify_wafer_map` and `score_sensor_anomaly` (independent, no
+ordering dependency). It uses the resulting defect class and sensor signature to call
+`retrieve_similar_cases`, then `query_telemetry` on the equipment named by those cases. All
+four results are passed as arguments into `rank_root_causes`, which builds a fused evidence
+bundle for watsonx.ai. The server validates the response — **any hypothesis without a cited
+evidence source is dropped** — mints a `hypothesis_id` per surviving hypothesis, and returns
+a rank-ordered list. `get_corrective_action_playbook` runs on the top hypothesis. The
+engineer's verdict goes back through `submit_feedback` into the case store, where it
+enriches future retrieval.
 
-## Security Considerations
+**Pre-run.** No wafer map, no test data. `flag_at_risk_batch` scores planned process
+parameters against historically low-yield profiles. Only flagged lots get the expensive
+follow-up. `rank_root_causes` receives `classification=null, anomaly=null` and produces
+pre-run risk drivers.
 
-[Note any security decisions relevant to the architecture — even if basic.]
+**Degradation.** If a tool fails, Bob reports the gap and returns partial evidence. It never
+substitutes a confident-sounding guess. `query_telemetry` distinguishes "no drift" from "no
+such tool" by returning an explicit error row rather than an empty list.
 
-- [e.g., API keys stored in environment variables, never committed to git]
-- [e.g., All API routes require a Bearer token]
-- [e.g., Database credentials rotated via IBM Secrets Manager]
+## Key interfaces
 
-## Scalability Notes
+```python
+classify_wafer_map(image_path)                    -> {predicted_class, confidence}
+score_sensor_anomaly(lot_id, sensors)             -> {anomaly_score, top_deviating_sensors}
+retrieve_similar_cases(defect_class, signature, top_k)
+                                                  -> {cases:[{case_id, similarity,
+                                                     confirmed_root_cause, outcome, category}]}
+query_telemetry(equipment_ids, time_window)       -> {telemetry:[{parameter, direction,
+                                                     magnitude_sigma, recent_trend}],
+                                                     equipment_meta}
+rank_root_causes(classification, anomaly, cases, telemetry)
+                                                  -> {hypotheses:[{hypothesis_id, rank,
+                                                     description, confidence, category,
+                                                     evidence_summary}]}
+get_corrective_action_playbook(top_hypothesis, preventive)
+                                                  -> {actions:[{description, priority}]}
+flag_at_risk_batch(lot_id, planned_process_params)
+                                                  -> {at_risk, similarity_to_historical_low_yield,
+                                                     matched_case_ids, threshold_used}
+submit_feedback(hypothesis_id, verdict, notes)    -> {status, feedback_id}
+pipeline_status()                                 -> {tools:{name: real|stub}, ...}
+```
 
-[Optional: how would this scale beyond the hackathon prototype?]
+Full contracts and the six amendments applied during the build:
+[`../src/contracts/CONTRACTS.md`](../src/contracts/CONTRACTS.md).
 
-[e.g., "The FastAPI backend is stateless and could be horizontally scaled behind a load balancer. The watsonx.ai calls are the bottleneck and would benefit from request batching."]
+## Design notes
+
+**`hypothesis_id` is minted at the MCP boundary.** The frozen contract returned no id, but
+`submit_feedback` requires one — so the feedback loop was unimplementable as specified.
+Minting server-side keeps the reasoning layer a stateless function.
+
+**`case_id` is one shared space.** `flag_at_risk_batch.matched_case_ids` and
+`retrieve_similar_cases.case_id` refer to the same records. Previously these were separate
+namespaces, and any cross-citation between them would have broken silently while still
+looking plausible.
+
+**Telemetry is machine-assertable.** `direction` (enum) and `magnitude_sigma` (float) sit
+alongside the human-readable `recent_trend`. Free text alone cannot be asserted on by the
+eval harness or cited precisely as evidence.
+
+**Automatic integration.** `adapters.py` resolves each tool to real track code at import,
+falling back to a fixture-derived stub if a module is missing or its model untrained. There
+is no manual stub-swap step, and `pipeline_status` always reports which is which.
+
+## Security & data handling
+
+- No real fab data is used or implied. All historical cases are constructed and carry a
+  `provenance` field.
+- Nothing leaves the machine: the MCP server makes no network calls and reads one optional
+  environment variable. The case store and telemetry are local files.
+- `.bob/mcp.json` is committed so judges can see the Bob wiring, and therefore carries
+  **no credentials** (`"env": {}`). watsonx.ai credentials belong in `.env`, which is
+  gitignored, and are read by the reasoning module.
+- `alwaysAllow` is left empty so every tool call is visible rather than silently approved.
+
+## Scalability notes
+
+Honest about where this would bend at production scale: the case store is linear-scan cosine
+similarity, fine for tens to low thousands of cases and a swap-in point for a real ANN index
+beyond that. Telemetry is a static lookup standing in for a live SECS/GEM connection.
+Google Cloud's published fab work is a useful caution — GlobalFoundries converged on
+*hundreds* of narrow per-tool, per-layer models rather than one global classifier, so a
+single CNN across all layers is a hackathon simplification, not a production architecture.
