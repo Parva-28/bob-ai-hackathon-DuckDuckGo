@@ -49,6 +49,24 @@ ranked alternatives at 0.47 and 0.27, and states *"the ranking is not a single d
 answer."* It flags the 0.0 anomaly score as **"not a clean-process signal"** rather than as
 negative evidence, and labels the classifier *"(stub model)"* unprompted.
 
+## `session-after-anomaly-fix.ndjson` — 8 tool calls, 74.7s, 0.288 Bobcoins
+
+Same question again, after fixing the anomaly scoring (sparse signatures were collapsing
+to 0.0 because ~579 of 582 features imputed to the median).
+
+`score_sensor_anomaly` now returns **0.1489** on a full 582-feature vector instead of 0.0,
+and carries `_named_deviations` so the case's own sensors stay visible alongside the
+model's raw top-deviating list.
+
+Bob's reading of it is the interesting part:
+
+> **Overall anomaly score 0.15 (low)** — *"Process body is unremarkable; the deviation is
+> edge-localised"*
+
+It quoted `sensor_23` at +2.8 σ and `sensor_24` at +2.2 σ from `_named_deviations` rather
+than the model's raw top-deviating sensors, which is the right narrative choice — and it
+did not treat a low overall score as "clean lot". Overclaim scan still zero.
+
 ## Reading the transcripts
 
 ```bash
