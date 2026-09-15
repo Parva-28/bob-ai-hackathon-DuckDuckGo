@@ -18,6 +18,7 @@ Class labels (9 total from WM-811K taxonomy):
 
 import os
 import pickle
+import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -61,10 +62,28 @@ def normalise(arr: np.ndarray) -> np.ndarray:
 
 
 def load_raw_dataframe(pkl_path: Path) -> pd.DataFrame:
-    """Load the raw LSWMD pickle into a DataFrame."""
+    """
+    Load the raw LSWMD pickle into a DataFrame.
+
+    LSWMD.pkl was written with a pre-0.20 pandas under Python 2, so a modern
+    interpreter needs two shims to read it:
+
+      * `pandas.indexes` was renamed to `pandas.core.indexes` in pandas 0.20, and
+        the pickle still references the old path -> ModuleNotFoundError.
+      * The byte stream contains non-ASCII that Python 3's default 'ascii' string
+        decoding rejects -> UnicodeDecodeError. latin1 round-trips arbitrary bytes.
+
+    Both are properties of this published dataset, not of our data.
+    """
     print(f"Loading raw dataset from {pkl_path} …")
+
+    import pandas.core.indexes as _ci
+    sys.modules.setdefault("pandas.indexes", _ci)
+    sys.modules.setdefault("pandas.indexes.base", _ci.base)
+    sys.modules.setdefault("pandas.indexes.numeric", getattr(_ci, "numeric", _ci.base))
+
     with open(pkl_path, "rb") as f:
-        df = pickle.load(f)
+        df = pickle.load(f, encoding="latin1")
     print(f"  Loaded {len(df)} total records")
     return df
 

@@ -98,3 +98,7 @@ logs/
 # Track 3 — MCP server
 .venv/
 src/mcp_server/data/feedback.jsonl
+
+# Track 1 — WM-811K (2.1 GB raw pickle + derived arrays)
+src/models/vision/data/
+src/models/vision/checkpoints/
