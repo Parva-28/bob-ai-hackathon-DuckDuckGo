@@ -101,13 +101,35 @@ print("wrote .bob/mcp.json for", repo)
 PY
 ```
 
+Verify the registration before opening Bob — this launches the server exactly as
+`.bob/mcp.json` specifies and checks every tool is present and described:
+
+```bash
+.venv/bin/python src/mcp_server/test_bob_config.py
+```
+
+It catches the common failure, which is silent: Bob requires absolute paths, so a
+`.bob/mcp.json` written on someone else's machine makes Bob list no tools at all, with no
+error explaining why.
+
 Then, in Bob:
 
 1. Open this repository as your workspace — Bob reads `.bob/mcp.json` from the project root.
 2. Settings → MCP → **Refresh servers**, then toggle `yieldguard` **on**. Bob does not pick
    up edits to the JSON until you refresh.
 3. Switch to **Advanced mode** so `.bob/skills/yieldguard/SKILL.md` loads.
-4. Ask it something in your own words — the point is that Bob *chooses* the tools:
+4. **Headless alternative** (BobShell, if `bob` is on your PATH — install it from the IDE's
+   command palette, "Install bobshell in PATH"):
+
+   ```bash
+   bob -p "Lot L-4471 came back at 61% yield with failures at the wafer centre. What happened?"
+   ```
+
+   Output is wrapped in `---output---` tags so a script can parse it. Note `bob -p`
+   pre-approves every tool call, which is fine for CI but the opposite of what you want in
+   the demo, where the visible approval is the evidence.
+
+5. Ask it something in your own words — the point is that Bob *chooses* the tools:
 
    > *"Lot L-4471 came back at 61% yield with a ring of failures near the wafer edge. What happened and what should I do?"*
    >
@@ -176,6 +198,7 @@ exhaust that quickly.
 | Full eval | `src/eval/run_eval.py` | `17/18 sub-cases passed` |
 | Held-out model performance | `src/eval/holdout_eval.py` | recall 0.286 / precision 0.194 on the fail class |
 | Real vs stub | ask Bob, or call `pipeline_status` | `7 real / 1 stub` once Tracks 2 and 4 are installed |
+| Bob registration | `src/mcp_server/test_bob_config.py` | `PASS - ... advertises all 9 tools` |
 | Bob wiring | ask Bob a novel-phrasing question | Bob calls several tools in sequence |
 
 ---
