@@ -1,0 +1,29 @@
+{
+  "case_id": "case_5b",
+  "case_study": 5,
+  "wafer_map_pattern": "Random",
+  "description": "Seal wear on one chamber generating particles only during long runs. Signal is conditional on duty cycle.",
+  "sensor_signature": {
+    "sensor_73": 1.9,
+    "sensor_74": 1.6,
+    "sensor_12": 0.1
+  },
+  "planned_process_params": {
+    "chamber_seal_age_days": 410.0,
+    "run_length_min": 185.0
+  },
+  "expected_predicted_class": "Random",
+  "expected_hypothesis_contains": "seal",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "seal",
+    "chamber",
+    "wear",
+    "particle"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "DUTY-CYCLE-DEPENDENT causation - a flat correlation check misses this entirely",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

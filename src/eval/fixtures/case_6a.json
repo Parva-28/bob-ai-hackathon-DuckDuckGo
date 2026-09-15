@@ -1,0 +1,30 @@
+{
+  "case_id": "case_6a",
+  "case_study": 6,
+  "wafer_map_pattern": "Near-full",
+  "description": "Genuine catastrophic process excursion - a power supply fault cascading through a process step. The TRUE POSITIVE case.",
+  "sensor_signature": {
+    "sensor_12": 3.4,
+    "sensor_45": 3.1,
+    "sensor_87": 2.9,
+    "sensor_tester_01": 0.2
+  },
+  "planned_process_params": {
+    "supply_voltage_v": 198.0,
+    "slurry_flow_rate": 0.41
+  },
+  "expected_predicted_class": "Near-full",
+  "expected_hypothesis_contains": "power",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "power",
+    "supply",
+    "excursion",
+    "cascade"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Real yield loss, real equipment root cause. High confidence is CORRECT here",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

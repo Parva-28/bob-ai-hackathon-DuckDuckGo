@@ -1,0 +1,32 @@
+{
+  "case_id": "case_3c",
+  "case_study": 3,
+  "wafer_map_pattern": "Scratch",
+  "description": "One-off mis-pick during an operator-assisted transfer. Single occurrence, no recurring pattern.",
+  "sensor_signature": {
+    "sensor_12": 0.0,
+    "sensor_45": 0.0,
+    "sensor_87": 0.2
+  },
+  "planned_process_params": {
+    "handler_cycles_since_pm": 800.0,
+    "operator_assisted": 1.0
+  },
+  "expected_predicted_class": "Scratch",
+  "expected_hypothesis_contains": "mis-pick",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "mis-pick",
+    "handling",
+    "transfer",
+    "single"
+  ],
+  "expected_in_top_k": 3,
+  "expected_category": "handling",
+  "require_evidence_citation": true,
+  "max_confidence_ceiling": 0.5,
+  "honest_uncertainty": true,
+  "expected_anomaly_low": true,
+  "tests": "GENUINELY LOW CONFIDENCE. A confident answer here is a FAIL even if the named cause is right",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

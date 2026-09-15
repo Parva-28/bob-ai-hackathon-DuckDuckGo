@@ -1,0 +1,31 @@
+{
+  "case_id": "case_4c",
+  "case_study": 4,
+  "wafer_map_pattern": "Donut",
+  "description": "Focus/exposure map miscalibration following a stepper firmware update.",
+  "sensor_signature": {
+    "sensor_61": 0.3,
+    "sensor_65": 1.8,
+    "sensor_66": 1.6
+  },
+  "planned_process_params": {
+    "lens_temp_c": 23.1,
+    "firmware_version_changed": 1.0,
+    "overlay_nm": 6.8
+  },
+  "expected_predicted_class": "Donut",
+  "expected_hypothesis_contains": "firmware",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "firmware",
+    "calibration",
+    "focus map",
+    "software",
+    "update"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "software",
+  "require_evidence_citation": true,
+  "tests": "Correlating a SOFTWARE/CONFIG CHANGE LOG with a physical defect onset - pure sensor reasoning cannot reach this",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

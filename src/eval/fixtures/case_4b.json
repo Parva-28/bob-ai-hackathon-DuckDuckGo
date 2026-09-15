@@ -1,0 +1,29 @@
+{
+  "case_id": "case_4b",
+  "case_study": 4,
+  "wafer_map_pattern": "Donut",
+  "description": "Reticle contamination introduced during a reticle swap. Step change, not a gradual ramp.",
+  "sensor_signature": {
+    "sensor_61": 0.4,
+    "sensor_63": 2.6,
+    "sensor_64": 2.3
+  },
+  "planned_process_params": {
+    "lens_temp_c": 23.0,
+    "reticle_swaps_24h": 1.0,
+    "overlay_nm": 7.1
+  },
+  "expected_predicted_class": "Donut",
+  "expected_hypothesis_contains": "reticle",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "reticle",
+    "contamination",
+    "swap"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Traces to a specific LOGGED EVENT; telemetry direction should read as a step, not a ramp",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

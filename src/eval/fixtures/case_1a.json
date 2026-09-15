@@ -1,19 +1,31 @@
 {
   "case_id": "case_1a",
+  "case_study": 1,
   "wafer_map_pattern": "Center",
-  "description": "Classic center-type defect: cluster of failing dies concentrated at the wafer centre. Root cause hypothesis: CMP (chemical-mechanical planarization) non-uniformity or slurry over-application at the centre.",
+  "description": "Slurry pump degrading gradually over ~2 weeks. Sensor_12 trending outside 2 sigma across the last 6 lots.",
   "sensor_signature": {
-    "sensor_12": 2.3,
-    "sensor_45": -1.1,
-    "sensor_87": 1.8
+    "sensor_12": -2.4,
+    "sensor_45": -1.9,
+    "sensor_87": 0.2
   },
   "planned_process_params": {
-    "slurry_flow_rate": 0.82,
-    "polish_pressure_psi": 3.1,
-    "platen_rpm": 95
+    "slurry_flow_rate": 0.61,
+    "pad_life_pct": 0.42,
+    "head_pressure_psi": 5.1
   },
-  "expected_hypothesis_contains": "slurry",
   "expected_predicted_class": "Center",
-  "expected_confidence_min": 0.70,
-  "notes": "Constructed scenario, not a real fab incident — see PRD Section 9/15. Wafer map generated from WM-811K Center-class geometry. Sensor values constructed to correlate with CMP over-polish."
+  "expected_hypothesis_contains": "slurry",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "slurry",
+    "flow",
+    "pump"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "expected_at_risk": true,
+  "tests": "FR-8 pre-run flagging fires days before yield actually drops",
+  "demo_use": "PRIMARY - clean confident win, open the demo with this",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
 }

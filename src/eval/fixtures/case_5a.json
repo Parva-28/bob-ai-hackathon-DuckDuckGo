@@ -1,19 +1,30 @@
 {
   "case_id": "case_5a",
+  "case_study": 5,
   "wafer_map_pattern": "Random",
-  "description": "Random defect: spatially scattered failures with no geometric structure. Root cause hypothesis: particle contamination (random particles on wafer surface), or random gate-oxide pinhole defects.",
+  "description": "Defect density elevated vs the None-class baseline. Cleanroom particle counter trended up BEFORE the wafer defect trend.",
   "sensor_signature": {
-    "sensor_102": 2.1,
-    "sensor_78":  1.6,
-    "sensor_34":  0.5
+    "sensor_71": 2.2,
+    "sensor_72": 1.5,
+    "sensor_12": 0.2
   },
   "planned_process_params": {
-    "cleanroom_particle_count": 420,
-    "ambient_humidity_pct": 47,
-    "gate_oxide_thickness_nm": 3.8
+    "particle_count_per_m3": 1420.0,
+    "hepa_runtime_hours": 31000.0
   },
-  "expected_hypothesis_contains": "particle",
   "expected_predicted_class": "Random",
-  "expected_confidence_min": 0.65,
-  "notes": "Constructed scenario — not a real incident. Random pattern is one of the more common WM-811K classes. Particle contamination is the canonical first-order root cause hypothesis for spatially random failures."
+  "expected_hypothesis_contains": "hepa",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "hepa",
+    "filter",
+    "particle",
+    "contamination"
+  ],
+  "expected_in_top_k": 1,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "expected_at_risk": true,
+  "tests": "Uses a LEADING INDICATOR rather than waiting for the lagging defect signal - evidence must cite the earlier particle-counter timestamp",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
 }

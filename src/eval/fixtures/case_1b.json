@@ -1,0 +1,29 @@
+{
+  "case_id": "case_1b",
+  "case_study": 1,
+  "wafer_map_pattern": "Center",
+  "description": "Polishing pad exceeded qualified life but calendar-based PM had not triggered yet.",
+  "sensor_signature": {
+    "sensor_12": -1.6,
+    "sensor_45": -0.4,
+    "sensor_88": 2.1
+  },
+  "planned_process_params": {
+    "slurry_flow_rate": 0.8,
+    "pad_life_pct": 1.12,
+    "head_pressure_psi": 5.0
+  },
+  "expected_predicted_class": "Center",
+  "expected_hypothesis_contains": "pad",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "pad",
+    "wear",
+    "qualified life"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "equipment",
+  "require_evidence_citation": true,
+  "tests": "Condition-based reasoning catching what fixed-schedule maintenance misses; must reference equipment PM state, not only the sensor",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

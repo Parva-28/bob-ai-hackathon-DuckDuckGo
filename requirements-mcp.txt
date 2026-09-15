@@ -1,0 +1,6 @@
+# Track 3 — MCP server & Bob integration.
+# Intentionally one dependency: the stores, adapters and stubs are stdlib-only,
+# so this server stays installable even when the ML tracks' deps break on a new
+# Python. Track 1/2/4 deps live in their own requirements files and are imported
+# opportunistically at runtime (see src/mcp_server/adapters.py).
+mcp>=2.2.0

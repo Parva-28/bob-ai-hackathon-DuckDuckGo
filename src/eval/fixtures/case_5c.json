@@ -1,0 +1,29 @@
+{
+  "case_id": "case_5c",
+  "case_study": 5,
+  "wafer_map_pattern": "Random",
+  "description": "Particle spike immediately following an unscheduled emergency maintenance entry.",
+  "sensor_signature": {
+    "sensor_71": 2.4,
+    "sensor_75": 1.3,
+    "sensor_12": 0.0
+  },
+  "planned_process_params": {
+    "particle_count_per_m3": 1610.0,
+    "unscheduled_entry_hours_ago": 6.0
+  },
+  "expected_predicted_class": "Random",
+  "expected_hypothesis_contains": "maintenance",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "maintenance",
+    "entry",
+    "access",
+    "contamination"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "process",
+  "require_evidence_citation": true,
+  "tests": "Correlating a LOGGED HUMAN ACCESS EVENT with contamination onset",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

@@ -1,0 +1,30 @@
+{
+  "case_id": "case_3b",
+  "case_study": 3,
+  "wafer_map_pattern": "Scratch",
+  "description": "Cassette slot misalignment affecting one specific slot number. Sensors clean.",
+  "sensor_signature": {
+    "sensor_12": 0.0,
+    "sensor_45": 0.1,
+    "sensor_87": -0.1
+  },
+  "planned_process_params": {
+    "cassette_slot": 13.0,
+    "handler_cycles_since_pm": 12000.0
+  },
+  "expected_predicted_class": "Scratch",
+  "expected_hypothesis_contains": "slot",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "slot",
+    "cassette",
+    "misalign",
+    "position"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "handling",
+  "require_evidence_citation": true,
+  "expected_anomaly_low": true,
+  "tests": "Root cause is POSITIONAL METADATA - nothing in the 590-sensor vector can express it",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "case_6b",
+  "case_study": 6,
+  "wafer_map_pattern": "Near-full",
+  "description": "Upstream equipment interlock software bug misrouted otherwise-good wafers. Process sensors are quiet.",
+  "sensor_signature": {
+    "sensor_12": 0.3,
+    "sensor_45": 0.2,
+    "sensor_87": 0.1,
+    "sensor_route_mismatch": 2.7
+  },
+  "planned_process_params": {
+    "interlock_fw_changed": 1.0,
+    "route_deviation_steps": 3.0
+  },
+  "expected_predicted_class": "Near-full",
+  "expected_hypothesis_contains": "software",
+  "expected_confidence_min": 0.5,
+  "expected_hypothesis_matches_any": [
+    "software",
+    "interlock",
+    "routing",
+    "automation",
+    "misroute"
+  ],
+  "expected_in_top_k": 2,
+  "expected_category": "software",
+  "require_evidence_citation": true,
+  "tests": "Cause is AUTOMATION/SOFTWARE - the agent must look beyond process sensors entirely",
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+}

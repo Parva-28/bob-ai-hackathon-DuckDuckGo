@@ -144,3 +144,103 @@ Every case study from the blueprint doc becomes:
 ```
 Tracks 1, 2, and 4 each read these fixtures for their own self-tests; nobody needs
 the other tracks' code running to do this.
+
+---
+
+# AMENDMENTS — Track 3, applied at MCP-server build
+
+Three of these fix contracts that could not be implemented as frozen. **All are
+additive**: every field the original contract specified still returns with its
+original name and meaning, so Tracks 1, 2 and 4 need no code change.
+
+### A1. `rank_root_causes` — `hypothesis_id` is minted by the MCP server
+
+The frozen contract returned no id, but `submit_feedback(hypothesis_id, ...)` requires
+one and the ER model has it as a PK — so FR-10 was unimplementable. The server now mints
+`hypothesis_id` (and `rank`) when the tool returns.
+
+**Track 4 does not need to emit ids.** Keep `rank_root_causes` a stateless function
+returning `{"hypotheses":[{"description","confidence","evidence_summary"}]}`. An optional
+`category` field (one of `process | equipment | material | handling | software |
+measurement`) is now read if present and is what the eval fixtures assert on — adding it
+is recommended, not required.
+
+The server **drops any hypothesis whose `evidence_summary` is empty** and reports the ids
+it dropped in `rejected_uncited`. The citation rule is enforced in code, not review.
+
+### A2. `query_telemetry` — structured trend fields added
+
+Now returns, per parameter:
+
+```python
+{"equipment_id": str, "tool_type": str, "parameter": str,
+ "direction": "increasing" | "decreasing" | "stable" | "oscillating",
+ "magnitude_sigma": float,
+ "recent_trend": str,      # unchanged, still the human-readable form
+ "time_window": str}
+```
+
+Free text alone could not be asserted on by the eval harness or cited precisely as
+evidence. An unknown `equipment_id` returns a row carrying an `error` key rather than
+being silently omitted — "no drift" and "no such tool" must be distinguishable.
+The response also carries `equipment_meta` (`is_shared_tool`, `is_metrology`,
+`days_since_pm`), which Cases 2c, 4b and 6c need.
+
+### A3. `HISTORICAL_CASE.case_id` is one shared ID space
+
+`flag_at_risk_batch.matched_case_ids` (Track 2) and `retrieve_similar_cases.case_id`
+(Track 3) now refer to the same records, seeded from `src/mcp_server/data/cases.json`
+(`HC-018`, `HC-021`, …). Track 2 should return ids from that file so a ranked report can
+cross-cite them. Previously these were separate namespaces and the evidence trail broke
+silently.
+
+### A4. Fixture schema extended (`src/eval/fixtures/case_*.json`, 18 sub-cases)
+
+Original keys are unchanged. Added:
+
+| Key | Purpose |
+|---|---|
+| `expected_hypothesis_matches_any` | list of acceptable substrings, not one |
+| `expected_in_top_k` | the right answer may legitimately rank 2nd or 3rd (Case 6b) |
+| `expected_category` | asserts the *kind* of cause, not just wording |
+| `max_confidence_ceiling` | asserts the system was appropriately **un**confident (3c, 6c) |
+| `require_evidence_citation` | every hypothesis names a source |
+| `expected_at_risk` | pre-run flag must fire (1a, 5a) |
+| `expected_anomaly_low` | negative-evidence cases (3a, 3b, 3c) |
+
+A single `expected_hypothesis_contains` substring could not express Case 6c (correct
+answer may rank 2nd) or Case 3c (must be low-confidence), i.e. the two cases the pitch
+depends on.
+
+### A5. Directory and path corrections
+
+- `src/mcp-server/` → **`src/mcp_server/`** (a hyphen is not importable in Python).
+- `src/bob-config/` → **`.bob/`** at repo root. Bob reads `.bob/mcp.json`,
+  `.bob/skills/<name>/SKILL.md` and `.bob/custom_modes.yaml`; it never looks in `src/`.
+  Adding top-level directories is explicitly permitted by the submission template.
+
+### A6. Integration is automatic — there is no manual stub swap
+
+`src/mcp_server/adapters.py` resolves each tool to real track code at import, falling
+back to a stub if the module is missing or its model is untrained. Sync 2 therefore
+happens when a teammate merges and trains — **no server edit, no merge conflict**.
+
+To make your track go live, just satisfy the import:
+
+| Tool | Module the server imports | Also needs |
+|---|---|---|
+| `classify_wafer_map` | `src.models.vision.classifier` | trained `checkpoints/best_model.pt` |
+| `score_sensor_anomaly`, `flag_at_risk_batch` | `src.models.tabular.anomaly` | trained `checkpoints/isolation_forest.pkl` |
+| `rank_root_causes`, `get_corrective_action_playbook` | **`src.reasoning.reasoner`** | — |
+
+**Track 4: name your module `src/reasoning/reasoner.py`** and export those two functions.
+
+Call the `pipeline_status` tool at any time to see which tools are real and which are
+stubs. Report that honestly in the demo rather than implying everything is trained.
+
+> **Known blocker for Track 1:** `src/models/vision/classifier.py` uses `from model import
+> ...` and `train.py` uses `from model import` / `from data_prep import`. These are
+> implicit top-level imports, so `import src.models.vision` raises
+> `ModuleNotFoundError: No module named 'model'` and the adapter falls back to a stub even
+> once a checkpoint exists. Fix: make them relative (`from .model import ...`). Track 2 is
+> already clean.
