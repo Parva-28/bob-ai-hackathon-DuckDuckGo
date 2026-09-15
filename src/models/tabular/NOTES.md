@@ -155,7 +155,7 @@ This is explicitly a similarity proxy, not a causal prediction.
 1. SECOM does not contain "upcoming lot" data — we use SECOM fail-class rows
    as a stand-in for "historically low-yield parameter profiles"
 2. SECOM and WM-811K are entirely separate, unrelated datasets — any case study
-   that fuses wafer map + sensor data is a constructed pairing (PRD Section 9)
+   that fuses wafer map + sensor data is a constructed pairing (docs/problem-statement.md)
 3. A high similarity score means "these parameters resemble past fails" — it
    does NOT mean this lot will fail; it is a triage signal for engineer review
 4. The 0.45 similarity threshold is calibrated for triage sensitivity; in production it would
@@ -317,7 +317,7 @@ src/models/tabular/data/fail_profile.npy              # fail-class centroid
 
 To re-run data prep and training from scratch (not needed for MCP integration):
 ```bash
-pip install -r requirements-tabular.txt
+pip install -r requirements.txt
 python src/models/tabular/data_prep.py
 python src/models/tabular/train.py
 ```

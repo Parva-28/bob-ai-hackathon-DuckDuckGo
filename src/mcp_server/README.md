@@ -18,7 +18,7 @@ The interaction surface. IBM Bob connects to this over stdio and calls its tools
 ## Run
 
 ```bash
-python -m venv .venv && .venv/bin/pip install -r requirements-mcp.txt
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python src/mcp_server/test_server.py   # logic
 .venv/bin/python src/mcp_server/test_stdio.py    # transport
 ```

@@ -1,8 +1,1 @@
-PENDING — not yet recorded.
-
-Record per demo/demo-script.md (4:00 target, 5:00 cap), then replace this entire file
-with the bare URL on the first line.
-
-Accepted platforms: YouTube (public or unlisted), Loom, IBM Box, Google Drive.
-Set link sharing to "anyone with the link can view" and verify it in a private window
-before submitting — a link that requires access is treated as a missing demo.
+video link - https://drive.google.com/file/d/1iWj2y7aVXRFHVzIW7XvKKBi4DOZKtsTU/view?usp=sharing 

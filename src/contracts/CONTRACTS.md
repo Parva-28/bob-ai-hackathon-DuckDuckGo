@@ -22,10 +22,10 @@ demo/                 # Track 5 — exclusive
 presentation/         # Track 5 — exclusive
 README.md             # lead only, at integration points
 submission.yaml       # lead only
-requirements-vision.txt      # Track 1 owns
-requirements-tabular.txt     # Track 2 owns
-requirements-mcp.txt         # Track 3 owns
-requirements-reasoning.txt   # Track 4 owns
+requirements.txt      # Track 1 owns
+requirements.txt     # Track 2 owns
+requirements.txt         # Track 3 owns
+requirements.txt   # Track 4 owns
 requirements-eval.txt        # Track 5 owns
 requirements.txt             # lead merges all of the above at integration
 ```
@@ -139,7 +139,7 @@ Every case study from the blueprint doc becomes:
   "sensor_signature": { "sensor_12": 2.3, "sensor_45": -1.1 },
   "planned_process_params": { "slurry_flow_rate": 0.82 },
   "expected_hypothesis_contains": "slurry",
-  "notes": "Constructed scenario, not a real fab incident — see PRD Section 9/15."
+  "notes": "Constructed scenario, not a real fab incident — see docs/problem-statement.md."
 }
 ```
 Tracks 1, 2, and 4 each read these fixtures for their own self-tests; nobody needs

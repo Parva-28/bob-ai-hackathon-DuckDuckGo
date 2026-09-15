@@ -1,0 +1,24 @@
+# YieldGuard — all runtime dependencies.
+# The MCP server needs only 'mcp'; the rest are for the models and reasoning layer.
+# See docs/setup-guide.md for the minimal install path.
+
+mcp>=2.2.0
+
+# vision (Track 1)
+torch>=2.2.0
+torchvision>=0.17.0
+numpy>=1.24.0
+Pillow>=10.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+tqdm>=4.66.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+kaggle>=1.6.0
+
+# tabular (Track 2)
+ucimlrepo>=0.0.3
+joblib>=1.3.0
+
+# reasoning (Track 4)
+ibm-watsonx-ai>=0.1.0         # newer unified SDK (preferred)

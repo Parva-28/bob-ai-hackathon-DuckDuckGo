@@ -65,8 +65,8 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 │   ├── screenshots/          # App screenshots
 │   └── demo-video-link.txt   # Link to demo video
 ├── presentation/             # Slide deck
-├── requirements-vision.txt   # Dependencies for the vision track
-├── requirements-tabular.txt  # Dependencies for the tabular track
+├── requirements.txt   # Dependencies for the vision track
+├── requirements.txt  # Dependencies for the tabular track
 └── submission.yaml           # Structured submission metadata
 ```
 
@@ -82,7 +82,7 @@ cd bob-ai-hackathon-Mazaaaa
 # 2. Install dependencies (Python 3.10+ recommended)
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements-vision.txt -r requirements-tabular.txt
+pip install -r requirements.txt -r requirements.txt
 
 # 3. Configure environment (needed for watsonx.ai)
 cp src/.env.example .env
@@ -116,10 +116,12 @@ python src/models/tabular/test_anomaly.py
 ## ⚠️ Known Limitations
 
 - **Constructed pairings:** WM-811K (wafer maps) and SECOM (sensor data) are separate, unrelated public datasets. Case studies that combine the two are constructed scenarios for the demo, not real fab incidents.
-- **Batch risk is a similarity proxy:** `flag_at_risk_batch` uses cosine similarity to the historical fail-class profile. A high score means "these parameters resemble past fails", not "this lot will fail". It is a triage signal for engineers, and the 0.60 threshold is untuned.
-- **Rare classes and subtle fails:** Donut and Near-full wafer patterns have very few training samples and are expected to score lower. Fail lots whose sensor deviations look like measurement noise will be missed by any unsupervised model.
-- **Integration still in progress:** The vision and tabular models are implemented in this repo. The MCP server, the watsonx.ai reasoning module, the vector-store case retrieval and the simulated SECS/GEM telemetry are specified in [`CONTRACTS.md`](CONTRACTS.md) but not yet merged.
-- **Single validation split:** Metrics come from one stratified held-out split with no cross-validation, so treat them as estimates.
+- **Batch risk is a similarity proxy:** `flag_at_risk_batch` scores cosine similarity to the historical fail-class profile. A high score means "these parameters resemble past fails", not "this lot will fail". It is a triage signal, not a go/no-go gate, and the signal is thin — all 18 sub-cases land in a 0.41–0.60 band against a 0.45 threshold that sits ~0.02 above the uninformative baseline.
+- **Measured performance, stated plainly:** the wafer classifier reaches **macro-F1 0.8576** on a held-out 9,357-map split; its weakest class is **Scratch at F1 0.695**, which is the class Case Study 3 depends on, and Near-full's 0.917 rests on only 22 samples. The anomaly detector reaches **recall 0.286 / precision 0.194** on the held-out SECOM fail class — it catches 6 of 21 failing lots and raises 25 false alarms. We quote macro-F1 and fail-class recall, never accuracy: "None" is 59% of the wafer split and "pass" is 93% of SECOM, so accuracy flatters a model that has learned nothing.
+- **Confidence ceilings are enforced, not requested:** live Granite returned a test-head hypothesis at 0.85 and labelled it `equipment`, so its own cap never fired. The MCP server now re-derives the category from the hypothesis text and caps measurement-path claims at 0.70 and single-occurrence ones at 0.50, recording every cap on the hypothesis rather than rewriting it silently.
+- **Live vs mock reasoning:** watsonx.ai Granite is wired and working. The eval scores **17/18 under mocked reasoning and 10/18 live** — the live number is the more honest one, because the mock run skips 18 assertions that canned responses cannot test. Remaining live failures are genuine: Granite favours equipment explanations over material, software and process ones. Call `pipeline_status` to see which tools are backed by trained models on any given run.
+- **Simulated telemetry:** no live SECS/GEM connection. Equipment trends come from a fixed lookup.
+- **Single validation split:** metrics come from one stratified held-out split with no cross-validation, so treat them as estimates.
 
 ---
 

@@ -29,7 +29,7 @@ No GPU required. Inference is CPU-pinned for portability.
 git clone https://github.com/Parva-28/bob-ai-hackathon-DuckDuckGo.git
 cd bob-ai-hackathon-DuckDuckGo
 python3 -m venv .venv
-.venv/bin/pip install -r requirements-mcp.txt
+.venv/bin/pip install -r requirements.txt
 ```
 
 That installs exactly one package (`mcp`). The MCP server, its stores and its stubs are
@@ -158,7 +158,7 @@ model is all that is required to make its tool go live.
 ### Sensor anomaly + batch risk (Track 2, SECOM — fast)
 
 ```bash
-.venv/bin/pip install -r requirements-tabular.txt
+.venv/bin/pip install -r requirements.txt
 .venv/bin/python src/models/tabular/data_prep.py
 .venv/bin/python src/models/tabular/train.py
 .venv/bin/python src/models/tabular/test_anomaly.py
@@ -170,7 +170,7 @@ class** — accuracy is ~93% for "predict all pass" and meaningless at this 1:14
 ### Wafer defect classifier (Track 1, WM-811K — slower)
 
 ```bash
-.venv/bin/pip install -r requirements-vision.txt
+.venv/bin/pip install -r requirements.txt
 # Kaggle credentials required: https://www.kaggle.com/settings -> Create New Token
 # saves kaggle.json to ~/.kaggle/kaggle.json
 .venv/bin/python src/models/vision/data_prep.py

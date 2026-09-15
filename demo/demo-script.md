@@ -1,128 +1,115 @@
-# Demo Video Script — 3:00
+# YieldGuard — 3:00 pitch
 
-Spoken word count ≈ 430. Read it at a normal pace, don't rush. The cap is 5:00, so 3:00
-leaves room — better a tight three than a padded five.
+One narrative, told in four movements: **the cost → why it's hard → what we built → what we
+won't claim.** Roughly 430 spoken words. Say it like you're explaining it to a colleague, not
+reading a deck.
 
-**Two windows, side by side.** Left: BobShell (or the Bob IDE terminal). Right: the analyst
-console at `http://127.0.0.1:8787`. The console is what a camera can follow; Bob is what is
-being judged. You need both on screen.
-
-**Before you record**
-
-```bash
-.venv/bin/python src/dashboard/console.py          # right window
-.venv/bin/python src/eval/run_eval.py              # confirm 17/18, then close it
-```
-
-Leave `USE_MOCK_LLM=true`. Live watsonx works, but it currently exceeds the confidence
-ceiling on Case 6c — the one moment the pitch rests on. Demo the mock, and *say* that live
-inference is wired and what it costs you. Honesty about that is worth more than the
-appearance of a bigger integration.
+Two windows: **Bob** on the left, the **analyst console** on the right.
 
 ---
 
-## 0:00 – 0:20 · The problem
+## 1 · The engineer at 7am  ·  0:00 – 0:25
 
-> "At 3nm, a one percent yield drop costs a fab tens of millions a month. When yield falls,
-> the cause is hidden across thousands of sensors, hundreds of process steps and defect
-> images in three different systems. Engineers correlate that by hand — days to weeks. And
-> nobody flags the lots that are *about* to fail, because you only start looking after test
-> comes back."
+> "It's seven in the morning and a lot has come back at 61% yield. At 3nm, a one percent
+> yield drop costs a fab tens of millions a month — so this one lot is somebody's whole
+> quarter.
+>
+> The engineer now opens three systems. Wafer maps in one. Sensor traces in another.
+> Tool maintenance logs in a third. And they start correlating by hand. That takes days.
+> Sometimes weeks. The line keeps running the whole time."
 
-*Screen: the console, already open on a lot. Don't show slides.*
+*Screen: the console, open on L-4471.*
 
-## 0:20 – 0:35 · What it is
+## 2 · Why it's still hard  ·  0:25 – 0:45
 
-> "YieldGuard is an IBM Bob agent. Bob talks to a YieldGuard MCP server — ten tools —
-> and **Bob decides which ones to call.** Nothing here is a fixed pipeline. Watch."
+> "This isn't an unsolved data problem. Yield platforms are good at surfacing correlations,
+> and predicting a lot's outcome before it runs is a whole standardised discipline —
+> virtual metrology, SEMI E133. Vendors ship it.
+>
+> The gap is the last mile. The best published model on fab sensor data catches 96% of
+> failures at 66% precision — so **one in three flags is a false alarm.** The bottleneck
+> isn't detection. It's that an engineer can't verify the flag fast enough to trust it. A
+> flag you can't check is a flag you learn to ignore."
 
-*Screen: switch focus to the Bob window.*
+## 3 · So we built the verification layer  ·  0:45 – 2:25
 
-## 0:35 – 1:25 · Beat 1 — it chains the tools itself
+> "YieldGuard is an IBM Bob agent over ten MCP tools. The important word is *agent* —
+> watch what I do here, which is nothing."
 
-Type it live. **Phrase it your own way** — a scripted prompt proves nothing.
+**Type it live, in your own words:**
 
-> *"Lot L-4471 came back at 61% yield and the failures cluster near the wafer edge. What
-> went wrong and what should I do?"*
+> *"Lot L-4471 came back at 61% yield, failures cluster near the wafer edge. What went
+> wrong and what should I do?"*
 
-While the tool calls scroll:
+*As the tool calls scroll:*
 
-> "I haven't told it which tools to use. It's fetching the lot, classifying the wafer map,
-> scoring the sensors, pulling similar historical cases, checking telemetry on the tool
+> "I never told it which tools to use. It's pulling the lot, classifying the wafer map,
+> scoring the sensors, retrieving similar historical cases, checking telemetry on the tool
 > those cases point at — then passing all four results *into* the reasoning step. Bob
-> orchestrates. The server just exposes capabilities."
+> orchestrates. Our server just exposes capabilities."
 
-Switch to the console, click **L-4471**:
+*Switch to the console, click L-4471:*
 
-> "Same tools, rendered. That's the real WM-811K bin map — red is failing die. Edge-Ring at
-> 0.98 confidence, from a classifier we trained to macro-F1 0.86. RF power instability after
-> the tool PM, 0.81. And every hypothesis cites its source — historical case HC-033,
-> sensor_23 at plus 2.8 sigma, telemetry oscillating on ETCH-07. That's the difference
-> between a ranked list and a justified one."
+> "Same tools, rendered. That's a real WM-811K bin map — red is failing die. Edge-Ring at
+> 0.98, from a classifier we trained to macro-F1 0.86. RF power instability after the tool
+> PM, confidence 0.81.
+>
+> And every hypothesis carries its receipts: case HC-033, sensor_23 at plus 2.8 sigma,
+> telemetry oscillating on ETCH-07. **That's the verification the engineer couldn't do fast
+> enough.** Minutes, not days."
 
-**Screenshot 1** here.
+*Click a scheduled lot — L-4502:*
 
-## 1:25 – 1:55 · Beat 2 — before the lot runs
+> "Now the other half. This lot hasn't run. No wafer map, no test data — so the classifier
+> and the anomaly detector don't apply, and the system says so rather than inventing
+> something. It scores the *planned* parameters against historically low-yield profiles.
+> This one resembles the profile that preceded case HC-018, and the tool it's booked on is
+> already drifting. Triage for a human, not an automated hold."
 
-Click a scheduled lot (**L-4502**):
+*Back to Bob:*
 
-> "This is the half that usually gets skipped because it's harder to demo. This lot hasn't
-> run. There is no wafer map and no test data — so the classifier and the anomaly detector
-> don't apply at all, and the system doesn't pretend otherwise. It scores the *planned*
-> process parameters against historically low-yield profiles. This one resembles the profile
-> that preceded case HC-018, and the tool it's scheduled on is already drifting. That's a
-> triage signal for an engineer, not an automated hold."
+> *"Lot L-5502 came back with almost every die failing. Is this a process excursion? Should
+> I scrap it?"*
 
-**Screenshot 2** here.
+> "Near-full map, 100% confidence. The obvious call is a catastrophic excursion — scrap it.
+> But the anomaly sits on the **test head**, and the process sensors are quiet. So it says
+> the tester is miscalibrated, the wafers may be fine, hold and retest.
+>
+> And look at the confidence — 0.55, not 0.85. Capped, deliberately. A claim that the
+> measurement is wrong is a claim the data is untrustworthy; you can't be certain about a
+> wafer whose measurement you're disputing. That cap is enforced in our server, not left to
+> the model's goodwill — we tested it, and the model *didn't* comply on its own."
 
-## 1:55 – 2:35 · Beat 3 — the one that matters
+## 4 · What we won't claim  ·  2:25 – 3:00
 
-Back to Bob:
-
-> *"Lot L-5502 just came back with almost every die failing. Is this a process excursion?
-> Should I scrap it?"*
-
-Let it answer, then:
-
-> "Watch what it does *not* do. Near-full failure map, 100% confidence — the obvious call is
-> a catastrophic process excursion, scrap the lot. But the anomaly sits on the test head and
-> the process sensors are quiet. So the top hypothesis is that the **tester** is
-> miscalibrated and the wafers may be fine. Hold and retest. Do not scrap."
-
-> "And the confidence is capped at 0.70, not 0.85. That's deliberate — a claim that the
-> measurement is wrong is a claim the data is untrustworthy. You can't be highly confident
-> about a wafer whose measurement you're disputing. A system tuned to sound confident gets
-> this backwards and scraps good material."
-
-**Screenshot 3** here. Do not rush this — it is the strongest forty seconds you have.
-
-## 2:35 – 3:00 · What we won't claim
-
-> "Honestly: SECOM and WM-811K are separate public datasets, so any case pairing a wafer map
-> with a sensor signature is constructed, not a real fab incident. Telemetry is simulated.
-> Confidence is a relative ranking, not a calibrated probability. The reasoning here is
-> running on mocked responses — live watsonx Granite is wired and working, but it currently
-> overstates confidence on exactly this case, so we're showing you the honest one and fixing
-> the prompt. The system reports which of its own tools are trained, every run."
-
-> "Bob orchestrating MCP tools, watsonx Granite behind the reasoning, running locally. That's
+> "Honestly. SECOM and WM-811K are separate public datasets, so any case pairing a wafer map
+> with a sensor signature is constructed — not a real fab incident. Telemetry is simulated.
+> Confidence is a relative ranking, not a calibrated probability. Our anomaly detector
+> catches 6 of 21 failing lots on held-out data — we'd rather tell you that than quote the
+> 93% accuracy you get by predicting 'pass' every time.
+>
+> The system reports which of its own tools are trained, every single run.
+>
+> IBM Bob orchestrating MCP tools, watsonx Granite behind the reasoning, running locally.
+> The engineer still decides. We just made the evidence checkable in minutes. That's
 > YieldGuard."
 
 ---
 
-## Checklist
+## Why this order
 
-- [ ] Under 3:30 — aim 3:00
-- [ ] Application **running**, not slides
-- [ ] Questions phrased naturally, typed live
-- [ ] Tool calls visible as Bob makes them
-- [ ] At least one evidence citation read aloud
-- [ ] Limitations in the **audio**, not just on a slide
-- [ ] 3 screenshots captured from this same take
-- [ ] Link sharing "anyone with the link" — check in a private window
-- [ ] URL into `demo/demo-video-link.txt`
+The problem opens on a **person**, not a statistic — the number lands harder after the
+scene. Movement 2 concedes the field is crowded *before* a judge can raise it, then narrows
+to the gap we actually fill, so everything after reads as aimed rather than naive. Movement 3
+is three beats of rising interest: it works → it works before the lot runs → **it refuses to
+overclaim.** Movement 4 is the close, because a system whose whole value is honest reasoning
+cannot end by overselling.
 
-## If you only get one take
+## Delivery notes
 
-Beats 1 and 3. The pre-run beat is the differentiator on paper, but Case 6c is what a judge
-remembers, and beat 1 is what proves Bob is load-bearing.
+- Type the questions live and phrase them yourself. A pasted prompt proves nothing, and
+  Bob choosing its own tools is the single most valuable thing on screen.
+- Don't rush 6c. It's forty seconds and it's what a judge remembers.
+- Say the limitations out loud. On a slide they look like fine print; spoken, they read as
+  confidence.
+- If a take runs long, cut the pre-run beat — not 6c.

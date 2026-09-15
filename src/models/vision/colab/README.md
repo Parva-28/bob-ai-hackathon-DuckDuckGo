@@ -51,7 +51,7 @@ Regenerate it after any change to `data_prep.py`:
 .venv/bin/python -c "
 import numpy as np, pathlib
 V=pathlib.Path('src/models/vision/data'); q=lambda a:(a*2).round().astype(np.uint8)
-np.savez_compressed('colab/wm811k_64.npz',
+np.savez_compressed('`src/models/vision/colab/wm811k_64.npz',
   X_train=q(np.load(V/'X_train.npy')), y_train=np.load(V/'y_train.npy').astype(np.int16),
   X_val=q(np.load(V/'X_val.npy')),     y_val=np.load(V/'y_val.npy').astype(np.int16))"
 ```

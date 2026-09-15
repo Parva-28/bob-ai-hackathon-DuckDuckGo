@@ -29,7 +29,7 @@ flag_at_risk_batch:
   Uses cosine similarity between the incoming planned-parameter vector and
   the mean fail-class profile from training. This is a similarity proxy —
   it is NOT a causal proof that this lot will fail. Documented limitation
-  in NOTES.md and PRD Section 15.
+  in NOTES.md and docs/problem-statement.md.
 """
 
 from __future__ import annotations

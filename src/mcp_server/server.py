@@ -305,7 +305,7 @@ def rank_root_causes(classification: dict | None = None,
     # hypothesis_id is minted HERE, at the MCP boundary, not by Track 4.
     # The frozen contract returns no id, but submit_feedback requires one and the
     # ER model has it as a PK - so FR-10 was unimplementable as written
-    # (PLAN_REVIEW P0-3). Minting server-side keeps Track 4 a stateless function.
+    # (see docs/setup-guide.md). Minting server-side keeps Track 4 a stateless function.
     # ---- confidence discipline, enforced rather than requested --------------
     # The prompt asks the model to cap measurement-artifact hypotheses at 0.70 and
     # single-occurrence ones at 0.50. Live Granite does not reliably comply: on Case

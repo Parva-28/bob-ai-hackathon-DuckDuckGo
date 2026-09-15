@@ -104,3 +104,7 @@ src/models/vision/data/
 src/models/vision/checkpoints/
 
 colab/wm811k_64.npz
+
+# macOS / editor junk
+__MACOSX/
+.DS_Store

@@ -376,7 +376,7 @@ def run_tests() -> bool:
         print("  [DONE] Every hypothesis names a specific evidence source")
         print("  [DONE] Case 6c includes a non-process (test-equipment) hypothesis")
         print("  [DONE] Playbook actions have valid priorities and >=3 actions per case")
-        print("  [DONE] Only src/reasoning/ and requirements-reasoning.txt touched")
+        print("  [DONE] Only src/reasoning/ and requirements.txt touched")
     else:
         print(f"FAILURES ({len(failures)}):")
         for f in failures:

@@ -21,7 +21,7 @@ stated deviation — it is not a real lot's real sensor trace, and the case fixt
 already say so.
 
 The full vector never leaves the server. Bob sees only the sparse signature, which
-keeps 582 raw floats out of the reasoning context (PRD §6, context engineering).
+keeps 582 raw floats out of the reasoning context (docs/solution-overview.md, context engineering).
 """
 
 from __future__ import annotations

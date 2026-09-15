@@ -56,7 +56,7 @@ that means anything here.)
 | Near-full  |      22 | 0.846 | 1.000  | 0.917  | Only 22 validation samples; treat with caution |
 | None       |    5529 | 0.989 | 0.933  | 0.960  |      |
 
-**Training:** 40 epochs on a Colab T4 (`colab/train_wafer_cnn.ipynb`), identical
+**Training:** 40 epochs on a Colab T4 (`src/models/vision/colab/train_wafer_cnn.ipynb`), identical
 hyperparameters to `train.py`. Local CPU training is ~3.2 min/epoch, so the full run is
 over two hours on a laptop; on a T4 it is minutes.
 
@@ -124,7 +124,7 @@ Full per-class metrics are regenerated into `holdout_results.json`.
 
 - Wafer maps and SECOM sensor data are from entirely separate, unrelated
   datasets — any case study fusing both is a constructed pairing for demo
-  purposes (see PRD Section 9 / Known Limitations).
+  purposes (see docs/problem-statement.md / Known Limitations).
 - Macro-F1 is measured on a 15% held-out validation split. No cross-validation was run
   (time constraint); treat it as an estimate with ~±2pp uncertainty, more for Near-full
   (22 samples) and Donut (83).

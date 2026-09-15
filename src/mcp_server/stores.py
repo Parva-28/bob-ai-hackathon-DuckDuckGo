@@ -65,7 +65,7 @@ class CaseStore:
     This is the single shared case_id space: Track 2's flag_at_risk_batch
     matched_case_ids and Track 3's retrieved case_id refer to the same records,
     so a ranked report can cross-reference them without the evidence trail
-    silently breaking (PLAN_REVIEW P1-7).
+    silently breaking (see docs/setup-guide.md).
     """
 
     def __init__(self, path: Path | None = None) -> None:
@@ -133,7 +133,7 @@ class TelemetryStore:
     Returns `direction` (enum) and `magnitude_sigma` (float) alongside the
     human-readable `recent_trend`. The contract originally returned free text
     only, which an eval harness cannot assert on and a hypothesis cannot cite
-    precisely (PLAN_REVIEW P1-8). recent_trend is retained so nothing downstream
+    precisely (see docs/setup-guide.md). recent_trend is retained so nothing downstream
     breaks.
     """
 

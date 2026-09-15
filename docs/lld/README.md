@@ -12,7 +12,7 @@ if you edit them, re-run the check below before committing.
 | 5 | [`05_eval_and_build_flow.mermaid`](05_eval_and_build_flow.mermaid) | Build sequencing, integration gates, and the eval assertion chain | **New** |
 
 Each file carries a header comment naming exactly what changed from the original and why. The
-reasoning behind every correction is in [`../PLAN_REVIEW.md`](../PLAN_REVIEW.md).
+reasoning behind every correction is in [`../setup-guide.md`](../setup-guide.md).
 
 ## The three corrections that matter most
 
@@ -20,7 +20,7 @@ reasoning behind every correction is in [`../PLAN_REVIEW.md`](../PLAN_REVIEW.md)
 `rank_root_causes -.reads.-> classify / score / retrieve / query`, i.e. the MCP server fetching its
 own inputs. But the frozen contract is `rank_root_causes(classification, anomaly, cases, telemetry)`
 — those arrive as **arguments**. If the server self-orchestrates, Bob is a chat skin over a fixed
-pipeline, which is the exact failure mode PRD §0 was written to prevent. Diagrams 1 and 2 now show
+pipeline, which is the exact failure mode docs/solution-overview.md was written to prevent. Diagrams 1 and 2 now show
 Bob gathering T1–T4 and passing the results into T5.
 
 **2 — FR-8 needed its own sequence (diagram 3).** The pre-run path is not the post-mortem path with

@@ -5,7 +5,7 @@ paraphrases. Where a claimed figure differed from the source, the source figure 
 discrepancy noted. Sources that 403'd or sat behind a login are listed at the bottom as unverified
 rather than cited as if read.
 
-Supersedes Part 1 of `S1_Wafer_Yield_Solution_Blueprint.md` and Appendix A of `PRD.md`.
+Supersedes Part 1 of docs/case-studies.md and Appendix A of `PRD.md`.
 
 ---
 
@@ -176,7 +176,7 @@ Both an IDE agent and a CLI (**BobShell**). Modes: **Ask** / **Plan** / **Agent*
 **Advanced** mode required for Skills. **Multi-model routing across Claude, Mistral and IBM Granite**,
 selected per task by accuracy/performance/cost. 80,000+ internal users, ~45% average productivity gain.
 
-> Worth noting for PRD §0: because Bob's own routing already includes Anthropic Claude, the risk was
+> Worth noting for docs/solution-overview.md because Bob's own routing already includes Anthropic Claude, the risk was
 > never "the word Claude appears." The real risk is Bob not being load-bearing. The PRD's fix —
 > watsonx.ai behind the MCP tools, Bob orchestrating — is the right architecture for the right reason.
 
