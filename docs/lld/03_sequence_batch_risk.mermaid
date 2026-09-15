@@ -1,0 +1,64 @@
+%% YieldGuard — LLD 3/5: Runtime sequence, PRE-RUN batch risk path (FR-8)
+%% This is the half of the S1 brief -- flag upcoming batches BEFORE they run --
+%% that had no diagram at all in the original LLD set. The PRD calls it the
+%% differentiator worth protecting over polish, so it needs to be visible to a judge.
+%% Note what is absent here: no wafer map, no test results. They do not exist yet.
+sequenceDiagram
+    autonumber
+    actor Mgr as Fab Ops Manager
+    participant Bob as IBM Bob (agent loop)
+    participant MCP as YieldGuard MCP Server
+    participant Sim as Similarity Model (Track 2)
+    participant VDB as Vector Store
+    participant Tel as Simulated SECS/GEM
+    participant WX as watsonx.ai (Granite)
+
+    Mgr->>Bob: Which of tomorrow's 12 lots should I worry about?
+    Note over Bob: No wafer maps and no test data exist for these lots.<br/>classify_wafer_map and score_sensor_anomaly are<br/>UNAVAILABLE by construction — only planned params exist.
+
+    loop for each planned lot
+        Bob->>MCP: flag_at_risk_batch(lot_id, planned_process_params)
+        MCP->>Sim: cosine(planned_params, low-yield centroid)
+        Sim-->>MCP: similarity
+        MCP->>VDB: nearest historical low-yield profiles
+        VDB-->>MCP: matched_case_ids
+        MCP-->>Bob: at_risk:true, similarity_to_historical_low_yield:0.74,<br/>matched_case_ids:[HC-018,HC-042]
+    end
+
+    Note over Bob: Bob triages: only lots over threshold get<br/>the expensive explain-why follow-up
+
+    alt at least one lot flagged at_risk
+        Bob->>MCP: retrieve_similar_cases(defect_class_of_matched_cases,<br/>planned_params_as_signature)
+        MCP->>VDB: similarity search
+        VDB-->>MCP: precedent cases + their confirmed root causes
+        MCP-->>Bob: cases[]
+
+        Bob->>MCP: query_telemetry(planned_equipment_ids, 14d)
+        Note right of MCP: Is the tool these lots are ABOUT to run on<br/>already drifting? This is the leading indicator.
+        MCP->>Tel: current tool state for the planned chamber
+        Tel-->>MCP: trend series
+        MCP-->>Bob: telemetry[]
+
+        Bob->>MCP: rank_root_causes(classification=null, anomaly=null,<br/>cases, telemetry)
+        Note over MCP,WX: Degraded evidence bundle — two of four inputs are null.<br/>Prompt must yield PRE-RUN risk drivers, not a post-mortem<br/>diagnosis of a failure that has not happened.
+        MCP->>WX: reasoning call, pre-run mode
+        WX-->>MCP: ranked risk drivers + evidence
+        MCP-->>Bob: hypotheses:[description:planned slurry flow 0.79<br/>resembles HC-018 pre-excursion profile, confidence:0.64,<br/>evidence_summary:matched HC-018 (sim 0.74) · CMP-03<br/>slurry_flow_rate already -1.8 sigma]
+
+        Bob->>MCP: get_corrective_action_playbook(top_hypothesis)
+        MCP->>WX: pre-run preventive actions
+        WX-->>MCP: actions
+        MCP-->>Bob: actions:[description:Re-qualify CMP-03 slurry<br/>delivery before releasing L-4502/L-4507, priority:high]
+
+        Bob-->>Mgr: 2 of 12 lots flagged, with why and what to do first
+        Note over Mgr: Framed as a TRIAGE SIGNAL for engineer review,<br/>not an automated go/no-go gate (PRD Section 15).
+    else no lot over threshold
+        Bob-->>Mgr: No lot resembles a historical low-yield profile above<br/>threshold. Reporting the threshold used, not just all clear.
+    end
+
+    opt Outcome known later — closes the prediction loop
+        Mgr->>Bob: L-4502 ran fine actually.
+        Bob->>MCP: submit_feedback(hypothesis_id, rejected, ran at 94%)
+        MCP->>VDB: write rejection — prevents this false positive<br/>from being reinforced as precedent
+        MCP-->>Bob: status:ok
+    end

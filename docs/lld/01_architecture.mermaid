@@ -1,0 +1,76 @@
+%% YieldGuard — LLD 1/5: Component Architecture (Bob-native)
+%% CORRECTION vs S1_LLD_Architecture_BobNative.mermaid:
+%%   the old diagram drew  rank_root_causes -.reads.-> classify/score/retrieve/query,
+%%   i.e. the MCP server orchestrating itself. That contradicts the frozen contract
+%%   rank_root_causes(classification, anomaly, cases, telemetry) -- which takes those
+%%   results as ARGUMENTS -- and it hands orchestration to the server instead of Bob.
+%%   Bob must be the thing doing the chaining, or Criterion 5 (10 pts) is at risk.
+%%   Here Bob collects T1..T4 results and passes them into T5 as arguments.
+graph TD
+    U([Process / Yield Engineer])
+
+    subgraph BOBLOOP["IBM Bob — agent loop - ORCHESTRATOR"]
+        BOB{{"Bob: plans which tools to call,<br/>holds conversation state,<br/>carries T1..T4 results into T5"}}
+    end
+
+    U -->|"natural-language question"| BOB
+    BOB -->|"rendered ranked report"| U
+    U -.->|"confirm / reject hypothesis"| BOB
+
+    subgraph MCP["YieldGuard MCP Server — stdio - 8 tools"]
+        direction TB
+        subgraph EVID["Evidence-gathering tools - independent, parallelisable"]
+            T1["classify_wafer_map<br/><i>Track 1</i>"]
+            T2["score_sensor_anomaly<br/><i>Track 2</i>"]
+            T3["retrieve_similar_cases<br/><i>Track 3</i>"]
+            T4["query_telemetry<br/><i>Track 3</i>"]
+        end
+        subgraph REASON["Reasoning tools - consume evidence as arguments"]
+            T5["rank_root_causes<br/><i>Track 4 · watsonx.ai</i>"]
+            T6["get_corrective_action_playbook<br/><i>Track 4 · watsonx.ai</i>"]
+        end
+        subgraph PRED["Predictive - pre-run path"]
+            T7["flag_at_risk_batch<br/><i>Track 2</i>"]
+        end
+        subgraph LEARN["Learning loop"]
+            T8["submit_feedback<br/><i>Track 3</i>"]
+        end
+    end
+
+    BOB ==>|"MCP call 1"| T1
+    BOB ==>|"MCP call 2"| T2
+    BOB ==>|"MCP call 3"| T3
+    BOB ==>|"MCP call 4"| T4
+    BOB ==>|"MCP call 5 — passes 1-4 results in"| T5
+    BOB ==>|"MCP call 6"| T6
+    BOB ==>|"MCP call - pre-run path"| T7
+    BOB ==>|"MCP call - on engineer verdict"| T8
+
+    subgraph MODELS["Models, stores & external services"]
+        M1["CNN defect classifier<br/>WM-811K · 64x64 · WaferCNN"]
+        M2["Isolation Forest<br/>SECOM · pass-class only"]
+        M3[("Vector store<br/>Chroma / Qdrant<br/>historical + constructed cases")]
+        M4["Simulated SECS/GEM<br/>telemetry lookup"]
+        M5[["watsonx.ai<br/>IBM Granite"]]
+        M6["Low-yield parameter<br/>profile centroid"]
+    end
+
+    T1 --> M1
+    T2 --> M2
+    T3 --> M3
+    T4 --> M4
+    T5 --> M5
+    T6 --> M5
+    T7 --> M6
+    T7 --> M3
+    T8 -->|"writes verdict-tagged case"| M3
+    M3 -.->|"feedback enriches future retrieval"| T3
+
+    classDef bob fill:#1f4e79,stroke:#0b2e4a,color:#fff,stroke-width:2px
+    classDef tool fill:#e8f1fa,stroke:#1f4e79,color:#12344d
+    classDef model fill:#f4f0e6,stroke:#8a7a4e,color:#3d3524
+    classDef user fill:#2d6a4f,stroke:#1b4332,color:#fff
+    class BOB bob
+    class T1,T2,T3,T4,T5,T6,T7,T8 tool
+    class M1,M2,M3,M4,M5,M6 model
+    class U user

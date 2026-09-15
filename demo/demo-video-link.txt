@@ -1,15 +1,8 @@
-https://youtu.be/your-demo-video-link-here
+PENDING — not yet recorded.
 
-Replace the URL above with a link to your demo video.
+Record per demo/demo-script.md (4:00 target, 5:00 cap), then replace this entire file
+with the bare URL on the first line.
 
-Accepted platforms:
-  - YouTube (public or unlisted)
-  - Loom (https://www.loom.com/share/...)
-  - IBM Box (https://ibm.box.com/s/...)
-  - Google Drive (set to "Anyone with the link can view")
-
-Video requirements:
-  - Length: 3–5 minutes maximum
-  - Must show the application running (not just slides)
-  - Should walk through at least one key feature end-to-end
-  - Audio narration strongly recommended
+Accepted platforms: YouTube (public or unlisted), Loom, IBM Box, Google Drive.
+Set link sharing to "anyone with the link can view" and verify it in a private window
+before submitting — a link that requires access is treated as a missing demo.

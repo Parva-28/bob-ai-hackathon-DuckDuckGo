@@ -1,0 +1,181 @@
+%% YieldGuard — LLD 4/5: Data model
+%% CORRECTIONS vs S1_LLD_Data_Model.mermaid:
+%%  1. Old model hung ROOT_CAUSE_HYPOTHESIS off ANOMALY_SCORE (score_id FK) ONLY.
+%%     Case Study 3 (Scratch, clean sensors, mechanical handling) is the flagship
+%%     "negative evidence" differentiator -- and it has no meaningful anomaly score
+%%     to hang off. An image-only hypothesis was structurally unrepresentable.
+%%     Fix: ANALYSIS_RUN is the anchor; classification and anomaly are both optional
+%%     evidence attached to the run, and either may be absent.
+%%  2. No entity persisted flag_at_risk_batch (FR-8) at all. Added BATCH_RISK_ASSESSMENT.
+%%  3. WAFER_MAP.defect_class duplicated DEFECT_CLASSIFICATION.predicted_class with
+%%     no way to tell ground truth from prediction. Renamed to ground_truth_class.
+%%  4. Nothing gave ROOT_CAUSE_HYPOTHESIS an id that submit_feedback could reference,
+%%     despite the sequence diagram calling submit_feedback(hypothesis_id, ...).
+%%     hypothesis_id is now explicitly minted by the MCP server at T5 return.
+%%  5. matched_case_ids (Track 2) and case_id (Track 3 vector store) were separate
+%%     ID spaces. HISTORICAL_CASE is now the single shared ID space for both.
+erDiagram
+    WAFER_LOT ||--o{ WAFER_MAP : contains
+    WAFER_LOT ||--o{ SENSOR_READING : produces
+    WAFER_LOT ||--o{ PROCESS_PLAN : "planned as"
+    WAFER_LOT ||--o{ ANALYSIS_RUN : "analysed by"
+
+    WAFER_MAP ||--o| DEFECT_CLASSIFICATION : "classified as"
+    SENSOR_READING }o--|| EQUIPMENT : "recorded on"
+    PROCESS_PLAN }o--|| EQUIPMENT : "scheduled on"
+
+    ANALYSIS_RUN |o--o| DEFECT_CLASSIFICATION : "image evidence - optional"
+    ANALYSIS_RUN |o--o| ANOMALY_SCORE : "sensor evidence - optional"
+    ANALYSIS_RUN ||--o{ TELEMETRY_OBSERVATION : "telemetry evidence"
+    ANALYSIS_RUN ||--o{ ROOT_CAUSE_HYPOTHESIS : produces
+    ANALYSIS_RUN |o--o| BATCH_RISK_ASSESSMENT : "pre-run variant"
+
+    ANOMALY_SCORE ||--o{ SENSOR_DEVIATION : "explained by"
+    SENSOR_DEVIATION }o--|| EQUIPMENT : "attributed to"
+
+    BATCH_RISK_ASSESSMENT }o--|| PROCESS_PLAN : scores
+    BATCH_RISK_ASSESSMENT }o--o{ HISTORICAL_CASE : "matched against"
+
+    ROOT_CAUSE_HYPOTHESIS ||--|{ EVIDENCE_CITATION : "must cite at least one"
+    EVIDENCE_CITATION }o--o| SENSOR_DEVIATION : cites
+    EVIDENCE_CITATION }o--o| HISTORICAL_CASE : cites
+    EVIDENCE_CITATION }o--o| TELEMETRY_OBSERVATION : cites
+    EVIDENCE_CITATION }o--o| DEFECT_CLASSIFICATION : cites
+
+    ROOT_CAUSE_HYPOTHESIS ||--o{ CORRECTIVE_ACTION : recommends
+    ROOT_CAUSE_HYPOTHESIS ||--o| ENGINEER_FEEDBACK : "reviewed by"
+    ENGINEER_FEEDBACK ||--o| HISTORICAL_CASE : "promoted to"
+    HISTORICAL_CASE ||--o| CASE_EMBEDDING : "indexed by"
+
+    WAFER_LOT {
+        string lot_id PK
+        string product_id
+        string fab_line
+        datetime start_time
+        float final_yield_pct "null until test completes"
+    }
+    WAFER_MAP {
+        string wafer_id PK
+        string lot_id FK
+        string bin_map_image_ref
+        int native_width "15-200 px"
+        int native_height
+        string ground_truth_class "WM-811K label, null in production"
+    }
+    DEFECT_CLASSIFICATION {
+        string classification_id PK
+        string wafer_id FK
+        string predicted_class "one of 9 WM-811K classes"
+        float confidence
+        string model_version
+        datetime created_at
+    }
+    SENSOR_READING {
+        string reading_id PK
+        string lot_id FK
+        string equipment_id FK
+        string sensor_name
+        float value "null-able: real SECOM sensor dropout"
+        datetime timestamp
+    }
+    EQUIPMENT {
+        string equipment_id PK
+        string tool_type "CMP, Etch, Litho, Handler, Tester"
+        string chamber_id
+        datetime last_pm_at "enables Case 2a maintenance-event correlation"
+        boolean is_shared_tool "enables Case 2c cross-product hypothesis"
+        boolean is_metrology "TRUE lets Case 6c blame the measurement system"
+    }
+    PROCESS_PLAN {
+        string plan_id PK
+        string lot_id FK
+        string equipment_id FK
+        string recipe_id
+        json planned_process_params
+        datetime scheduled_start "in the future — this is the pre-run hook"
+    }
+    ANALYSIS_RUN {
+        string run_id PK
+        string lot_id FK
+        string mode "post_mortem | pre_run"
+        datetime started_at
+        string bob_session_ref "traceability back to the Bob conversation"
+        string degraded_reason "which evidence was unavailable, if any"
+    }
+    ANOMALY_SCORE {
+        string score_id PK
+        string run_id FK
+        float score
+        float threshold_used
+        string model_version
+    }
+    SENSOR_DEVIATION {
+        string deviation_id PK
+        string score_id FK
+        string equipment_id FK
+        string sensor_name
+        float sigma "signed — direction matters for diagnosis"
+        int rank "1-5, top deviating only"
+    }
+    TELEMETRY_OBSERVATION {
+        string observation_id PK
+        string run_id FK
+        string equipment_id FK
+        string parameter
+        string direction "increasing | decreasing | stable | oscillating"
+        float magnitude_sigma "machine-assertable, unlike a free-text trend"
+        string time_window
+    }
+    BATCH_RISK_ASSESSMENT {
+        string assessment_id PK
+        string run_id FK
+        string plan_id FK
+        boolean at_risk
+        float similarity_to_historical_low_yield
+        float threshold_used
+        datetime assessed_at "MUST predate PROCESS_PLAN.scheduled_start"
+        float actual_yield_pct "backfilled later — makes FR-8 auditable"
+    }
+    ROOT_CAUSE_HYPOTHESIS {
+        string hypothesis_id PK "minted by MCP server, referenced by submit_feedback"
+        string run_id FK
+        int rank "1 = top; ranked list, not single answer"
+        string description
+        float confidence "relative ranking, NOT a calibrated probability"
+        string category "process | equipment | material | handling | software | measurement"
+        string evidence_summary
+    }
+    EVIDENCE_CITATION {
+        string citation_id PK
+        string hypothesis_id FK
+        string evidence_type "sensor | case | telemetry | classification | absence_of_signal"
+        string evidence_ref "null only when type = absence_of_signal"
+        string rationale
+    }
+    HISTORICAL_CASE {
+        string case_id PK "single shared ID space for Track 2 and Track 3"
+        string defect_class
+        json sensor_signature
+        string confirmed_root_cause
+        string outcome
+        string provenance "secom | wm811k | constructed | engineer_confirmed"
+    }
+    CASE_EMBEDDING {
+        string case_id PK
+        string embedder_version "owned interface — was unassigned across tracks"
+        blob vector
+    }
+    CORRECTIVE_ACTION {
+        string action_id PK
+        string hypothesis_id FK
+        string action_description
+        string priority "high | medium | low"
+        boolean is_preventive "TRUE on the pre-run path"
+    }
+    ENGINEER_FEEDBACK {
+        string feedback_id PK
+        string hypothesis_id FK
+        string verdict "confirmed | rejected"
+        string notes
+        datetime submitted_at
+    }
