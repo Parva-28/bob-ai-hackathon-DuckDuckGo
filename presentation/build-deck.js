@@ -1,4 +1,6 @@
 const pptxgen = require("pptxgenjs");
+const path = require("path");
+const ASSET = f => path.join(__dirname, f);
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";            // 13.33 x 7.5
 pres.author = "Team DuckDuckGo";
@@ -141,23 +143,22 @@ s.addNotes("Case 3c asserts a confidence CEILING — a confident answer fails th
 
 /* 6 ─ ARCHITECTURE */
 s=pres.addSlide(); s.background={color:PAPER};
-title(s,"Bob orchestrates. The server exposes.","9 MCP tools over stdio — Bob chooses and chains them");
-const flow=[["Engineer","natural language",MUTED],["IBM Bob","agent loop · ORCHESTRATOR",DEEP],
-  ["MCP Server","9 tools · stdio",TEAL],["Models","CNN · Isolation Forest · cases",MUTED],
-  ["watsonx.ai","Granite reasoning",AMBER]];
-flow.forEach((f,i)=>{const cx=0.75+i*2.48;
-  card(s,cx,2.35,2.2,1.5,i===1?DEEP:WHITE);
-  s.addText(f[0],{x:cx+0.12,y:2.55,w:1.96,h:0.42,fontFace:B,fontSize:15,bold:true,
-    color:i===1?WHITE:INK,align:"center",isTextBox:true,margin:0});
-  s.addText(f[1],{x:cx+0.12,y:3.0,w:1.96,h:0.7,fontFace:B,fontSize:11,
-    color:i===1?"9FB3C2":MUTED,align:"center",isTextBox:true,margin:0});
-  if(i<4) s.addText("→",{x:cx+2.2,y:2.8,w:0.3,h:0.5,fontFace:B,fontSize:20,color:TEAL,align:"center",isTextBox:true,margin:0});});
-card(s,0.75,4.3,11.85,2.05,INK);
-s.addText("rank_root_causes takes evidence as ARGUMENTS",
-  {x:1.1,y:4.55,w:11.1,h:0.42,fontFace:H,fontSize:20,bold:true,color:WHITE,isTextBox:true,margin:0});
-s.addText("Bob calls classify, score, retrieve and query_telemetry, then passes all four results in. The server never chains its own tools — if it fetched its own inputs, Bob would be a chat skin over a fixed pipeline. That distinction is visible in the code, and it is the one a judge should check.",
-  {x:1.1,y:5.05,w:11.1,h:1.1,fontFace:B,fontSize:14,color:"CFDCE4",isTextBox:true,margin:0});
-s.addNotes("Point at the Bob→rank_root_causes edge. An earlier revision of our own diagram had the server reading its own tools; we caught it and corrected it, because it quietly demotes Bob.");
+s.addText("Bob orchestrates. The server exposes.",
+  {x:0.65,y:0.32,w:8.9,h:0.62,fontFace:H,fontSize:32,bold:true,color:INK,isTextBox:true,margin:0});
+s.addText("9 MCP tools over stdio — Bob chooses and chains them",
+  {x:0.65,y:0.95,w:8.9,h:0.36,fontFace:B,fontSize:14,color:MUTED,isTextBox:true,margin:0});
+// The edge that matters, called out before the diagram so a reader knows what to look for.
+s.addShape(pres.ShapeType.roundRect,{x:9.75,y:0.4,w:2.93,h:0.86,rectRadius:0.06,
+  fill:{color:INK},line:{color:INK,width:1}});
+s.addText("rank_root_causes takes\nevidence as ARGUMENTS",
+  {x:9.9,y:0.48,w:2.63,h:0.7,fontFace:B,fontSize:12.5,bold:true,color:WHITE,
+   align:"center",valign:"middle",isTextBox:true,margin:0});
+s.addImage({path:ASSET("architecture.png"),x:0.5,y:1.40,w:12.33,h:4.86});
+s.addText("Bob calls classify, score, retrieve and query_telemetry — then passes all four results IN. The server never chains its own tools.",
+  {x:0.65,y:6.40,w:12.03,h:0.42,fontFace:B,fontSize:14.5,color:INK,isTextBox:true,margin:0});
+s.addText("If it fetched its own inputs, Bob would be a chat skin over a fixed pipeline — and that distinction is visible in the code.",
+  {x:0.65,y:6.80,w:12.03,h:0.38,fontFace:B,fontSize:12.5,italic:true,color:MUTED,isTextBox:true,margin:0});
+s.addNotes("Point at the Bob-to-rank_root_causes edge, top right of the diagram. An earlier revision of this same diagram had the server reading its own tools; we caught it and corrected it, because it quietly demotes Bob to a chat skin. Everything below the tool row is ours: two trained models, a case store, simulated telemetry, and watsonx.ai behind the reasoning tools.");
 
 /* 7 ─ CASE 6C */
 s=pres.addSlide(); dark(s);

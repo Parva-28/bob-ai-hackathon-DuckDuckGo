@@ -148,8 +148,20 @@ this, and the rubric says so.*
 (pptxgenjs). All 9 slides carry their speaker notes in the notes pane, not on the slide.
 
 ```bash
-npm install pptxgenjs && node presentation/build-deck.js
+npm install pptxgenjs
+node presentation/build-deck.js          # writes presentation/slides.pptx
 ```
+
+Slide 6 embeds `presentation/architecture.png`. Regenerate it after any change to the LLD:
+
+```bash
+npx @mermaid-js/mermaid-cli -i docs/lld/01_architecture.mermaid \
+  -o presentation/architecture.png -c presentation/mermaid-theme.json \
+  -b "#F4F7F9" -s 3 -w 1900
+```
+
+`mermaid-theme.json` restyles mermaid's default yellow clusters to the deck palette, so the
+diagram sits on the slide background seamlessly instead of looking pasted in.
 
 Regenerate from the script rather than hand-editing the .pptx, so this file stays the source
 of truth. To export a PDF:
@@ -161,5 +173,5 @@ soffice --headless --convert-to pdf presentation/slides.pptx
 Design notes: the repeated motif is a wafer bin map — scratch, near-full, edge-ring and
 center patterns drawn as real defect geometries rather than stock icons, so the visual
 language is the subject matter. Dark slides bookend the deck (title, Case 6c, closing) with
-light content slides between. Two things worth swapping in before presenting: a real
-screenshot on slide 7, and the rendered architecture diagram on slide 6.
+light content slides between. One thing worth swapping in before presenting: a real screenshot on slide 7, captured
+during the demo recording.
