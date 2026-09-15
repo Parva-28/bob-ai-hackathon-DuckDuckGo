@@ -9,51 +9,84 @@
 # =============================================================================
 
 team:
-  name: ""                             # REQUIRED — e.g., "Orion Squad"
-  track: ""                            # REQUIRED — one of: AI | DevOps | Sustainability | Open
+  name: "DuckDuckGo"                   # REQUIRED
+  track: "AI"                          # REQUIRED — one of: AI | DevOps | Sustainability | Open
   lead:
-    name: ""                           # REQUIRED — e.g., "Alice Chen"
-    email: ""                          # REQUIRED — e.g., "alice.chen@ibm.com"
+    name: "Dhrumil Amin"               # REQUIRED
+    email: "amin.kh@northeastern.edu"  # REQUIRED
   members:
-    - name: ""                         # REQUIRED — Team member 1
-      email: ""
-    - name: ""                         # Add more members by copying the two lines above
-      email: ""
-    - name: ""
-      email: ""
+    - name: "Parva Chhatrola"
+      email: "24cs013@charusat.edu.in"
+    - name: "Akshat Patel"
+      email: ""                        # TODO: add institutional email
+    - name: "Heet P"
+      email: ""                        # TODO: add institutional email
 
 submission:
-  title: ""                            # REQUIRED — Project display name, e.g., "SmartOps Dashboard"
+  title: "YieldGuard — Wafer Yield Root Cause & Defect Pattern Analyser"   # REQUIRED
 
-  problem_statement: >                 # REQUIRED — 1-3 sentences. What problem? Who has it?
-    Replace this text with a concise description of the real-world problem
-    your project addresses and who experiences it.
+  problem_statement: >                 # REQUIRED
+    At 3nm process nodes a 1% yield drop costs a fab tens of millions per month, but the
+    root cause hides across thousands of equipment sensors, hundreds of process steps and
+    defect images spread over disconnected systems. Process engineers correlate these by
+    hand, taking days to weeks, and every day of delay is lost revenue on wafers still
+    running. Worse, lots whose planned process parameters already resemble historical
+    low-yield profiles run anyway, because nothing flags them before they start.
 
-  solution_summary: >                  # REQUIRED — 1-3 sentences. What did you build?
-    Replace this text with a clear description of your solution
-    and how it addresses the problem above.
+  solution_summary: >                  # REQUIRED
+    YieldGuard is a Bob-native assistant a process engineer talks to directly. It classifies
+    wafer-map defect patterns, scores sensor anomalies, retrieves precedent and equipment
+    telemetry, then ranks probable root causes where every hypothesis must cite a named
+    evidence source. It also flags upcoming lots as at-risk before they run, from planned
+    process parameters alone. IBM Bob is the orchestrator, choosing and chaining nine MCP
+    tools; watsonx.ai Granite performs the reasoning behind them.
 
-  key_features:                        # REQUIRED — List 3 to 5 specific features you implemented
-    - ""                               # e.g., "Real-time pipeline anomaly detection using watsonx.ai"
-    - ""
-    - ""
-    - ""                               # optional 4th
-    - ""                               # optional 5th
+  key_features:                        # REQUIRED
+    - "IBM Bob orchestrates 9 MCP tools over stdio, chaining them from natural-language questions rather than following a fixed pipeline"
+    - "Every ranked root cause cites a specific sensor, case_id or telemetry parameter — enforced in the server, which drops uncited hypotheses rather than rendering them"
+    - "Negative evidence is treated as a finding: clean process sensors on a scratch pattern push the ranking toward mechanical handling instead of forcing a process explanation"
+    - "Honest uncertainty by construction — measurement-artifact hypotheses are confidence-capped, so the system recommends hold-and-retest instead of scrapping good wafers"
+    - "Pre-run batch risk flagging before any wafer map or test result exists, as a triage signal for engineer review rather than an automated go/no-go gate"
 
   tech_stack:
-    languages: []                      # REQUIRED — e.g., ["Python", "TypeScript"]
-    frameworks: []                     # e.g., ["FastAPI", "React"]
-    ibm_technologies: []               # e.g., ["watsonx.ai", "IBM Bob", "IBM Cloud Functions"]
-    databases: []                      # e.g., ["PostgreSQL", "Redis"]
-    other: []                          # e.g., ["Docker", "GitHub Actions", "Slack API"]
+    languages: ["Python"]              # REQUIRED
+    frameworks: ["MCP (Model Context Protocol) SDK 2.x", "PyTorch", "scikit-learn"]
+    ibm_technologies: ["IBM Bob", "watsonx.ai", "IBM Granite"]
+    databases: []
+    other: ["WM-811K / LSWMD", "SECOM (UCI)", "Mermaid", "GitHub Actions"]
 
-  what_we_are_most_proud_of: >         # Optional but recommended — guides judges to your best work
-    Replace with what aspect of the submission you consider strongest
-    and want judges to pay special attention to.
+  what_we_are_most_proud_of: >
+    Case 6c. Nearly every die on the wafer failed, so the obvious answer is a catastrophic
+    process excursion — but the anomaly sits on the test head while the process sensors are
+    quiet, so the system ranks "possible test-equipment measurement artifact" first, caps its
+    own confidence at 0.70 because a claim that the measurement is wrong is a claim the data
+    is untrustworthy, and recommends hold-and-retest rather than scrap. Getting a system to
+    be appropriately unconfident is harder than getting it to be right, and our eval suite
+    asserts on a confidence ceiling, not just on correctness. The second thing we are proud
+    of is less visible: the evaluation harness drives the server over a real MCP connection
+    and reports which tools are trained models versus stubs, so a green run can never be
+    mistaken for a claim we have not earned.
 
-  known_limitations: >                 # Optional but recommended — be honest about gaps
-    Replace with any known limitations, incomplete features,
-    or shortcuts taken due to time constraints.
+  known_limitations: >
+    SECOM and WM-811K are separate, unrelated public datasets, so every case pairing a wafer
+    map with a sensor signature is a constructed pairing, not a real joined record — and the
+    18 sub-cases are constructed from the real WM-811K taxonomy and documented failure modes,
+    not disclosed fab incidents. The wafer defect classifier is NOT trained: WM-811K requires
+    a Kaggle account and the dataset is not in this checkout, so classify_wafer_map runs as a
+    schema-valid stub and we report no macro-F1. On the held-out SECOM split (314 lots, 21
+    fails) the anomaly detector measures recall 0.286, precision 0.194, F1 0.231 and ROC-AUC
+    0.583 on the fail class — it catches 6 of 21 failing lots and raises 25 false alarms, and
+    that is below the 55-70% recall the literature reports for unsupervised Isolation Forest
+    on SECOM. We quote that rather than accuracy, which reads 0.873 against an all-pass
+    baseline of 0.933 that catches nothing. Batch-risk similarity is thin: all 18 sub-cases
+    land in a 0.41-0.60 band against a 0.45 threshold that sits only ~0.02 above the
+    uninformative baseline. The physical-parameter to SECOM-feature mapping is an explicitly
+    constructed correspondence, since SECOM's features are anonymised by its authors.
+    Telemetry is simulated, not a live SECS/GEM connection. Confidence values are relative
+    rankings, not calibrated probabilities. The system is advisory only and never takes a
+    closed-loop control action. The eval suite reports 17/18 sub-cases with some assertions
+    skipped because the reasoning layer runs in mock mode by default; call pipeline_status
+    at any time to see which tools are real.
 
 # =============================================================================
 # ARTIFACT LOCATIONS
