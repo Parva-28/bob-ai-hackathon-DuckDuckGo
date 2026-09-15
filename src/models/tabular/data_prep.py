@@ -47,8 +47,8 @@ MISSING_DROP_THRESHOLD = 0.80   # drop sensors that are >80% NaN
 VAL_FRACTION  = 0.20
 RANDOM_STATE  = 42
 
-PASS_LABEL = 1
-FAIL_LABEL = -1   # SECOM convention: +1 = pass, -1 = fail
+PASS_LABEL = -1  # SECOM UCI convention: -1 = pass (1463 rows)
+FAIL_LABEL = 1   # SECOM UCI convention: +1 = fail (104 rows)
 
 
 # ── download ──────────────────────────────────────────────────────────────────
@@ -56,28 +56,49 @@ FAIL_LABEL = -1   # SECOM convention: +1 = pass, -1 = fail
 def download_secom() -> tuple[pd.DataFrame, pd.Series]:
     """
     Download SECOM via the ucimlrepo package (no manual CSV needed).
-    Returns (X_df, y_series) with original column names.
+    Returns (X_df, y_series) with standardized sensor_0 ... sensor_589 column names.
     Falls back to local CSV if ucimlrepo fails.
     """
+    local_x = DATA_DIR / "secom.data"
+    local_y = DATA_DIR / "secom_labels.data"
+    if local_x.exists() and local_y.exists():
+        print("Loading SECOM from local cache …")
+        X = pd.read_csv(local_x, sep=" ", header=None)
+        X.columns = [f"sensor_{i}" for i in range(X.shape[1])]
+        y = pd.read_csv(local_y, sep=" ", header=None)[0]
+        return X, y
+
     try:
         from ucimlrepo import fetch_ucirepo
         print("Fetching SECOM from UCI ML Repo …")
         secom = fetch_ucirepo(id=179)
-        X = secom.data.features
-        y = secom.data.targets.squeeze()
+        if secom.data.features is not None:
+            X = secom.data.features.copy()
+            y = secom.data.targets.squeeze()
+        elif secom.data.original is not None:
+            df = secom.data.original
+            y = df["class"] if "class" in df.columns else df.iloc[:, 0]
+            feature_cols = [c for c in df.columns if c not in ("class", "timestamp")]
+            X = df[feature_cols].copy()
+        else:
+            raise ValueError("ucimlrepo returned empty dataset")
+        X.columns = [f"sensor_{i}" for i in range(X.shape[1])]
         print(f"  Downloaded: {X.shape[0]} rows × {X.shape[1]} features")
+
+        # Save to local cache for fast offline reproducibility
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        X.to_csv(local_x, sep=" ", header=False, index=False)
+        pd.DataFrame(y).to_csv(local_y, sep=" ", header=False, index=False)
         return X, y
     except Exception as e:
         print(f"  ucimlrepo failed ({e}); trying local CSV fallback …")
-        local_x = DATA_DIR / "secom.data"
-        local_y = DATA_DIR / "secom_labels.data"
         if local_x.exists() and local_y.exists():
             X = pd.read_csv(local_x, sep=" ", header=None)
             X.columns = [f"sensor_{i}" for i in range(X.shape[1])]
             y = pd.read_csv(local_y, sep=" ", header=None)[0]
             return X, y
         raise FileNotFoundError(
-            "SECOM data not found. Either install ucimlrepo or place "
+            f"SECOM data not found ({e}). Either install ucimlrepo or place "
             "secom.data and secom_labels.data in src/models/tabular/data/"
         )
 

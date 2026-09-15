@@ -92,7 +92,9 @@ def train():
                 best_f1        = f1
                 best_threshold = t
 
-    print(f"\nBest threshold (precision ≥ {MIN_PRECISION}): {best_threshold:.4f}")
+    from sklearn.metrics import confusion_matrix
+
+    print(f"\nBest threshold (precision >= {MIN_PRECISION}): {best_threshold:.4f}")
     print(f"  Recall on fail class:    {best_recall:.4f}")
     print(f"  Precision on fail class: {best_precision:.4f}")
     print(f"  F1 on fail class:        {best_f1:.4f}")
@@ -103,11 +105,18 @@ def train():
     print(classification_report(y_val, y_pred, target_names=["pass", "fail"],
                                  zero_division=0))
 
+    cm = confusion_matrix(y_val, y_pred)
+    tn, fp, fn, tp = cm.ravel()
+    print("Confusion Matrix:")
+    print(f"  True Passes (TN):  {tn}")
+    print(f"  False Alarms (FP): {fp}")
+    print(f"  Missed Fails (FN): {fn}")
+    print(f"  Caught Fails (TP): {tp}")
+
     # baseline: "predict all pass"
-    baseline_pred = np.zeros_like(y_val)
-    print("Baseline (predict all pass) — recall on fail:", 0.0)
+    print("\nBaseline (predict all pass) - recall on fail: 0.0")
     print(f"Our model recall on fail: {best_recall:.4f}  "
-          f"(vs 0% baseline — improvement confirmed)")
+          f"(vs 0% baseline - improvement confirmed)")
 
     # ── save model and metadata ────────────────────────────────────────────────
     with open(CKPT_DIR / "isolation_forest.pkl", "wb") as f:
@@ -117,15 +126,22 @@ def train():
         "model":           "IsolationForest",
         "n_estimators":    N_ESTIMATORS,
         "contamination":   TRUE_CONTAMINATION,
+        "random_state":    RANDOM_STATE,
         "threshold":       float(best_threshold),
         "val_recall_fail": float(best_recall),
         "val_prec_fail":   float(best_precision),
         "val_f1_fail":     float(best_f1),
+        "confusion_matrix": {
+            "tn": int(tn),
+            "fp": int(fp),
+            "fn": int(fn),
+            "tp": int(tp),
+        },
         "note": (
             "Threshold chosen to maximise recall on fail class "
             f"with precision >= {MIN_PRECISION}. "
             "These are measured numbers on a 20% stratified val split. "
-            "Do not report accuracy — use recall/precision on the fail class."
+            "Do not report accuracy - use recall/precision on the fail class."
         ),
     }
     with open(CKPT_DIR / "model_meta.json", "w") as f:

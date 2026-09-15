@@ -1,0 +1,32 @@
+{
+  "model": "IsolationForest",
+  "n_estimators": 300,
+  "contamination": 0.05,
+  "max_features": 0.7,
+  "var_threshold": 0.05,
+  "n_pca": null,
+  "random_state": 42,
+  "threshold": 0.37331143360651575,
+  "val_recall_fail": 0.2857142857142857,
+  "val_prec_fail": 0.1935483870967742,
+  "val_f1_fail": 0.23076923028772187,
+  "val_pr_auc": 0.17318916424570793,
+  "val_roc_auc": 0.5826,
+  "confusion_matrix": {
+    "tn": 268,
+    "fp": 25,
+    "fn": 15,
+    "tp": 6
+  },
+  "cv_8fold_pr_auc_mean": 0.1595,
+  "cv_8fold_pr_auc_std": 0.1076,
+  "cv_8fold_recall_mean": 0.2596,
+  "cv_8fold_recall_std": 0.2499,
+  "ss_cal_max": -0.36603849513604814,
+  "ss_cal_min": -0.517725575197707,
+  "scoring_method": "score_samples + calibrated normalization. anomaly_score=clip((ss_cal_max-score_samples(x))/(ss_cal_max-ss_cal_min),0,1). Calibration fit on training pass rows only. Spearman rho=1.0 with legacy decision_function+clip -- ranking unchanged.",
+  "note": "VT(0.05)+IF(n=300,cont=0.05,mf=0.7). Best config from 8-fold CV over 184 configs. Threshold=max_recall @ prec>=0.15. Contamination param is inert -- does not affect score_samples() or any evaluated metric.",
+  "locked": true,
+  "lock_date": "2026-09-15",
+  "test_suite": "18/18 passed (6 fixtures x2 functions + 6 edge cases)"
+}
