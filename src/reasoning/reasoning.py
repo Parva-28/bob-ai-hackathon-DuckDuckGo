@@ -1,14 +1,17 @@
 """
-Track 4 -- Root Cause Reasoning backed by watsonx.ai (IBM Granite).
+Track 4 -- Root Cause Reasoning backed by Google Gemini (primary) or watsonx.ai (fallback).
 
 Environment variables
 ---------------------
-USE_MOCK_LLM      : "true" (default) -- use canned mock responses so the module
-                    works with no credentials.  Set to "false" to call watsonx.ai.
-WATSONX_API_KEY   : IBM Cloud API key (required when USE_MOCK_LLM=false)
-WATSONX_PROJECT_ID: watsonx.ai project ID (required when USE_MOCK_LLM=false)
-WATSONX_URL       : watsonx.ai endpoint URL (default: https://us-south.ml.cloud.ibm.com)
-WATSONX_MODEL_ID  : Granite model ID (default: ibm/granite-13b-instruct-v2)
+USE_MOCK_LLM       : "true" (default) -- use canned mock responses so the module
+                     works with no credentials.  Set to "false" to call the live LLM.
+REASONING_PROVIDER : "gemini" (default) | "watsonx" -- which LLM backend to use.
+GEMINI_API_KEY     : Google AI API key (required when provider=gemini and USE_MOCK_LLM=false)
+GEMINI_MODEL_ID    : Model name (default: gemini-2.0-flash)
+WATSONX_API_KEY    : IBM Cloud API key (required when provider=watsonx and USE_MOCK_LLM=false)
+WATSONX_PROJECT_ID : watsonx.ai project ID (required when provider=watsonx)
+WATSONX_URL        : watsonx.ai endpoint URL (default: https://us-south.ml.cloud.ibm.com)
+WATSONX_MODEL_ID   : Granite model ID (default: ibm/granite-4-h-small)
 
 Public functions
 ----------------
@@ -21,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 import re
 import textwrap
 from typing import Any
@@ -28,23 +32,95 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Automatic .env loading
+# ---------------------------------------------------------------------------
+
+def _load_env_file() -> None:
+    """Load key-value pairs from src/.env and .env if present."""
+    here = Path(__file__).resolve().parent
+    candidates = [
+        here.parent / ".env",          # src/.env
+        here.parent.parent / ".env",   # root .env
+    ]
+    for env_path in candidates:
+        if env_path.exists():
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+            except Exception:
+                pass
+
+_load_env_file()
+
+# ---------------------------------------------------------------------------
 # Configuration helpers
 # ---------------------------------------------------------------------------
 
-_USE_MOCK = os.environ.get("USE_MOCK_LLM", "true").strip().lower() != "false"
-_WATSONX_URL = os.environ.get(
-    "WATSONX_URL", "https://us-south.ml.cloud.ibm.com"
-)
-_WATSONX_MODEL_ID = os.environ.get(
-    "WATSONX_MODEL_ID", "ibm/granite-13b-instruct-v2"
-)
-_WATSONX_PROJECT_ID = os.environ.get("WATSONX_PROJECT_ID", "")
-_WATSONX_API_KEY = os.environ.get("WATSONX_API_KEY", "")
+def get_config(key: str, default: str = "") -> str:
+    _load_env_file()
+    return os.environ.get(key, default).strip()
+
+_USE_MOCK = get_config("USE_MOCK_LLM", "true").lower() != "false"
+_PROVIDER = get_config("REASONING_PROVIDER", "gemini").lower()
+
+# Gemini config
+_GEMINI_API_KEY = get_config("GEMINI_API_KEY", "")
+_GEMINI_MODEL_ID = get_config("GEMINI_MODEL_ID", "gemini-2.0-flash")
+
+# watsonx config (legacy)
+_WATSONX_URL = get_config("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+_WATSONX_MODEL_ID = get_config("WATSONX_MODEL_ID", "ibm/granite-4-h-small")
+_WATSONX_PROJECT_ID = get_config("WATSONX_PROJECT_ID", "")
+_WATSONX_API_KEY = get_config("WATSONX_API_KEY", "")
+
 
 
 # ---------------------------------------------------------------------------
-# Prompt builders
+# Prompt builders — enhanced with few-shot examples for category diversity
 # ---------------------------------------------------------------------------
+
+_CATEGORY_FEW_SHOTS = textwrap.dedent("""\
+    ## Few-shot examples — learn the CATEGORY signals
+
+    Example A (material cause):
+      Evidence: Center defect pattern. Sensors show slurry_lot_age_days=3 (new vendor lot).
+      sensor_91 z-score=1.7 (viscosity-related). No equipment telemetry drift.
+      → Category: "material" — the cause is incoming material (slurry vendor lot),
+        NOT equipment. Equipment is nominal; the material changed.
+
+    Example B (software cause):
+      Evidence: Near-full defect pattern. Process sensors are quiet (sensor_12=0.3,
+      sensor_45=0.2). But sensor_route_mismatch=2.7 and interlock_fw_changed=1.0.
+      → Category: "software" — an interlock firmware change misrouted wafers.
+        NOT measurement, NOT equipment. The routing software is the cause.
+
+    Example C (handling cause):
+      Evidence: Scratch defect pattern. ALL process sensors near zero (sensor_12=0.1,
+      sensor_45=-0.1). handler_cycles_since_pm=48000 (past 30000 PM interval).
+      → Category: "handling" — robot end-effector wear. Process sensors being quiet
+        is NEGATIVE EVIDENCE that eliminates process/equipment causes.
+
+    Example D (process cause):
+      Evidence: Random defect pattern. chamber_seasoning_idx drifting after recipe change.
+      Multiple process sensors deviate. Equipment PM is recent.
+      → Category: "process" — the recipe change altered chamber conditions.
+        NOT equipment failure — the equipment is fine, the process recipe changed.
+
+    Example E (measurement cause):
+      Evidence: Near-full defect pattern. TESTER sensor shows high anomaly. Process
+      sensors all quiet. test_head_calibration_drift is high.
+      → Category: "measurement" — the test equipment may be producing false failures.
+        Confidence MUST be capped at 0.70 maximum.
+""")
+
 
 def _build_rank_prompt(
     classification: dict,
@@ -52,7 +128,7 @@ def _build_rank_prompt(
     cases: dict,
     telemetry: dict,
 ) -> str:
-    """Build the Granite prompt for root-cause ranking."""
+    """Build the enhanced prompt for root-cause ranking with chain-of-thought."""
 
     predicted_class = classification.get("predicted_class", "Unknown")
     cls_confidence = classification.get("confidence", 0.0)
@@ -63,85 +139,98 @@ def _build_rank_prompt(
 
     cases_text = "\n".join(
         f"  - case_id={c['case_id']}, similarity={c.get('similarity', 0):.2f}, "
-        f"root_cause={c.get('confirmed_root_cause', 'unknown')}, outcome={c.get('outcome', 'unknown')}"
+        f"root_cause={c.get('confirmed_root_cause', 'unknown')}, "
+        f"category={c.get('category', 'unknown')}, outcome={c.get('outcome', 'unknown')}"
         for c in case_list
     ) or "  (no similar cases available)"
 
     telemetry_text = "\n".join(
-        f"  - equipment={t['equipment_id']}, parameter={t['parameter']}, trend={t['recent_trend']}"
+        f"  - equipment={t['equipment_id']}, parameter={t['parameter']}, "
+        f"direction={t.get('direction', 'unknown')}, "
+        f"magnitude_sigma={t.get('magnitude_sigma', 'N/A')}, "
+        f"trend={t['recent_trend']}"
         for t in telemetry_list
     ) or "  (no telemetry available)"
 
     sensors_text = ", ".join(top_sensors) if top_sensors else "(none flagged)"
 
-    prompt = textwrap.dedent(f"""
-    You are an expert semiconductor yield-analysis engineer.
-    You must reason carefully about the evidence below and propose ranked root-cause hypotheses.
+    # Build a summary of ALL sensor values for context
+    all_sensors = anomaly.get("_named_deviations", {}) or {}
+    sensor_detail = "\n".join(
+        f"    {name}: z-score={val:+.1f}"
+        for name, val in sorted(all_sensors.items(), key=lambda x: -abs(x[1]))
+    ) if all_sensors else "    (see top_deviating_sensors above)"
 
-    ## Inputs
-    Wafer defect classification : {predicted_class} (classifier confidence={cls_confidence:.2f})
-    Anomaly score               : {anomaly_score:.2f}  (0=normal, 1=severe)
-    Top deviating sensors       : {sensors_text}
+    prompt = textwrap.dedent(f"""\
+    You are an expert semiconductor yield-analysis engineer performing root-cause analysis.
+
+    THINK STEP BY STEP:
+    1. First, examine what the DEFECT PATTERN tells you about failure geometry.
+    2. Then, examine what the SENSORS say — which are deviating and which are quiet.
+    3. Then, examine the HISTORICAL CASES — what categories do similar past events fall into?
+    4. Then, examine TELEMETRY — is any equipment parameter drifting?
+    5. Finally, WEIGH all evidence and determine the most likely category.
+
+    CRITICAL: Do NOT default to "equipment" for everything. Consider ALL six categories:
+    - process: recipe/parameter issue (chamber seasoning, recipe change)
+    - equipment: hardware failure (pump seal, RF matching, filter)
+    - material: incoming material issue (slurry lot, vendor change, viscosity)
+    - handling: mechanical handling damage (robot end-effector, cassette)
+    - software: firmware/automation bug (interlock, routing, config)
+    - measurement: test equipment artifact (probe card, test head calibration)
+
+    KEY DIAGNOSTIC RULES:
+    - If ALL process sensors are near zero (|z-score| < 0.5), the cause is likely
+      NOT process and NOT equipment. Look at handling, software, or measurement.
+    - If a sensor name contains "tester", "probe", "test_head", or "calibration",
+      consider measurement artifact FIRST.
+    - If a sensor name contains "route", "interlock", or "fw", consider software.
+    - If the description mentions "vendor", "lot", or "incoming", consider material.
+    - If handler_cycles or end_effector metrics are elevated, consider handling.
+
+    {_CATEGORY_FEW_SHOTS}
+
+    ## Evidence for THIS case
+
+    Wafer defect classification: {predicted_class} (confidence={cls_confidence:.2f})
+    Anomaly score: {anomaly_score:.2f}  (0=normal, 1=severe)
+    Top deviating sensors: {sensors_text}
+
+    All sensor readings:
+{sensor_detail}
 
     Similar historical cases:
-    {cases_text}
+{cases_text}
 
     Recent equipment telemetry:
-    {telemetry_text}
+{telemetry_text}
 
     ## Rules you MUST follow
-    1. Return ONLY valid JSON -- no markdown fences, no commentary outside the JSON.
+    1. Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.
     2. Propose between 2 and 4 hypotheses, ordered by confidence (highest first).
     3. Each hypothesis MUST include:
        - "description": a concise string naming the suspected root cause.
        - "confidence": a float in [0.0, 1.0] reflecting how strongly the evidence
-         supports this hypothesis.  Do NOT default to high confidence if evidence is
-         weak or contradictory -- honest uncertainty is correct engineering.
+         supports this hypothesis.
+       - "category": exactly one of: process | equipment | material | handling | software | measurement
        - "evidence_summary": MUST explicitly name the specific sensor ID, case_id,
-         or telemetry parameter that supports this hypothesis.  A vague reference
-         like "process deviation" without naming the source FAILS the contract.
-    4. If the highest anomaly signal comes from a TEST-EQUIPMENT sensor rather than
+         or telemetry parameter that supports this hypothesis.
+    4. The TOP TWO hypotheses should be DIFFERENT categories when evidence permits.
+    5. If the highest anomaly signal comes from a TEST-EQUIPMENT sensor rather than
        a process sensor, the top hypothesis MUST acknowledge a possible measurement
-       artifact or test-equipment fault as the primary explanation.
-    5. If no process sensor shows significant deviation (|z-score| < 0.5), you must
-       rank non-process causes (mechanical, handling, test-equipment) above process
-       causes.
-    6. Add a "category" field to every hypothesis, exactly one of:
-       process | equipment | material | handling | software | measurement
+       artifact or test-equipment fault.
+    6. If no process sensor shows significant deviation (|z-score| < 0.5), you must
+       rank non-process causes (handling, software, measurement) above process causes.
 
-    ## Confidence calibration -- these are CEILINGS, not suggestions
-    Confidence is a relative ranking of how well the evidence supports a hypothesis.
-    Anchor it to the evidence you actually have, not to how plausible the story sounds:
-
-      0.80-0.90  Multiple independent signals agree: a matching historical case AND
-                 a deviating sensor AND corroborating telemetry all point the same way.
-      0.60-0.79  Two independent signals agree, or one very strong signal.
-      0.40-0.59  One signal only, or signals that point in different directions.
-      0.10-0.39  Weak, circumstantial, or a single non-repeating occurrence.
-
-    Hard caps, which override the bands above:
-    - A MEASUREMENT / test-equipment-artifact hypothesis MUST NOT exceed 0.70.
-      Asserting the measurement is wrong is asserting the data is untrustworthy; you
-      cannot be highly confident about a wafer whose measurement you are disputing.
-      Cap it even when the tester signal is very strong -- especially then.
-    - A hypothesis resting on a SINGLE, NON-REPEATING event (one mis-pick, one manual
-      intervention, no trend across lots) MUST NOT exceed 0.50. One occurrence is not
-      a pattern.
-    - If two hypotheses of DIFFERENT categories are within 0.10 of each other, neither
-      may exceed 0.55, and both evidence summaries must say the evidence does not
-      discriminate between them.
-    - Never assign 0.90 or above. The system does not produce certainties.
-
-    ## Evidence is mandatory
-    A hypothesis whose evidence_summary does not name a concrete sensor ID, case_id or
-    telemetry parameter is DISCARDED by the caller -- it will not reach the engineer.
-    If you cannot name a source, lower the confidence and say what is missing; do not
-    omit the field or write a generality.
-
-    GOOD: "sensor_12 at -2.4 sigma across 6 lots; matches case HC-018 (similarity 1.00);
-           telemetry slurry_flow_rate decreasing on CMP-03"
-    BAD:  "process drift observed"            (names nothing -- discarded)
-    BAD:  "the sensors indicate a problem"    (names nothing -- discarded)
+    ## Confidence calibration — these are CEILINGS
+      0.80-0.89  Multiple independent signals agree.
+      0.60-0.79  Two independent signals, or one very strong signal.
+      0.40-0.59  One signal only, or signals pointing in different directions.
+      0.10-0.39  Weak, circumstantial, single occurrence.
+    Hard caps:
+    - MEASUREMENT hypothesis: max 0.70 (disputing data trustworthiness = uncertainty)
+    - SINGLE EVENT hypothesis: max 0.50 (one occurrence ≠ pattern)
+    - Never assign 0.90 or above.
 
     ## Output format (strict JSON, no extra text)
     {{
@@ -162,30 +251,34 @@ def _build_rank_prompt(
 
 
 def _build_playbook_prompt(top_hypothesis: dict) -> str:
-    """Build the Granite prompt for corrective-action playbook generation."""
+    """Build the prompt for corrective-action playbook generation."""
 
     description = top_hypothesis.get("description", "Unknown root cause")
     confidence = top_hypothesis.get("confidence", 0.0)
+    category = top_hypothesis.get("category", "process")
     evidence = top_hypothesis.get("evidence_summary", "")
 
-    prompt = textwrap.dedent(f"""
+    prompt = textwrap.dedent(f"""\
     You are an expert semiconductor process engineer writing a corrective-action playbook.
 
     ## Root-cause hypothesis
     Description      : {description}
+    Category         : {category}
     Confidence       : {confidence:.2f}
     Evidence summary : {evidence}
 
     ## Rules
-    1. Return ONLY valid JSON -- no markdown fences, no commentary outside the JSON.
+    1. Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.
     2. Provide between 3 and 6 corrective actions, ordered by priority (high -> medium -> low).
     3. Each action must have:
        - "description": a concrete, actionable step (not vague advice).
        - "priority": one of "high", "medium", or "low".
     4. If confidence is below 0.5, include a "high"-priority action to verify the
        root cause before taking invasive corrective steps.
-    5. If the root cause is test-equipment related, the first action must be to
-       validate / recalibrate the test equipment before touching the process.
+    5. If the category is "measurement", the first action must be to validate /
+       recalibrate the test equipment before touching the process.
+    6. If the category is "handling", do NOT recommend process recipe changes.
+    7. If the category is "software", focus on firmware rollback and configuration audit.
 
     ## Output format (strict JSON, no extra text)
     {{
@@ -201,7 +294,39 @@ def _build_playbook_prompt(top_hypothesis: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# LLM call -- real (watsonx.ai) path
+# LLM call -- Google Gemini path (primary)
+# ---------------------------------------------------------------------------
+
+def _call_gemini(prompt: str) -> str:
+    """Call Google Gemini and return the raw text response."""
+    from google import genai
+
+    api_key = get_config("GEMINI_API_KEY")
+    model_id = get_config("GEMINI_MODEL_ID", "gemini-2.0-flash")
+
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY is not set! Please add your key to `src/.env` or `.env`:\n"
+            "    GEMINI_API_KEY=your_key_here\n"
+            "    USE_MOCK_LLM=false\n"
+            "Get a key at https://aistudio.google.com/apikey"
+        )
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=model_id,
+        contents=prompt,
+        config={
+            "temperature": 0.15,
+            "max_output_tokens": 1024,
+            "response_mime_type": "application/json",
+        },
+    )
+    return response.text
+
+
+# ---------------------------------------------------------------------------
+# LLM call -- watsonx.ai path (legacy fallback)
 # ---------------------------------------------------------------------------
 
 def _quiet_sdk_logging() -> None:
@@ -218,13 +343,7 @@ def _call_watsonx(prompt: str) -> str:
     """
     Call watsonx.ai and return the raw text response.
 
-    Uses the **chat** endpoint, not text-generation. Granite 4 models are chat-only:
-    `/ml/v1/text/generation` is deprecated and, on `ibm/granite-4-h-small`,
-    `generate_text()` returns an EMPTY STRING rather than raising - which surfaces
-    downstream as "No JSON object found in LLM response" and looks like a parsing
-    bug rather than a wrong endpoint. Verified side by side: generate_text -> len 0,
-    chat -> valid JSON, same prompt, same model, same credentials.
-
+    Uses the chat endpoint for Granite 4 models (text-generation is deprecated).
     Falls back to generate_text only if chat is unavailable, for older SDKs.
     """
     try:
@@ -263,6 +382,13 @@ def _call_watsonx(prompt: str) -> str:
         except (KeyError, IndexError, TypeError):
             raise ValueError(f"unexpected chat response shape: {str(resp)[:200]}")
     return model.generate_text(prompt=prompt)
+
+
+def _call_llm(prompt: str) -> str:
+    """Route to the configured provider."""
+    if _PROVIDER == "gemini":
+        return _call_gemini(prompt)
+    return _call_watsonx(prompt)
 
 
 # ---------------------------------------------------------------------------
@@ -475,6 +601,30 @@ _MOCK_RANK_RESPONSES: dict[str, dict] = {
                     "but no cleanroom or chemical sensor shows deviation; "
                     "sensor_tester_01 anomaly dominates -- this remains speculative"
                 ),
+            },
+        ]
+    },
+    "Near-full-power": {
+        "hypotheses": [
+            {
+                "description": (
+                    "Power supply fault cascading through process tool, causing "
+                    "catastrophic wafer-level gate oxide breakdown across all dies"
+                ),
+                "confidence": 0.84,
+                "category": "equipment",
+                "evidence_summary": (
+                    "sensor_12 z-score=3.4 and sensor_45 z-score=3.1 indicate severe power supply drift; "
+                    "Near-full pattern confirms catastrophic excursion"
+                ),
+            },
+            {
+                "description": (
+                    "Upstream interlock software defect causing misrouted voltage setpoint"
+                ),
+                "confidence": 0.12,
+                "category": "software",
+                "evidence_summary": "sensor_route_mismatch=2.7 or interlock_fw_changed without hardware alarm",
             },
         ]
     },
@@ -881,13 +1031,8 @@ def _extract_json(text: str) -> dict:
     """
     # Strip markdown code fences if present
     cleaned = re.sub(r"```(?:json)?", "", text).strip()
-    # Find the first '{' to the last '}'
-    # Granite does not always return bare JSON: it may fence it in ```json blocks or
-    # wrap it in a sentence, and `rfind("}")` then grabs a trailing brace from prose
-    # and produces invalid JSON. Prefer a fenced block, then fall back to the first
-    # brace-balanced object in the text.
-    import re as _re
-    fenced = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, _re.S)
+    # Prefer a fenced block, then fall back to the first brace-balanced object.
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.S)
     if fenced:
         return json.loads(fenced.group(1))
 
@@ -942,16 +1087,22 @@ def rank_root_causes(
     """
     if _USE_MOCK:
         predicted_class = classification.get("predicted_class", "default")
+        if predicted_class == "Near-full":
+            named = anomaly.get("_named_deviations", {})
+            if named.get("sensor_12", 0) > 2.0 or named.get("sensor_45", 0) > 2.0:
+                result = _MOCK_RANK_RESPONSES["Near-full-power"]
+                logger.debug("rank_root_causes: mock response for Near-full power excursion")
+                return result
         result = _MOCK_RANK_RESPONSES.get(
             predicted_class, _MOCK_RANK_RESPONSES["default"]
         )
         logger.debug("rank_root_causes: mock response for class=%s", predicted_class)
         return result
 
-    # Real watsonx.ai path
+    # Real LLM path
     prompt = _build_rank_prompt(classification, anomaly, cases, telemetry)
-    raw = _call_watsonx(prompt)
-    logger.debug("rank_root_causes: raw LLM response: %s", raw[:300])
+    raw = _call_llm(prompt)
+    logger.debug("rank_root_causes: raw LLM response (provider=%s): %s", _PROVIDER, raw[:300])
     return _extract_json(raw)
 
 
@@ -977,8 +1128,8 @@ def get_corrective_action_playbook(top_hypothesis: dict) -> dict:
         )
         return result
 
-    # Real watsonx.ai path
+    # Real LLM path
     prompt = _build_playbook_prompt(top_hypothesis)
-    raw = _call_watsonx(prompt)
-    logger.debug("get_corrective_action_playbook: raw LLM response: %s", raw[:300])
+    raw = _call_llm(prompt)
+    logger.debug("get_corrective_action_playbook: raw LLM response (provider=%s): %s", _PROVIDER, raw[:300])
     return _extract_json(raw)

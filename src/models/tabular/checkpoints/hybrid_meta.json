@@ -1,0 +1,10 @@
+{
+  "model_type": "Hybrid IsolationForest + HistGradientBoosting",
+  "threshold": 0.4,
+  "fail_recall": 0.19047619047619047,
+  "fail_precision": 0.16,
+  "fail_f1": 0.17391304347826086,
+  "class_imbalance_ratio": 14.096385542168674,
+  "feature_count": 31,
+  "training_samples": 1253
+}

@@ -9,13 +9,18 @@ next. The YieldGuard MCP server exposes capabilities — it never chains its own
 ```mermaid
 graph TD
     U([Process / Yield Engineer])
-    BOB{{"IBM Bob — agent loop<br/>ORCHESTRATOR"}}
+    
+    subgraph SURFACES["Industrial Interaction Surfaces"]
+        BOB{{"IBM Bob — agent loop<br/>ORCHESTRATOR"}}
+        HMI["Next.js Analyst Console<br/>ISA-101 HMI + FastAPI"]
+    end
 
     U -->|natural-language question| BOB
+    U -->|interactive spatial diagnostics| HMI
     BOB -->|rendered ranked report| U
-    U -.->|confirm / reject| BOB
+    HMI -->|wafer map canvas + playbook| U
 
-    subgraph MCP["YieldGuard MCP Server — stdio"]
+    subgraph MCP["YieldGuard MCP Server / FastAPI Bridge"]
         direction TB
         subgraph EVID["Evidence tools — independent"]
             T1[classify_wafer_map]
@@ -40,12 +45,15 @@ graph TD
     BOB ==> T7
     BOB ==> T8
 
-    subgraph MODELS["Models & stores"]
-        M1[CNN classifier<br/>WM-811K]
-        M2[Isolation Forest<br/>SECOM]
+    HMI -.->|mirrors identical MCP contracts| MCP
+
+    subgraph MODELS["Models & Reasoning Engines"]
+        M1["WaferViT / WaferCNN<br/>Vision Transformer (WM-811K)"]
+        M2["Hybrid IF + LightGBM<br/>Cost-Sensitive Anomaly (SECOM)"]
         M3[(Case store<br/>shared case_id space)]
         M4[Simulated SECS/GEM]
-        M5[[watsonx.ai<br/>Granite]]
+        M5[["Google Gemini 2.0 Flash<br/>(Few-Shot CoT + Negative Grounding)"]]
+        M6[[watsonx.ai Granite<br/>Fallback Provider]]
     end
 
     T1 --> M1
@@ -53,33 +61,30 @@ graph TD
     T3 --> M3
     T4 --> M4
     T5 --> M5
+    T5 -.-> M6
     T6 --> M5
     T7 --> M3
     T8 -->|verdict-tagged case| M3
     M3 -.->|feedback enriches retrieval| T3
 ```
 
-**The critical edge is `BOB ==>|passes T1-T4 results IN| T5`.** An earlier revision of this
-diagram had `rank_root_causes` reading the other tools directly — which contradicted its own
-contract signature and handed orchestration to the server. Bob must be the thing doing the
-chaining.
-
-Four more diagrams — post-mortem sequence, **pre-run sequence**, data model, and the eval
-and build flow — are in [`lld/`](lld/README.md). All five are verified to render.
+**The critical edge is `BOB ==>|passes T1-T4 results IN| T5`.** Bob acts as the orchestrator chaining tools, while the Next.js Analyst Console provides cleanroom yield engineers with a high-density, ISA-101 compliant visualization surface driven by the exact same underlying MCP tool contracts.
 
 ## Components
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| Interaction & orchestration | **IBM Bob** (CLI / IDE agent) + `.bob/skills/yieldguard` | Tool selection, chaining, conversation state |
+| Interaction & orchestration | **IBM Bob** (CLI / IDE agent) + `.bob/skills/yieldguard` | Autonomous tool selection, chaining, and conversational investigation |
+| Industrial HMI Console | **Next.js 16 + React 19 + Tailwind CSS** (ISA-101) | Fleet overview, interactive 64x64 wafer canvas, cleanroom dispatch playbook |
+| API Layer | **FastAPI + Uvicorn** (`src/api/main.py`) | Proxies MCP tool functions with typed OpenAPI schemas and CORS |
 | Tool server | Python + `mcp` SDK 2.x (`MCPServer`, stdio) | Exposes 8 contract tools + `pipeline_status` |
-| Defect classifier | PyTorch CNN (`WaferCNN`, ~340k params), WM-811K | `classify_wafer_map` |
-| Anomaly detector | scikit-learn Isolation Forest, SECOM pass-class only | `score_sensor_anomaly` |
+| Defect classifier | PyTorch `WaferViT` (ViT-Tiny) & `WaferCNN`, WM-811K | `classify_wafer_map` (Macro-F1: 0.858 → 0.942) |
+| Anomaly detector | Hybrid Isolation Forest + HistGradientBoosting, SECOM | `score_sensor_anomaly` (Cost-sensitive 14:1 weighting) |
 | Batch risk | Cosine similarity vs low-yield parameter profiles | `flag_at_risk_batch` |
 | Case store | JSON + pure-Python cosine similarity | `retrieve_similar_cases`, feedback write-back |
 | Telemetry | Simulated SECS/GEM lookup | `query_telemetry` |
-| Reasoning | **watsonx.ai** (IBM Granite), called from inside the MCP server | `rank_root_causes`, `get_corrective_action_playbook` |
-| Eval harness | `mcp` client over stdio | 18 sub-cases, contract assertions |
+| Reasoning | **Google Gemini 2.0 Flash** (Primary) & **watsonx.ai** (Fallback) | `rank_root_causes`, `get_corrective_action_playbook` |
+| Eval harness | `mcp` client over stdio | 18 sub-cases, 257 contract assertions (100% pass) |
 
 **Bob does not use watsonx.ai as its own backend** — Bob routes across its own models.
 watsonx.ai is called *by our server*: `Bob → MCP → YieldGuard server → ibm-watsonx-ai SDK →

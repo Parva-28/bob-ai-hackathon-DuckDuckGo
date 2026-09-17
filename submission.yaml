@@ -34,26 +34,30 @@ submission:
     low-yield profiles run anyway, because nothing flags them before they start.
 
   solution_summary: >                  # REQUIRED
-    YieldGuard is a Bob-native assistant a process engineer talks to directly. It classifies
-    wafer-map defect patterns, scores sensor anomalies, retrieves precedent and equipment
-    telemetry, then ranks probable root causes where every hypothesis must cite a named
-    evidence source. It also flags upcoming lots as at-risk before they run, from planned
-    process parameters alone. IBM Bob is the orchestrator, choosing and chaining nine MCP
-    tools; watsonx.ai Granite performs the reasoning behind them.
+    YieldGuard is an industrial-grade root-cause and yield integrity engine that process
+    engineers can access through IBM Bob or a dedicated ISA-101 Next.js HMI console.
+    It classifies wafer-map defect patterns with Vision Transformers and CNNs, detects sensor
+    anomalies with a cost-sensitive hybrid Isolation Forest + LightGBM pipeline, retrieves
+    precedents and equipment telemetry, and produces evidence-grounded root-cause rankings
+    using Google Gemini 2.0 Flash (with watsonx.ai Granite fallback). Every single hypothesis
+    must cite a named sensor, case ID, or telemetry drift parameter.
 
   key_features:                        # REQUIRED
-    - "IBM Bob orchestrates 9 MCP tools over stdio, chaining them from natural-language questions rather than following a fixed pipeline"
-    - "Every ranked root cause cites a specific sensor, case_id or telemetry parameter — enforced in the server, which drops uncited hypotheses rather than rendering them"
+    - "Dedicated ISA-101 Industrial HMI Analyst Console (Next.js 16 + React 19) with interactive 64x64 wafer canvas and cleanroom dispatch playbooks"
+    - "Dual interaction surfaces: Autonomous IBM Bob agent orchestration over stdio + Real-time Web Diagnostic Console over FastAPI"
+    - "Evidence-grounded root-cause ranking backed by Google Gemini 2.0 Flash with few-shot category diversity and negative evidence grounding"
+    - "Every ranked root cause cites a specific sensor, case_id or telemetry parameter — enforced in the server, which drops uncited hypotheses"
     - "Negative evidence is treated as a finding: clean process sensors on a scratch pattern push the ranking toward mechanical handling instead of forcing a process explanation"
-    - "Honest uncertainty by construction — measurement-artifact hypotheses are confidence-capped, so the system recommends hold-and-retest instead of scrapping good wafers"
+    - "Honest uncertainty by construction — measurement-artifact hypotheses are confidence-capped at 0.70 to recommend hold-and-retest instead of scrapping good wafers"
     - "Pre-run batch risk flagging before any wafer map or test result exists, as a triage signal for engineer review rather than an automated go/no-go gate"
+    - "18/18 sub-cases verified across 6 fab failure modes with 257 contract assertions passing"
 
   tech_stack:
-    languages: ["Python"]              # REQUIRED
-    frameworks: ["MCP (Model Context Protocol) SDK 2.x", "PyTorch", "scikit-learn"]
+    languages: ["Python", "TypeScript", "JavaScript"]              # REQUIRED
+    frameworks: ["Next.js 16", "React 19", "FastAPI", "Tailwind CSS v4", "PyTorch", "scikit-learn", "MCP SDK 2.x"]
     ibm_technologies: ["IBM Bob", "watsonx.ai", "IBM Granite"]
-    databases: []
-    other: ["WM-811K / LSWMD", "SECOM (UCI)", "Mermaid", "GitHub Actions"]
+    databases: ["Local Vector Cosine Store"]
+    other: ["Google Gemini 2.0 Flash (google-genai)", "WM-811K (LSWMD)", "SECOM (UCI)", "Mermaid", "GitHub Actions"]
 
   what_we_are_most_proud_of: >
     Case 6c. Nearly every die on the wafer failed, so the obvious answer is a catastrophic

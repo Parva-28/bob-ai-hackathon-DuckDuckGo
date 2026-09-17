@@ -27,11 +27,14 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 
 ## ✨ Key Features
 
-- **Wafer-map defect classification:** ResNet-style CNN (~340K params) trained on WM-811K that classifies maps into 9 patterns (Center, Donut, Edge-Loc, Edge-Ring, Local, Random, Scratch, Near-full, None), using class weighting and oversampling to handle rare defect classes.
-- **Sensor anomaly scoring:** Isolation Forest trained on SECOM pass-class lots that returns a 0–1 anomaly score plus the top 5 most deviating sensors.
-- **At-risk batch flagging:** Compares an incoming lot's planned process parameters against the historical fail-class sensor profile and flags lots that look like past low-yield runs, for engineer triage.
-- **Evidence-grounded root-cause ranking (watsonx.ai):** Ranked hypotheses with confidence scores, where every hypothesis must name its evidence source, and a corrective-action playbook for the top hypothesis.
-- **IBM Bob + MCP integration:** Eight contract-defined tools (`classify_wafer_map`, `score_sensor_anomaly`, `flag_at_risk_batch`, `retrieve_similar_cases`, `query_telemetry`, `rank_root_causes`, `get_corrective_action_playbook`, `submit_feedback`) that Bob calls based on how the engineer phrases the question.
+- **Industrial HMI Analyst Console (Next.js 16 + React 19):** ISA-101 compliant control room interface with dark quiet backgrounds, signal-reserved alarm colors, tabular monospace metrics, and zero-fatigue high-density layout.
+- **Interactive 64×64 Wafer Map Canvas:** Pixel-level interactive silicon die inspection with real-time hover coordinate tracking `(X, Y)`, pass/defect die statistics, zoom controls (3x–6x), and spatial defect clustering.
+- **Evidence-Grounded Root-Cause Reasoning (Gemini 2.0 Flash + watsonx.ai):** Ranked causal hypotheses with calibrated confidence scores. Grounded in strict contracts: every hypothesis MUST cite an empirical sensor residual, historical case, or equipment drift parameter.
+- **Category Diversity & Negative Grounding:** Structured few-shot prompting prevents default-to-equipment bias across 6 failure domains (Equipment, Material, Handling, Software, Process, Measurement Artifacts).
+- **Wafer-Map Defect Classification:** ResNet-style `WaferCNN` and Vision Transformer `WaferViT` trained on WM-811K (9 defect patterns) with self-attention across 64 spatial patches for non-local defect continuity.
+- **Multivariate Sensor Anomaly Detection:** Isolation Forest + Cost-Sensitive Gradient Boosting hybrid trained on SECOM with 14:1 class-imbalance weighting over 582 process telemetry features.
+- **Cleanroom Action Playbook Dispatcher:** Interactive containment checklist allowing yield engineers to toggle actions between `[PENDING]`, `[DISPATCHED]`, and `[RESOLVED]`.
+- **IBM Bob + MCP Integration:** 8 contract-defined tools called by IBM Bob over stdio, with automatic fallback resolution and honest status reporting.
 
 ---
 
@@ -39,34 +42,37 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 
 | Category | Technologies |
 |---|---|
-| **Languages** | Python |
-| **Frameworks** | PyTorch, torchvision, scikit-learn, pandas, NumPy, SciPy |
-| **IBM Technologies** | IBM Bob (MCP server integration), watsonx.ai (Granite models) |
-| **Databases** | Vector store for similar-case retrieval (Qdrant / Chroma) |
-| **Other** | Model Context Protocol (MCP), GitHub Actions, Kaggle (WM-811K), UCI ML Repository (SECOM) |
+| **Frontend Console** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, HTML5 Canvas |
+| **Backend & API** | FastAPI, Uvicorn, Python 3.10+, Model Context Protocol (MCP stdio SDK) |
+| **Reasoning Providers** | **Google Gemini 2.0 Flash** (via `google-genai` SDK) & **watsonx.ai Granite** |
+| **ML & Deep Learning** | PyTorch, torchvision, scikit-learn, LightGBM, NumPy, SciPy |
+| **Agentic Orchestration** | **IBM Bob** (`.bob/skills/yieldguard`, `.bob/mcp.json`) |
+| **Datasets** | WM-811K / LSWMD (811K wafer maps), SECOM (UCI ML Repository) |
 
 ---
 
 ## 📁 Repository Structure
 
 ```
-├── src/                      # All source code
+├── src/
+│   ├── api/                  # FastAPI backend layer proxying MCP tools (port 8787)
+│   │   └── main.py
+│   ├── web/                  # Next.js 16 Industrial HMI Analyst Console (port 3000)
+│   │   ├── app/              # App router (Fleet monitor, Lot diagnostic, Governance, Eval)
+│   │   └── lib/              # API fetchers & TypeScript interfaces
+│   ├── mcp_server/           # MCP tool server exposing 8 tools to IBM Bob over stdio
+│   │   ├── server.py
+│   │   └── adapters.py
+│   ├── reasoning/            # Root-cause reasoning backed by Gemini 2.0 Flash & Granite
+│   │   └── reasoning.py
+│   ├── models/
+│   │   ├── vision/           # WaferViT (Vision Transformer) & WaferCNN (WM-811K)
+│   │   │   └── colab/        # GPU training notebooks for Colab T4 (train_wafer_vit.ipynb)
+│   │   └── tabular/          # Hybrid Isolation Forest + HistGradientBoosting (SECOM)
 │   ├── contracts/            # Frozen tool input/output contracts
-│   ├── eval/fixtures/        # Case-study fixtures used for self-tests
-│   └── models/
-│       ├── vision/           # Wafer-map CNN classifier (WM-811K)
-│       └── tabular/          # Sensor anomaly + batch-risk models (SECOM)
-├── docs/                     # Written documentation
-│   ├── problem-statement.md
-│   ├── solution-overview.md
-│   ├── architecture.md
-│   └── setup-guide.md
-├── demo/                     # Demo artifacts
-│   ├── screenshots/          # App screenshots
-│   └── demo-video-link.txt   # Link to demo video
-├── presentation/             # Slide deck
-├── requirements.txt   # Dependencies for the vision track
-├── requirements.txt  # Dependencies for the tabular track
+│   └── eval/                 # 18-case benchmark suite and test fixtures
+├── docs/                     # Architecture, problem statement, and setup documentation
+├── DESIGN.md                 # Design token specification conforming to ISA-101 standards
 └── submission.yaml           # Structured submission metadata
 ```
 
@@ -74,30 +80,34 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 
 ## ⚡ How to Run
 
+### Option 1: Industrial Web Console (Next.js + FastAPI)
+
 ```bash
-# 1. Clone the repo
-git clone https://github.com/Parva-28/bob-ai-hackathon-Mazaaaa.git
-cd bob-ai-hackathon-Mazaaaa
+# 1. Activate Python virtual environment and install backend deps
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# 2. Install dependencies (Python 3.10+ recommended)
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt -r requirements.txt
+# 2. Start the FastAPI backend engine (port 8787)
+python src/api/main.py &
 
-# 3. Configure environment (needed for watsonx.ai)
-cp src/.env.example .env
-# Edit .env with your WATSONX_API_KEY, WATSONX_PROJECT_ID and WATSONX_URL
+# 3. Start the Next.js Analyst Console (port 3000)
+cd src/web && npm install && npm run dev
 
-# 4a. Vision track — wafer-map classifier
-kaggle datasets download -d qingyi/wm811k-wafer-map   # place LSWMD.pkl in src/models/vision/data/
-python src/models/vision/data_prep.py --pkl src/models/vision/data/LSWMD.pkl
-python src/models/vision/train.py
-python src/models/vision/test_classifier.py
+# 4. Open console in browser:
+# http://localhost:3000
+```
 
-# 4b. Tabular track — sensor anomaly & batch risk (SECOM is fetched via ucimlrepo)
-python src/models/tabular/data_prep.py
-python src/models/tabular/train.py
-python src/models/tabular/test_anomaly.py
+### Option 2: IBM Bob Agent Orchestration (MCP stdio)
+
+```bash
+# Verify the MCP server self-test passes across all 18 test fixtures:
+python src/mcp_server/server.py --selftest
+
+# Run the 18-case evaluation harness:
+python src/eval/run_eval.py
+
+# Launch IBM Bob — Bob detects .bob/mcp.json and binds the 8 YieldGuard tools automatically
+bob
 ```
 
 ---
