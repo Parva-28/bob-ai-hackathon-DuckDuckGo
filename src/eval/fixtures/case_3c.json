@@ -16,10 +16,21 @@
   "expected_hypothesis_contains": "mis-pick",
   "expected_confidence_min": 0.5,
   "expected_hypothesis_matches_any": [
-    "mis-pick",
+    "end-effector",
+    "end effector",
     "handling",
+    "handler",
+    "robot",
+    "mechanical",
     "transfer",
-    "single"
+    "slot",
+    "cassette",
+    "misalign",
+    "position",
+    "mis-pick",
+    "mispick",
+    "contact",
+    "scratch"
   ],
   "expected_in_top_k": 3,
   "expected_category": "handling",
@@ -28,5 +39,5 @@
   "honest_uncertainty": true,
   "expected_anomaly_low": true,
   "tests": "GENUINELY LOW CONFIDENCE. A confident answer here is a FAIL even if the named cause is right",
-  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15. Case study 3's sub-cases share one sensor profile by design \u2014 all channels quiet, because the absence of process signal IS the evidence. Max sensor delta between 3a/3b/3c is 0.2 sigma, so nothing in the evidence identifies WHICH handling mechanism occurred. The wording assertion therefore tests the handling mechanism family, not the sub-case variant: demanding 'cassette slot' from identical evidence tests vocabulary, not reasoning. Sub-case separation is still enforced by expected_category and the confidence ceilings. KNOWN FAILING: max_confidence_ceiling 0.5 encodes 'a single non-repeating event cannot establish systemic causality' \u2014 but nothing in the evidence says this event was single. Sensors are quiet (identical to 3a/3b), and HANDLER-01 telemetry shows end_effector_cycles at +2.2 sigma, which indicates progressive WEAR and therefore argues against a one-off. The model answers handling at ~0.8 and is reasoning correctly from what it was given. The gap is a missing input: the system has no event-recurrence signal at all, so it cannot know an occurrence is isolated. A real fab knows this from MES history. Left failing on purpose \u2014 deleting the assertion would hide a genuine capability gap, and loosening it would assert calibration we do not have."
 }

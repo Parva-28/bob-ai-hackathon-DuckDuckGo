@@ -173,6 +173,22 @@ def score_sensor_anomaly(lot_id: str, sensors: dict[str, float],
             out["_units_in"] = units
             out["_scored_on"] = f"full 582-feature vector, {profile}-class base"
             out["_named_deviations"] = sensors
+            # Report the caller's OWN sensors as the deviating ones. The detector
+            # scores a reconstructed 582-feature vector, and ranking deviation over
+            # that returns imputation artifacts: case_6a supplies sensor_12 at
+            # +3.4 sigma and gets back sensor_90, sensor_162, sensor_21 — none of
+            # which the caller mentioned. The reasoning prompt headlines this field
+            # as "sensors flagged", so the model was shown noise as its strongest
+            # signal and reasonably concluded the tester was at fault. The
+            # reconstruction is how the Isolation Forest is fed; it is not evidence.
+            named_ranked = sorted(((abs(float(v)), k) for k, v in sensors.items()
+                                   if v is not None), reverse=True)
+            out["top_deviating_sensors"] = [k for _, k in named_ranked[:5]]
+            out["_reconstructed_top"] = [
+                s for s in (out.get("_reconstructed_top")
+                            or dict(adapters.real_score_sensor_anomaly(
+                                {"lot_id": lot_id, "sensors": full})).get(
+                                    "top_deviating_sensors", []))][:5]
             return out
         if units == "sigma":
             # Fixtures, telemetry and evidence summaries all speak sigma; the model

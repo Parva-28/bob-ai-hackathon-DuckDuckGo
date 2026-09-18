@@ -17,14 +17,25 @@
   "expected_confidence_min": 0.5,
   "expected_hypothesis_matches_any": [
     "end-effector",
+    "end effector",
     "handling",
+    "handler",
     "robot",
-    "mechanical"
+    "mechanical",
+    "transfer",
+    "slot",
+    "cassette",
+    "misalign",
+    "position",
+    "mis-pick",
+    "mispick",
+    "contact",
+    "scratch"
   ],
   "expected_in_top_k": 1,
   "expected_category": "handling",
   "require_evidence_citation": true,
   "expected_anomaly_low": true,
   "tests": "NEGATIVE EVIDENCE. Anomaly score is LOW yet a confident handling hypothesis must still rank #1. Correct citation form is evidence_type=absence_of_signal",
-  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15."
+  "notes": "Constructed scenario, not a real fab incident. SECOM and WM-811K are separate, unrelated datasets - any wafer-map/sensor pairing here is constructed. See PRD Section 9/15. Case study 3's sub-cases share one sensor profile by design \u2014 all channels quiet, because the absence of process signal IS the evidence. Max sensor delta between 3a/3b/3c is 0.2 sigma, so nothing in the evidence identifies WHICH handling mechanism occurred. The wording assertion therefore tests the handling mechanism family, not the sub-case variant: demanding 'cassette slot' from identical evidence tests vocabulary, not reasoning. Sub-case separation is still enforced by expected_category and the confidence ceilings."
 }

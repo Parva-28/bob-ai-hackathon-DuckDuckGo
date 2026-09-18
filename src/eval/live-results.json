@@ -65,8 +65,160 @@
     ],
     "fixtures_loaded": 18
   },
-  "passed": 12,
+  "passed": 16,
   "total": 18,
+  "metric_set": {
+    "vision_macro_f1": 0.9232,
+    "cmp_point": {
+      "mse": 56.36049523859839,
+      "rmse": 7.507362735248536,
+      "mae": 3.7965757493611183,
+      "max_error": 75.37415396756751,
+      "r2": 0.9403262530853039,
+      "mape_pct": 4.194364087658908
+    },
+    "secom": {
+      "recall": 0.2857142857142857,
+      "precision": 0.1935483870967742
+    },
+    "coverage": {
+      "marginal_coverage": 0.9403578528827038,
+      "mean_width": 17.144734387883375,
+      "median_width": 16.11577215919614,
+      "width_over_target_range": 0.16279827834600627,
+      "conditional": [
+        {
+          "stratum": "p0-10 (low tail)",
+          "n": 51,
+          "coverage": 0.9607843137254902,
+          "mean_width": 16.09030293159279
+        },
+        {
+          "stratum": "p10-25",
+          "n": 75,
+          "coverage": 0.9866666666666667,
+          "mean_width": 16.137089793100095
+        },
+        {
+          "stratum": "p25-75 (bulk)",
+          "n": 251,
+          "coverage": 0.9641434262948207,
+          "mean_width": 16.632514627549302
+        },
+        {
+          "stratum": "p75-90",
+          "n": 75,
+          "coverage": 0.84,
+          "mean_width": 19.153901494153256
+        },
+        {
+          "stratum": "p90-100 (high tail)",
+          "n": 51,
+          "coverage": 0.8823529411764706,
+          "mean_width": 19.247263324220157
+        }
+      ]
+    },
+    "excursion": {
+      "control_limits": {
+        "lcl": 62.054339999999996,
+        "ucl": 153.57655499999998
+      },
+      "n_excursions": 49,
+      "n": 503,
+      "point_prediction": {
+        "sensitivity": 0.3469387755102041,
+        "specificity": 0.9691629955947136,
+        "precision": 0.5483870967741935,
+        "flagged": 31,
+        "tp": 17,
+        "fn": 32,
+        "fp": 14,
+        "tn": 440
+      },
+      "conformal_interval": {
+        "sensitivity": 0.9387755102040817,
+        "specificity": 0.7290748898678414,
+        "precision": 0.27218934911242604,
+        "flagged": 169,
+        "tp": 46,
+        "fn": 3,
+        "fp": 123,
+        "tn": 331
+      }
+    },
+    "abstention": [
+      {
+        "split": "held-out (in-distribution)",
+        "n": 503,
+        "abstention_rate": 0.42147117296222664,
+        "ri_fail_rate": 0.42147117296222664,
+        "gsi_fail_rate": 0.0,
+        "both_fail_rate": 0.0,
+        "retained": {
+          "n": 291,
+          "mae": 2.876226858582168,
+          "rmse": 3.709456043268141,
+          "max_error": 10.965730457759946,
+          "p90_error": 6.245809359278127
+        },
+        "abstained": {
+          "n": 212,
+          "mae": 5.059884840005812,
+          "rmse": 10.716138077148795,
+          "max_error": 75.37415396756751,
+          "p90_error": 8.454557888003494
+        },
+        "mae_ratio_abstained_over_retained": 1.759
+      },
+      {
+        "split": "stage B, unseen during fit",
+        "n": 829,
+        "abstention_rate": 0.3498190591073583,
+        "ri_fail_rate": 0.3498190591073583,
+        "gsi_fail_rate": 0.006031363088057901,
+        "both_fail_rate": 0.006031363088057901,
+        "retained": {
+          "n": 539,
+          "mae": 7.838941466557441,
+          "rmse": 9.1174384297708,
+          "max_error": 22.430210942999693,
+          "p90_error": 13.998218038571636
+        },
+        "abstained": {
+          "n": 290,
+          "mae": 10.200011639474136,
+          "rmse": 13.892916331475282,
+          "max_error": 61.09921860547939,
+          "p90_error": 17.171998060542187
+        },
+        "mae_ratio_abstained_over_retained": 1.301,
+        "control_same_stage": {
+          "split": "stage A control (in-distribution)",
+          "n": 400,
+          "abstention_rate": 0.345,
+          "ri_fail_rate": 0.345,
+          "gsi_fail_rate": 0.0,
+          "both_fail_rate": 0.0,
+          "retained": {
+            "n": 262,
+            "mae": 0.24133414026155628,
+            "rmse": 0.3512443496617702,
+            "max_error": 1.9347401929444032,
+            "p90_error": 0.516215637482496
+          },
+          "abstained": {
+            "n": 138,
+            "mae": 0.4053249763589841,
+            "rmse": 1.1725903197171648,
+            "max_error": 11.146651120251732,
+            "p90_error": 0.6440090203236535
+          },
+          "mae_ratio_abstained_over_retained": 1.68
+        }
+      }
+    ]
+  },
   "results": [
     {
       "case_id": "case_1a",
@@ -74,28 +226,23 @@
       "failures": [],
       "predicted_class": "Center",
       "anomaly_score": 0.145,
-      "top_hypothesis": "Slurry flow rate drift caused by degrading slurry pump on CMP-03",
-      "confidence": 0.85,
-      "category": "equipment",
-      "at_risk": true,
-      "evidence": "telemetry parameter slurry_flow_rate on CMP-03 (decreasing magnitude_sigma=-2.4) and historical case HC-018"
-    },
-    {
-      "case_id": "case_1b",
-      "passed": false,
-      "failures": [
-        [
-          "hypothesis_wording_in_top_2",
-          "none of ['pad', 'wear', 'qualified life'] appeared"
-        ]
-      ],
-      "predicted_class": "Center",
-      "anomaly_score": 0.159,
       "top_hypothesis": "Slurry flow rate drift caused by a degrading slurry pump on CMP-03",
       "confidence": 0.85,
       "category": "equipment",
+      "at_risk": true,
+      "evidence": "Historical case HC-018, sensor_12 (z-score=-2.4), and equipment telemetry parameter slurry_flow_rate showing a declining trend over the last 6 lots"
+    },
+    {
+      "case_id": "case_1b",
+      "passed": true,
+      "failures": [],
+      "predicted_class": "Center",
+      "anomaly_score": 0.159,
+      "top_hypothesis": "Degrading slurry pump on CMP-03 causing flow rate drift",
+      "confidence": 0.78,
+      "category": "equipment",
       "at_risk": false,
-      "evidence": "telemetry parameter slurry_flow_rate on CMP-03 declining steadily (-2.4 sigma) and case_id HC-018 similarity 0.72"
+      "evidence": "Telemetry parameter slurry_flow_rate on CMP-03 is declining steadily (magnitude_sigma=-2.4) and historical case HC-018 shows identical failure mode"
     },
     {
       "case_id": "case_1c",
@@ -107,7 +254,7 @@
       "confidence": 0.55,
       "category": "material",
       "at_risk": true,
-      "evidence": "case_id=HC-024 (1.00 similarity) and sensor_91 z-score=+1.7 indicating viscosity-related shift."
+      "evidence": "case_id=HC-024 (similarity=1.00) and sensor_91 z-score=+1.7 indicating viscosity deviation with no hardware failure."
     },
     {
       "case_id": "case_2a",
@@ -115,11 +262,11 @@
       "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.149,
-      "top_hypothesis": "RF power edge effect following chamber PM reassembly leading to edge-ring defect pattern",
+      "top_hypothesis": "RF power edge effect and gas flow distribution imbalance following chamber PM reassembly",
       "confidence": 0.85,
       "category": "equipment",
       "at_risk": false,
-      "evidence": "Edge-Ring defect pattern, case_id=HC-033, and equipment ETCH-07 telemetry parameter rf_power_w oscillating with magnitude_sigma=2.8"
+      "evidence": "HC-033, sensor_23 (+2.8 z-score), sensor_24 (+2.2 z-score), and ETCH-07 telemetry parameters rf_power_w and gas_flow_sccm"
     },
     {
       "case_id": "case_2b",
@@ -127,11 +274,11 @@
       "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.148,
-      "top_hypothesis": "Edge gas flow distribution imbalance from a partially clogged edge gas nozzle",
-      "confidence": 0.82,
+      "top_hypothesis": "Partially clogged edge gas nozzle or edge zone flow distribution imbalance causing Edge-Ring defect pattern",
+      "confidence": 0.85,
       "category": "equipment",
       "at_risk": false,
-      "evidence": "Edge-Ring defect pattern with similar historical case HC-035 and telemetry parameter gas_flow_sccm decreasing with magnitude_sigma=-2.1"
+      "evidence": "Historical case HC-035 (similarity=1.00), telemetry parameter gas_flow_sccm decreasing with magnitude_sigma=-2.1, and sensors sensor_31, sensor_32, sensor_33 showing significant deviation."
     },
     {
       "case_id": "case_2c",
@@ -139,11 +286,11 @@
       "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.138,
-      "top_hypothesis": "Chamber wall seasoning drift following a shared-tool recipe change",
+      "top_hypothesis": "Chamber wall seasoning drift after a shared-tool recipe change",
       "confidence": 0.85,
       "category": "process",
       "at_risk": true,
-      "evidence": "case_id=HC-038 and chamber_seasoning_idx telemetry parameter showing upward drift (magnitude_sigma=1.9)"
+      "evidence": "Edge-Ring defect pattern matched with historical case HC-038 and chamber_seasoning_idx drifting in equipment telemetry."
     },
     {
       "case_id": "case_3a",
@@ -151,28 +298,23 @@
       "failures": [],
       "predicted_class": "Scratch",
       "anomaly_score": 0.0,
-      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratch defects during transport",
-      "confidence": 0.82,
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratches due to high cycle count exceeding the maintenance limit.",
+      "confidence": 0.85,
       "category": "handling",
       "at_risk": false,
-      "evidence": "Scratch defect pattern, end_effector_cycles at 48k (past the 40k guideline), historical case HC-042, and sensor_12/45/87 all having near-zero z-scores (|z| < 0.5)"
+      "evidence": "HANDLER-01 end_effector_cycles at 48k cycles (past the 40k guideline), scratch defect pattern, and historical case HC-042/HC-044."
     },
     {
       "case_id": "case_3b",
-      "passed": false,
-      "failures": [
-        [
-          "hypothesis_wording_in_top_2",
-          "none of ['slot', 'cassette', 'misalign', 'position'] appeared"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Scratch",
       "anomaly_score": 0.002,
-      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratches due to high cycle count past guideline",
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratch defects",
       "confidence": 0.82,
       "category": "handling",
       "at_risk": false,
-      "evidence": "Scratch defect pattern, handler_01 end_effector_cycles at 48k cycles (past 40k wear guideline), and historical case HC-042"
+      "evidence": "Scratch defect pattern, all process sensors quiet (|z-score| < 0.5), historical case HC-042, and handler_01 end_effector_cycles at 48k cycles exceeding the 40k guideline."
     },
     {
       "case_id": "case_3c",
@@ -180,16 +322,16 @@
       "failures": [
         [
           "honest_uncertainty",
-          "overconfident: 0.75 > 0.5"
+          "overconfident: 0.78 > 0.5"
         ]
       ],
       "predicted_class": "Scratch",
       "anomaly_score": 0.0,
-      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratching during transfer",
-      "confidence": 0.75,
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratches without process sensor anomalies",
+      "confidence": 0.78,
       "category": "handling",
       "at_risk": true,
-      "evidence": "Scratch defect pattern, HANDLER-01 parameter end_effector_cycles at 48k cycles (past guideline), and similar historical case HC-042"
+      "evidence": "Scratch defect pattern, HANDLER-01 end_effector_cycles at 48k (past the 40k guideline), and all process sensors having near-zero z-scores (sensor_87=0.2, sensor_12=0.0, sensor_45=0.0)"
     },
     {
       "case_id": "case_4a",
@@ -197,28 +339,23 @@
       "failures": [],
       "predicted_class": "Donut",
       "anomaly_score": 0.146,
-      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature causing overlay degradation and donut defect patterns",
-      "confidence": 0.85,
+      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature causing radial overlay and focus variation",
+      "confidence": 0.82,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "historical case HC-051 and telemetry parameter lens_temp_c on LITHO-02 showing magnitude_sigma=2.0"
+      "evidence": "Historical case HC-051 and telemetry parameter lens_temp_c showing increasing trend with magnitude_sigma=2.0 on LITHO-02"
     },
     {
       "case_id": "case_4b",
-      "passed": false,
-      "failures": [
-        [
-          "hypothesis_wording_in_top_2",
-          "none of ['reticle', 'contamination', 'swap'] appeared"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Donut",
       "anomaly_score": 0.16,
-      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature swings, causing radial overlay variation and donut defect pattern",
-      "confidence": 0.78,
+      "top_hypothesis": "Reticle contamination introduced during a reticle swap leading to donut defect pattern",
+      "confidence": 0.82,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "historical case HC-053 and telemetry parameter lens_temp_c showing increasing trend with magnitude_sigma=2.0 on LITHO-02"
+      "evidence": "Historical case HC-053 shows similarity=1.00 for reticle contamination, supported by deviating sensor_63 (+2.6 z-score) and sensor_64 (+2.3 z-score) on LITHO-02."
     },
     {
       "case_id": "case_4c",
@@ -226,11 +363,11 @@
       "failures": [],
       "predicted_class": "Donut",
       "anomaly_score": 0.155,
-      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature swings, causing radial overlay errors",
-      "confidence": 0.78,
+      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature swings affecting overlay and radial focus distribution",
+      "confidence": 0.55,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "LITHO-02 lens_temp_c increasing with magnitude_sigma=2.0 and case_id=HC-051"
+      "evidence": "equipment LITHO-02 parameter lens_temp_c showing increasing trend with magnitude_sigma=2.0 and similar historical case HC-051"
     },
     {
       "case_id": "case_5a",
@@ -238,11 +375,11 @@
       "failures": [],
       "predicted_class": "Random",
       "anomaly_score": 0.142,
-      "top_hypothesis": "HEPA filter degradation leading to particle contamination, matching historical cleanroom particle counter leading indicator.",
+      "top_hypothesis": "HEPA filter degradation in FILTER-B12 causing cleanroom particle count increase leading wafer defects",
       "confidence": 0.82,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "FILTER-B12 parameter particle_count_per_m3 and hepa_runtime_hours at 31k hours, supported by similar case HC-061."
+      "evidence": "HC-061 similarity 1.00 and telemetry parameter filter_b12: particle_count_per_m3 magnitude_sigma=2.3 and hepa_runtime_hours=31k"
     },
     {
       "case_id": "case_5b",
@@ -250,44 +387,40 @@
       "failures": [],
       "predicted_class": "Random",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Equipment hardware degradation involving chamber seal wear and oscillating RF power following recent PM",
-      "confidence": 0.82,
+      "top_hypothesis": "Equipment hardware issue related to Etch chamber RF power oscillation and gas flow drift following recent PM",
+      "confidence": 0.78,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "Historical case HC-063, equipment ETCH-07 parameter rf_power_w magnitude_sigma=2.8, and sensor_73 z-score=+1.9"
+      "evidence": "ETCH-07 parameter rf_power_w magnitude_sigma=2.8 and historical case HC-063"
     },
     {
       "case_id": "case_5c",
       "passed": false,
       "failures": [
         [
-          "hypotheses_returned",
-          "rank_root_causes returned none"
+          "hypothesis_wording_in_top_2",
+          "none of ['maintenance', 'entry', 'access', 'contamination'] appeared; model said: \"HEPA filter degradation leading to particle accumulation and random wafer defects\""
         ]
       ],
       "predicted_class": "Random",
-      "anomaly_score": 0.1343
+      "anomaly_score": 0.134,
+      "top_hypothesis": "HEPA filter degradation leading to particle accumulation and random wafer defects",
+      "confidence": 0.55,
+      "category": "equipment",
+      "at_risk": true,
+      "evidence": "Historical case HC-061, FILTER-B12 particle_count_per_m3 parameter showing increasing trend (magnitude_sigma=2.3) and hepa_runtime_hours at 31k hours past the 28k guideline."
     },
     {
       "case_id": "case_6a",
-      "passed": false,
-      "failures": [
-        [
-          "category_in_top_1",
-          "expected 'equipment', top 1 = ['measurement']"
-        ],
-        [
-          "hypothesis_wording_in_top_1",
-          "none of ['power', 'supply', 'excursion', 'cascade'] appeared"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Near-full",
       "anomaly_score": 0.143,
-      "top_hypothesis": "Test head calibration drift and contact resistance rise in the tester causing false failures across near-full wafer area",
+      "top_hypothesis": "Equipment hardware failure in CMP process step cascading through the system",
       "confidence": 0.55,
-      "category": "measurement",
+      "category": "equipment",
       "at_risk": true,
-      "evidence": "TESTER-04 parameter test_head_calibration_drift with magnitude_sigma=3.1 and historical case HC-077"
+      "evidence": "case_id=HC-071 and telemetry parameter slurry_flow_rate showing declining trend with magnitude_sigma=-2.4"
     },
     {
       "case_id": "case_6b",
@@ -295,11 +428,11 @@
       "failures": [],
       "predicted_class": "Near-full",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Interlock software bug misrouting wafers causing near-full defect signature with quiet process sensors",
-      "confidence": 0.81,
+      "top_hypothesis": "Equipment interlock software bug or route mismatch misrouted wafers",
+      "confidence": 0.82,
       "category": "software",
       "at_risk": true,
-      "evidence": "sensor_route_mismatch z-score=+2.7 and historical case HC-074 similarity=1.00"
+      "evidence": "sensor_route_mismatch z-score is +2.7, process sensors are quiet (sensor_12=0.3, sensor_45=0.2), and historical case HC-074 matches this exact failure signature."
     },
     {
       "case_id": "case_6c",
@@ -307,11 +440,11 @@
       "failures": [],
       "predicted_class": "Near-full",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Test head calibration drift and contact resistance rise in the tester causing false measurement failures across near-full wafer area.",
+      "top_hypothesis": "Test head calibration drift and contact resistance increase causing systematic false failures across probe channels",
       "confidence": 0.7,
       "category": "measurement",
       "at_risk": true,
-      "evidence": "sensor_tester_01 z-score=+3.1, historical cases HC-077 and HC-079, and TESTER-04 telemetry parameter test_head_calibration_drift magnitude_sigma=+3.1"
+      "evidence": "sensor_tester_01 z-score=+3.1, historical cases HC-077 and HC-079, and telemetry parameters test_head_calibration_drift and contact_resistance_ohm"
     }
   ]
 }

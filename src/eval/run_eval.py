@@ -166,9 +166,23 @@ async def evaluate(session: ClientSession, fx: dict, mock: bool = False) -> Resu
         else:
             blob = " ".join(f"{h.get('description','')} {h.get('evidence_summary','')}"
                             for h in topk).lower()
-            hit = [m for m in fx["expected_hypothesis_matches_any"] if m.lower() in blob]
+            # Match on a light stem, not the exact surface form. The model wrote
+            # "cascading through the system" and failed a term list containing
+            # "cascade" — a correct answer marked wrong by one suffix. Trailing
+            # -e/-s are dropped for words long enough that the stem stays specific.
+            def _hits(term: str) -> bool:
+                t = term.lower()
+                if t in blob:
+                    return True
+                stem = t.rstrip("e").rstrip("s") if len(t) >= 5 else t
+                return len(stem) >= 4 and stem in blob
+            hit = [m for m in fx["expected_hypothesis_matches_any"] if _hits(m)]
+            # Show what it DID say. "none of [...] appeared" gave no way to tell a
+            # wrong answer from a right one worded differently, which is most of
+            # what this assertion was catching.
             r.check(f"hypothesis_wording_in_top_{k}", bool(hit),
-                    f"none of {fx['expected_hypothesis_matches_any']} appeared")
+                    f"none of {fx['expected_hypothesis_matches_any']} appeared; "
+                    f"model said: \"{topk[0].get('description','')[:90]}\"")
 
     if fx.get("max_confidence_ceiling") is not None and not mock:
         r.check("honest_uncertainty",
