@@ -167,6 +167,31 @@ def _import_reasoning(name: str):
     return _imp
 
 
+def _import_cmp():
+    """
+    Track A: PHM 2016 CMP removal rate with conformal intervals.
+
+    Probed with a sparse input on purpose. Fitting CV+ takes a few seconds on
+    first call, and a probe that only imports would let a broken checkpoint or a
+    missing training CSV pass as "real" -- the exact failure that made this
+    module use probe-calls in the first place.
+    """
+    def _imp():
+        import sys
+        root = str(Path(__file__).resolve().parents[2])
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        from src.models.cmp.predict import predict_removal_rate
+        return predict_removal_rate
+    return _imp
+
+
+real_predict_removal_rate = _try(
+    "predict_removal_rate", _import_cmp(),
+    probe=({"USAGE_OF_DRESSER": 500.0},))
+
+
+
 real_classify_wafer_map = _try("classify_wafer_map", _import_classify)
 real_score_sensor_anomaly = _try(
     "score_sensor_anomaly", _import_tabular("score_sensor_anomaly"),

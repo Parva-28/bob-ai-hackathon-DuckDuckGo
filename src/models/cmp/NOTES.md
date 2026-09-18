@@ -144,10 +144,36 @@ Two honest qualifications:
 
 ---
 
+## Serving
+
+`predict.py` exposes `predict_removal_rate(process_features, alpha=0.10)`, registered as
+the MCP tool of the same name — the pipeline now reports **9 real tools, 0 stubs**.
+
+It returns the interval as the primary answer and the point estimate as secondary, and it
+distinguishes two questions an engineer conflates:
+
+| field | meaning |
+|---|---|
+| `excursion_likely` | the point estimate is outside the control limits |
+| `excursion_possible` | **the interval** crosses a limit — an excursion cannot be ruled out |
+
+The gap between those two is the 34.7% → 93.9% result, made operational. A real example
+from the self-check: predicted 148.55 against a UCL of 153.53, so `excursion_likely` is
+false — but the interval reaches 156.11, so `excursion_possible` is true. The true value
+was 149.13. A point-only system would have passed that run without comment.
+
+It also sets `coverage_caveat` when the prediction lands in the p75-90 band, because that
+is where our measured conditional coverage fell to 84.0% against a 90% target. The tool
+says where its own guarantee is weak rather than presenting one number everywhere.
+
+When the checkpoint is missing the tool returns `_mode: "unavailable"` with a remedy. It
+does **not** fall back to a stub interval — every other tool here has a schema-valid stub,
+but an invented range would contradict the only thing this tool claims, which is that its
+interval is measured.
+
 ## What is not done
 
-- Not wired into the MCP tool layer — no tool serves these intervals yet.
-- `lots.json` fabrications are **not yet retired**; that is the second half of Track A.
+- `lots.json` fabrications are **not yet retired**; that is the remaining half of Track A.
 - No abstention gate (Track B: RI + GSI).
 - No physics-based term, so the 10% interpretability component of the PHM scoring rule is
   unaddressed.

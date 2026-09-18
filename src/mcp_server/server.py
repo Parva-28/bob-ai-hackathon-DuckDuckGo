@@ -482,6 +482,29 @@ def flag_at_risk_batch(lot_id: str, planned_process_params: dict[str, float]) ->
     }
 
 
+@mcp.tool(description="Predict CMP material removal rate for a planned or completed "
+                      "polish run, and return a CONFORMAL PREDICTION INTERVAL, not just a "
+                      "point estimate. Use the interval, not the point value, to judge "
+                      "whether the run may breach control limits: on our held-out split a "
+                      "point estimate caught 34.7% of excursions and the interval caught "
+                      "93.9%. Trained on PHM 2016 CMP, where sensors and outcome are "
+                      "measured on the SAME wafers - unlike the SECOM/WM-811K lots, whose "
+                      "pairing is constructed.")
+def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10) -> dict:
+    if adapters.real_predict_removal_rate:
+        r = adapters.real_predict_removal_rate(process_features, alpha)
+        r["_mode"] = "real"
+        return r
+    return {
+        "error": "CMP model unavailable",
+        "reason": adapters.REASON.get("predict_removal_rate", "not loaded"),
+        "remedy": "python src/models/cmp/data_prep.py && python src/models/cmp/train.py",
+        # No fabricated interval. An invented range is worse than no answer here:
+        # the entire claim of this tool is that its interval is measured.
+        "_mode": "unavailable",
+    }
+
+
 @mcp.tool(description="Record an engineer's verdict on a ranked hypothesis. Use the "
                       "hypothesis_id returned by rank_root_causes. Rejections matter as much "
                       "as confirmations - they stop a false positive being reinforced.")
