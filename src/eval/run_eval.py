@@ -249,6 +249,20 @@ async def _run(args) -> int:
             # Stream each case as it lands. Against live watsonx a full run is ~36
             # API calls at 3-6s each, and buffering the table until the end makes a
             # working run indistinguishable from a hang.
+            # Live providers rate-limit, and firing 18 cases back to back trips
+            # them: Gemini's free tier allows 5 requests/minute, so an unpaced run
+            # 429s on everything after the first few and reports 0/18 as if the
+            # system were broken. Pace to stay inside the limit; --rpm 0 disables.
+            # Each case makes two reasoning calls (rank_root_causes and
+            # get_corrective_action_playbook), so the per-case gap is twice the
+            # per-request gap or the second call trips the limit.
+            CALLS_PER_CASE = 2
+            rpm = 0 if mock else max(0, args.rpm)
+            min_gap = (60.0 / rpm) * CALLS_PER_CASE if rpm else 0.0
+            if min_gap:
+                print(f"  pacing at {rpm} req/min ({min_gap:.1f}s between cases) — "
+                      f"about {min_gap * len(fixtures) / 60:.1f} min\n", flush=True)
+
             results = []
             for i, fx in enumerate(fixtures, 1):
                 t0 = time.monotonic()
@@ -257,6 +271,8 @@ async def _run(args) -> int:
                 print(f"  [{i:>2}/{len(fixtures)}] {r.case_id:<9} "
                       f"{'ok' if r.passed else 'FAIL':<4} {time.monotonic()-t0:>5.1f}s",
                       flush=True)
+                if min_gap and i < len(fixtures):
+                    await anyio.sleep(max(0.0, min_gap - (time.monotonic() - t0)))
             print()
 
     # ---- report ----
@@ -325,6 +341,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="YieldGuard eval harness")
     p.add_argument("--case", help="run only one case study, e.g. 6")
     p.add_argument("--verbose", action="store_true", help="show every assertion")
+    p.add_argument("--rpm", type=int, default=5,
+                   help="max reasoning requests per minute in live mode "
+                        "(Gemini free tier is 5). 0 disables pacing.")
     p.add_argument("--json", help="write machine-readable results to this path")
     return anyio.run(_run, p.parse_args())
 

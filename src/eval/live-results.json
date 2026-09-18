@@ -5,15 +5,55 @@
       "classify_wafer_map": "real",
       "flag_at_risk_batch": "real",
       "get_corrective_action_playbook": "real",
+      "predict_removal_rate": "real",
       "query_telemetry": "real",
       "rank_root_causes": "real",
       "retrieve_similar_cases": "real",
       "score_sensor_anomaly": "real",
       "submit_feedback": "real"
     },
-    "real_count": 8,
+    "real_count": 9,
     "stub_count": 0,
     "stub_reasons": {},
+    "data_provenance": {
+      "datasets": [
+        {
+          "name": "PHM 2016 CMP Data Challenge",
+          "role": "process -> outcome prediction",
+          "provenance": "measured",
+          "n": 2006,
+          "note": "Sensors and outcome on the same wafers. Used by predict_removal_rate."
+        },
+        {
+          "name": "WM-811K (LSWMD)",
+          "role": "spatial defect classification",
+          "provenance": "measured",
+          "n": 811457,
+          "note": "Real maps, real labels. Used standalone by classify_wafer_map \u2014 the classifier itself involves no constructed pairing."
+        },
+        {
+          "name": "SECOM (UCI id=179)",
+          "role": "imbalanced anomaly detection",
+          "provenance": "measured",
+          "n": 1567,
+          "note": "Real readings, anonymised channels, no fault labels \u2014 so it can validate detection but not root-cause attribution."
+        },
+        {
+          "name": "YieldGuard demo lots",
+          "role": "end-to-end reasoning demo",
+          "provenance": "constructed",
+          "n": 12,
+          "note": "SECOM rows paired with WM-811K maps BY US. Each component is real; the join is not. Retained because CMP has no wafer maps and so cannot carry the vision or root-cause demo."
+        }
+      ],
+      "rule": "Entities carry a data_provenance block. 'measured' means the sensor-to-outcome link exists in the source data. 'constructed' means we joined unrelated real datasets and no causal claim survives the join.",
+      "measured_entities": [
+        "cmp_run"
+      ],
+      "constructed_entities": [
+        "lot"
+      ]
+    },
     "historical_cases": 18,
     "known_equipment": [
       "CMP-03",
@@ -25,7 +65,7 @@
     ],
     "fixtures_loaded": 18
   },
-  "passed": 10,
+  "passed": 13,
   "total": 18,
   "results": [
     {
@@ -34,11 +74,11 @@
       "failures": [],
       "predicted_class": "Center",
       "anomaly_score": 0.145,
-      "top_hypothesis": "Slurry flow rate drift on CMP-03 due to degrading slurry pump seal",
-      "confidence": 0.78,
+      "top_hypothesis": "Slurry flow rate drift from a degrading slurry pump on CMP-03",
+      "confidence": 0.85,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate trending down over 6 lots; matches historical case HC-018 (similarity 1.00) where pump seal replacement recovered yield"
+      "evidence": "Historical case HC-018 and telemetry parameter slurry_flow_rate on CMP-03 showing a declining trend with a magnitude of -2.4 sigma"
     },
     {
       "case_id": "case_1b",
@@ -46,32 +86,23 @@
       "failures": [],
       "predicted_class": "Center",
       "anomaly_score": 0.159,
-      "top_hypothesis": "CMP-03 slurry pump seal degradation causing decreasing slurry flow rate",
+      "top_hypothesis": "Slurry flow rate drift from a degrading slurry pump on CMP-03 causing center defect pattern",
       "confidence": 0.78,
       "category": "equipment",
       "at_risk": false,
-      "evidence": "CMP-03 slurry_flow_rate trending down over 6 lots; case HC-018 (similarity 0.72) with identical root cause"
+      "evidence": "Telemetry parameter slurry_flow_rate on CMP-03 showing decreasing trend (magnitude_sigma=-2.4), supported by historical case HC-018"
     },
     {
       "case_id": "case_1c",
-      "passed": false,
-      "failures": [
-        [
-          "category_in_top_2",
-          "expected 'material', top 2 = ['equipment', 'equipment']"
-        ],
-        [
-          "hypothesis_wording_in_top_2",
-          "none of ['material', 'vendor', 'slurry lot', 'viscosity', 'incoming'] appeared"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Center",
       "anomaly_score": 0.139,
-      "top_hypothesis": "Slurry pump on CMP-03 degrading, causing flow rate decline and pad wear",
-      "confidence": 0.78,
-      "category": "equipment",
+      "top_hypothesis": "Incoming slurry vendor lot with out-of-spec viscosity causing center defects",
+      "confidence": 0.82,
+      "category": "material",
       "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate declining steadily over last 6 lots; pad_life_pct approaching qualified life limit; case HC-018 (similar slurry pump issue) similarity 0.77"
+      "evidence": "Historical case HC-024 (similarity 1.00) matches the center defect pattern and material root cause, supported by sensor_91 z-score=+1.7."
     },
     {
       "case_id": "case_2a",
@@ -79,11 +110,11 @@
       "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.149,
-      "top_hypothesis": "Edge-Ring defect caused by RF power edge effect following recent chamber PM reassembly on ETCH-07",
-      "confidence": 0.78,
+      "top_hypothesis": "RF power edge effect following chamber PM reassembly",
+      "confidence": 0.82,
       "category": "equipment",
       "at_risk": false,
-      "evidence": "RF power trend edge ringing since PM 2 days ago on ETCH-07; similar historical case HC-033 with identical root cause and outcome"
+      "evidence": "similar historical case HC-033, ETCH-07 rf_power_w magnitude_sigma=2.8, and sensor_23 z-score=+2.8"
     },
     {
       "case_id": "case_2b",
@@ -91,28 +122,23 @@
       "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.148,
-      "top_hypothesis": "Edge gas nozzle partially clogged on ETCH-07 causing flow distribution imbalance",
-      "confidence": 0.85,
+      "top_hypothesis": "Edge zone gas flow below setpoint and RF power oscillation following recent PM leading to edge-ring defect pattern",
+      "confidence": 0.78,
       "category": "equipment",
       "at_risk": false,
-      "evidence": "RF power edge ringing and gas flow below setpoint on ETCH-07; similarity to HC-035 (partially clogged edge gas nozzle) with 1.00"
+      "evidence": "ETCH-07 gas_flow_sccm (magnitude_sigma=-2.1) and rf_power_w (magnitude_sigma=2.8), corroborated by historical case HC-035"
     },
     {
       "case_id": "case_2c",
-      "passed": false,
-      "failures": [
-        [
-          "category_in_top_3",
-          "expected 'process', top 3 = ['equipment', 'equipment', 'measurement']"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Edge-Ring",
       "anomaly_score": 0.138,
-      "top_hypothesis": "Chamber wall seasoning drift after shared-tool recipe change",
-      "confidence": 0.78,
-      "category": "equipment",
+      "top_hypothesis": "Chamber wall seasoning drift following a shared-tool recipe change",
+      "confidence": 0.85,
+      "category": "process",
       "at_risk": true,
-      "evidence": "ETCH-07 rf_power_w trend shows edge ringing since PM 2 days ago; ETCH-07 gas_flow_sccm edge zone below setpoint; chamber_seasoning_idx drifting since shared-tool recipe change; similarity to historical case HC-038 (1.00) which had same root cause"
+      "evidence": "Historical case HC-038 (similarity=1.00) and telemetry parameter chamber_seasoning_idx on ETCH-07 showing a z-score of +1.9"
     },
     {
       "case_id": "case_3a",
@@ -120,40 +146,40 @@
       "failures": [],
       "predicted_class": "Scratch",
       "anomaly_score": 0.0,
-      "top_hypothesis": "Wafer-handling robot end-effector wear causing positional misalignment not detectable by process sensors",
-      "confidence": 0.78,
+      "top_hypothesis": "Wafer-handling robot end-effector wear causing physical scratching during transfer",
+      "confidence": 0.75,
       "category": "handling",
       "at_risk": false,
-      "evidence": "HANDLER-01 end_effector_cycles trend at 48k cycles (past 40k wear guideline); process_sensor_correlation trend shows NO correlation; similar case HC-042 (end-effector wear) with similarity 0.15"
+      "evidence": "Scratch defect pattern, HANDLER-01 parameter end_effector_cycles at 48k cycles (past wear guideline), and historical case HC-044/HC-042 alignment with all process sensors quiet (|z-score| < 0.5)"
     },
     {
       "case_id": "case_3b",
-      "passed": true,
-      "failures": [],
+      "passed": false,
+      "failures": [
+        [
+          "hypothesis_wording_in_top_2",
+          "none of ['slot', 'cassette', 'misalign', 'position'] appeared"
+        ]
+      ],
       "predicted_class": "Scratch",
       "anomaly_score": 0.002,
-      "top_hypothesis": "Wafer-handling robot end-effector wear causing misalignment or damage",
-      "confidence": 0.78,
+      "top_hypothesis": "Robot end-effector mechanical wear exceeding the qualified limit",
+      "confidence": 0.82,
       "category": "handling",
       "at_risk": false,
-      "evidence": "HANDLER-01 end_effector_cycles trend at 48k cycles, past the 40k wear guideline; similar historical case HC-042 with end-effector wear and no process sensor correlation"
+      "evidence": "Scratch defect pattern, all process sensors near zero (|z-score| < 0.5), handler_cycles_since_pm/end_effector_cycles at 48k cycles (past 40k guideline), historical case HC-042, and telemetry showing zero process sensor correlation."
     },
     {
       "case_id": "case_3c",
       "passed": false,
       "failures": [
         [
-          "honest_uncertainty",
-          "overconfident: 0.78 > 0.5"
+          "hypotheses_returned",
+          "rank_root_causes returned none"
         ]
       ],
       "predicted_class": "Scratch",
-      "anomaly_score": 0.0,
-      "top_hypothesis": "CMP-03 slurry pump seal degradation causing flow rate decline and pad wear",
-      "confidence": 0.78,
-      "category": "equipment",
-      "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate declining steadily over last 6 lots; CMP-03 pad_life_pct approaching qualified life limit; case HC-018 (similarity 0.53) involved slurry pump seal replacement due to flow rate drift"
+      "anomaly_score": 0.0004
     },
     {
       "case_id": "case_4a",
@@ -161,11 +187,11 @@
       "failures": [],
       "predicted_class": "Donut",
       "anomaly_score": 0.146,
-      "top_hypothesis": "Stepper lens thermal drift causing overlay radial trend",
-      "confidence": 0.78,
+      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature causing radial overlay shifts and donut defect pattern",
+      "confidence": 0.85,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "LITHO-02 lens_temp_c tracking ambient fab temperature swings; overlay_nm radial trend growing at mid-radius; case HC-051 (similarity 1.00) involved stepper lens thermal drift"
+      "evidence": "Historical case HC-051 and telemetry parameter lens_temp_c on LITHO-02 showing increasing magnitude_sigma=2.0"
     },
     {
       "case_id": "case_4b",
@@ -178,11 +204,11 @@
       ],
       "predicted_class": "Donut",
       "anomaly_score": 0.16,
-      "top_hypothesis": "CMP-03 slurry pump seal degradation causing reduced slurry flow rate",
-      "confidence": 0.85,
+      "top_hypothesis": "Slurry flow rate degradation and pad life exhaustion on CMP-03",
+      "confidence": 0.82,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate parameter shows steady decline over last 6 lots; matches historical case HC-018 (similarity 1.00) where slurry pump seal replacement recovered yield"
+      "evidence": "CMP-03 telemetry parameter slurry_flow_rate shows declining trend (magnitude_sigma=-2.4) and similar historical case HC-018"
     },
     {
       "case_id": "case_4c",
@@ -199,11 +225,11 @@
       ],
       "predicted_class": "Donut",
       "anomaly_score": 0.155,
-      "top_hypothesis": "CMP-03 slurry flow rate degradation causing wafer defects",
-      "confidence": 0.75,
+      "top_hypothesis": "Stepper lens thermal drift tracking ambient fab temperature causing radial overlay errors",
+      "confidence": 0.78,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate trend declining steadily over last 6 lots; matches historical case HC-018 (similarity 1.00) where slurry pump degradation caused yield loss"
+      "evidence": "LITHO-02 telemetry parameter lens_temp_c with magnitude_sigma=2.0 and overlay_nm with magnitude_sigma=1.8"
     },
     {
       "case_id": "case_5a",
@@ -211,11 +237,11 @@
       "failures": [],
       "predicted_class": "Random",
       "anomaly_score": 0.142,
-      "top_hypothesis": "HEPA filter degradation leading to increased particle contamination",
-      "confidence": 0.78,
+      "top_hypothesis": "HEPA filter degradation leading to particle contamination in the cleanroom environment",
+      "confidence": 0.82,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "FILTER-B12 particle_count_per_m3 trend rising 3 days ahead of wafer defect trend; FILTER-B12 hepa_runtime_hours at 31k hours past 28k replacement guideline; matches historical case HC-061 (similarity 1.00) where HEPA filter degradation caused wafer defects"
+      "evidence": "case_id=HC-061 and FILTER-B12 particle_count_per_m3 increasing with magnitude_sigma=2.3 leading wafer defect trend by 3 days"
     },
     {
       "case_id": "case_5b",
@@ -223,28 +249,23 @@
       "failures": [],
       "predicted_class": "Random",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Chamber seal wear on CMP-03 generating particles only during long runs",
+      "top_hypothesis": "Equipment hardware degradation involving seal wear and slurry delivery decline in CMP-03",
       "confidence": 0.78,
       "category": "equipment",
       "at_risk": true,
-      "evidence": "CMP-03 slurry_flow_rate declining steadily over last 6 lots; case HC-063 (similarity 1.00) with identical root cause"
+      "evidence": "case_id=HC-063 similarity=1.00 and equipment=CMP-03 parameter=slurry_flow_rate magnitude_sigma=-2.4"
     },
     {
       "case_id": "case_5c",
-      "passed": false,
-      "failures": [
-        [
-          "category_in_top_2",
-          "expected 'process', top 2 = ['equipment', 'handling']"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Random",
       "anomaly_score": 0.134,
-      "top_hypothesis": "HEPA filter degradation leading to increased particle contamination",
-      "confidence": 0.78,
-      "category": "equipment",
+      "top_hypothesis": "ETCH-07 chamber seasoning drift and gas flow reduction following recipe change",
+      "confidence": 0.61,
+      "category": "process",
       "at_risk": true,
-      "evidence": "FILTER-B12 particle_count_per_m3 rising 3 days ahead of wafer defect trend; HEPA runtime hours at 31k hours past replacement guideline; similar historical case HC-061 (filter degradation) with similarity 0.90"
+      "evidence": "Telemetry parameters rf_power_w, gas_flow_sccm, and chamber_seasoning_idx on ETCH-07"
     },
     {
       "case_id": "case_6a",
@@ -261,32 +282,23 @@
       ],
       "predicted_class": "Near-full",
       "anomaly_score": 0.143,
-      "top_hypothesis": "Test equipment measurement artifact caused by TESTER-04 contact resistance drift and calibration drift",
-      "confidence": 0.55,
+      "top_hypothesis": "Test head calibration drift and contact resistance increase on TESTER-04 producing false failures",
+      "confidence": 0.65,
       "category": "measurement",
       "at_risk": true,
-      "evidence": "TESTER-04 contact_resistance_ohm trend rising across all probe channels; TESTER-04 test_head_calibration_drift trend drifting since last calibration 42 days ago; top deviating sensors are TESTER-04 sensors"
+      "evidence": "TESTER-04 parameter test_head_calibration_drift (z-score=3.1) and similar historical case HC-077"
     },
     {
       "case_id": "case_6b",
-      "passed": false,
-      "failures": [
-        [
-          "category_in_top_2",
-          "expected 'software', top 2 = ['measurement', 'handling']"
-        ],
-        [
-          "hypothesis_wording_in_top_2",
-          "none of ['software', 'interlock', 'routing', 'automation', 'misroute'] appeared"
-        ]
-      ],
+      "passed": true,
+      "failures": [],
       "predicted_class": "Near-full",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Tester-04 measurement artifact due to test head calibration drift and rising contact resistance",
-      "confidence": 0.7,
-      "category": "measurement",
+      "top_hypothesis": "Software routing error or interlock bug misrouting otherwise good wafers",
+      "confidence": 0.82,
+      "category": "software",
       "at_risk": true,
-      "evidence": "TESTER-04 parameter test_head_calibration_drift shows drifting since last calibration 42 days ago; parameter contact_resistance_ohm shows rising resistance across all probe channels"
+      "evidence": "sensor_route_mismatch z-score is +2.7 and historical case HC-074 matches this exact failure mode"
     },
     {
       "case_id": "case_6c",
@@ -294,11 +306,11 @@
       "failures": [],
       "predicted_class": "Near-full",
       "anomaly_score": 0.137,
-      "top_hypothesis": "Tester-04 contact resistance drift causing systematic false fails",
-      "confidence": 0.55,
+      "top_hypothesis": "Test head calibration drift and contact resistance rise causing systematic false failures on good wafers",
+      "confidence": 0.7,
       "category": "measurement",
       "at_risk": true,
-      "evidence": "TESTER-04 parameter contact_resistance_ohm trend rising across all probe channels; matches historical case HC-079 (similarity 1.00) where probe card contact resistance drift caused false fails"
+      "evidence": "sensor_tester_01 z-score=+3.1, TESTER-04 test_head_calibration_drift parameter, and historical cases HC-077 and HC-079"
     }
   ]
 }
