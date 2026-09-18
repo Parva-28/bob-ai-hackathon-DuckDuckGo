@@ -31,6 +31,7 @@ CKPT = HERE / "checkpoints"
 DATA = HERE / "data"
 
 _model = None
+_gate = None
 _cp: dict[float, object] = {}
 _features: list[str] | None = None
 _meta: dict | None = None
@@ -81,7 +82,25 @@ def control_limits() -> tuple[float, float]:
     return tuple(float(v) for v in np.percentile(y, [5, 95]))
 
 
-def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10) -> dict:
+def _abstention_gate():
+    """Fit RI/GSI once, lazily. Fitting trains a second model, so it is not free."""
+    global _gate
+    if _gate is not None:
+        return _gate
+    import sys
+    if str(HERE) not in sys.path:
+        sys.path.insert(0, str(HERE))
+    from abstain import AbstentionGate
+    _load()
+    df = pd.read_csv(DATA / "cmp_train.csv")
+    df = df[df["AVG_REMOVAL_RATE"] <= 1000.0]
+    _gate = AbstentionGate().fit(df[_features],
+                                 df["AVG_REMOVAL_RATE"].to_numpy(float))
+    return _gate
+
+
+def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10,
+                         gate: bool = True) -> dict:
     """
     Predict material removal rate for one CMP run, with a conformal interval.
 
@@ -99,6 +118,25 @@ def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10
         row[k] = process_features[k]
     X = pd.DataFrame([row])[_features]
 
+    # Gate BEFORE predicting. An abstention is not a prediction with a warning
+    # attached -- it is the absence of one, and returning an interval alongside
+    # it invites the reader to use the interval anyway.
+    if gate:
+        g = _abstention_gate().evaluate(X)[0]
+        if g.abstain:
+            return {
+                "abstained": True,
+                "reason": g.reason,
+                "novel_variables": g.novel_variables,
+                "ri": g.ri, "ri_threshold": g.ri_threshold,
+                "gsi": g.gsi, "gsi_threshold": g.gsi_threshold,
+                "features_supplied": len(supplied),
+                "features_imputed": len(_features) - len(supplied),
+                "guidance": ("No interval is returned. The two models disagree beyond "
+                             "the process tolerance, or the input is unlike anything "
+                             "trained on. Measure this run rather than predicting it."),
+            }
+
     cp = _conformal(alpha)
     point, itv = cp.predict_interval(X)
     lo, hi = float(itv[0, 0, 0]), float(itv[0, 1, 0])
@@ -110,6 +148,7 @@ def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10
     in_weak_band = bool(band_lo <= pt <= band_hi)
 
     return {
+        "abstained": False,
         "predicted_removal_rate": round(pt, 2),
         "interval": [round(lo, 2), round(hi, 2)],
         "interval_width": round(hi - lo, 2),

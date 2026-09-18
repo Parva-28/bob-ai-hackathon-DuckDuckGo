@@ -524,10 +524,13 @@ def get_cmp_run(wafer_id: int | str, stage: str = "A") -> dict:
                       "point estimate caught 34.7% of excursions and the interval caught "
                       "93.9%. Trained on PHM 2016 CMP, where sensors and outcome are "
                       "measured on the SAME wafers - unlike the SECOM/WM-811K lots, whose "
-                      "pairing is constructed.")
-def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10) -> dict:
+                      "pairing is constructed. MAY ABSTAIN: if the response has "
+                      "abstained=true there is NO interval and NO prediction. Report the "
+                      "abstention and its reason; do not substitute your own estimate.")
+def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10,
+                         gate: bool = True) -> dict:
     if adapters.real_predict_removal_rate:
-        r = adapters.real_predict_removal_rate(process_features, alpha)
+        r = adapters.real_predict_removal_rate(process_features, alpha, gate)
         r["_mode"] = "real"
         return r
     return {

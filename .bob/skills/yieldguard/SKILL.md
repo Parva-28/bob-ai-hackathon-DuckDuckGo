@@ -102,6 +102,17 @@ Report `excursion_possible`. On our held-out split a point estimate caught 34.7%
 excursions; the interval caught 93.9%. A run can be `excursion_likely: false` and
 `excursion_possible: true`, and that run needs review.
 
+**`predict_removal_rate` may refuse.** If the response has `abstained: true` there is no
+interval and no prediction in it. Say the system declined and give the `reason` and any
+`novel_variables`. Do **not** substitute an estimate of your own, and do not fall back to
+another tool to manufacture a number — the refusal is the answer, and the correct advice
+is to measure the run rather than predict it.
+
+Refusal is a designed behaviour, not a failure. It fires when two structurally different
+models disagree by more than the process tolerance, or when the input is unlike anything
+in training. On our held-out split the runs it declined had 1.76x the error of the runs it
+kept, including the single worst prediction in the set.
+
 If `coverage_caveat` is set, pass it on. It means the prediction landed in the band where
 measured conditional coverage was 84.0% against a 90% target, so the interval is weaker
 than its nominal level right where the decision is being made.

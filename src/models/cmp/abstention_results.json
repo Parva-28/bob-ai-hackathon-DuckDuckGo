@@ -1,0 +1,77 @@
+{
+  "tolerable_error": 5.0,
+  "ri_threshold": 0.667310691589515,
+  "gsi_threshold": 77.07330050719388,
+  "gsi_multiple": 2.0,
+  "splits": [
+    {
+      "split": "held-out (in-distribution)",
+      "n": 503,
+      "abstention_rate": 0.42147117296222664,
+      "ri_fail_rate": 0.42147117296222664,
+      "gsi_fail_rate": 0.0,
+      "both_fail_rate": 0.0,
+      "retained": {
+        "n": 291,
+        "mae": 2.876226858582168,
+        "rmse": 3.709456043268141,
+        "max_error": 10.965730457759946,
+        "p90_error": 6.245809359278127
+      },
+      "abstained": {
+        "n": 212,
+        "mae": 5.059884840005812,
+        "rmse": 10.716138077148795,
+        "max_error": 75.37415396756751,
+        "p90_error": 8.454557888003494
+      },
+      "mae_ratio_abstained_over_retained": 1.759
+    },
+    {
+      "split": "stage B, unseen during fit",
+      "n": 829,
+      "abstention_rate": 0.3498190591073583,
+      "ri_fail_rate": 0.3498190591073583,
+      "gsi_fail_rate": 0.006031363088057901,
+      "both_fail_rate": 0.006031363088057901,
+      "retained": {
+        "n": 539,
+        "mae": 7.838941466557441,
+        "rmse": 9.1174384297708,
+        "max_error": 22.430210942999693,
+        "p90_error": 13.998218038571636
+      },
+      "abstained": {
+        "n": 290,
+        "mae": 10.200011639474136,
+        "rmse": 13.892916331475282,
+        "max_error": 61.09921860547939,
+        "p90_error": 17.171998060542187
+      },
+      "mae_ratio_abstained_over_retained": 1.301,
+      "control_same_stage": {
+        "split": "stage A control (in-distribution)",
+        "n": 400,
+        "abstention_rate": 0.345,
+        "ri_fail_rate": 0.345,
+        "gsi_fail_rate": 0.0,
+        "both_fail_rate": 0.0,
+        "retained": {
+          "n": 262,
+          "mae": 0.24133414026155628,
+          "rmse": 0.3512443496617702,
+          "max_error": 1.9347401929444032,
+          "p90_error": 0.516215637482496
+        },
+        "abstained": {
+          "n": 138,
+          "mae": 0.4053249763589841,
+          "rmse": 1.1725903197171648,
+          "max_error": 11.146651120251732,
+          "p90_error": 0.6440090203236535
+        },
+        "mae_ratio_abstained_over_retained": 1.68
+      }
+    }
+  ]
+}

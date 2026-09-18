@@ -171,6 +171,74 @@ does **not** fall back to a stub interval — every other tool here has a schema
 but an invented range would contradict the only thing this tool claims, which is that its
 interval is measured.
 
+## Track B — abstention (RI + GSI)
+
+`abstain.py`. Two independent gates; abstain if **either** fails, never an average —
+averaging lets a strong RI mask a novel input.
+
+**RI (Reliance Index)** — overlap area between the predictive distributions of two
+*structurally different* models (HistGradientBoosting and an MLP) fit on the same data. A
+tree ensemble and a neural net fail differently; two boosters with different seeds would
+agree by construction and RI would measure nothing.
+
+The threshold is **derived, not chosen**: it is the RI two models attain when they differ
+by exactly the tolerable error (5.0 removal-rate units, a process decision). That yields
+**RI_threshold = 0.667**. Note the widely quoted *"RI > 0.7"* is a misattribution — the
+fixed 0.7/0.3 thresholds belong to the **Device Health Index** in a different NCKU patent.
+
+**GSI (Global Similarity Index)** — Mahalanobis distance to the training distribution in a
+PCA-whitened space (73 features on ~1,500 rows makes the raw covariance singular).
+Threshold at 2× max training GSI.
+
+### Does the abstention actually work?
+
+The only question that matters. Error on retained vs abstained:
+
+| split | abstention rate | retained MAE | abstained MAE | ratio |
+|---|---|---|---|---|
+| held-out (in-distribution) | 42.1% | 2.88 | **5.06** | **1.76×** |
+| stage A control | 34.5% | 0.24 | **0.41** | 1.68× |
+| stage B (unseen during fit) | 35.0% | 7.84 | 10.20 | 1.30× |
+
+**RI works.** The runs it declined carry 1.76× the error of the runs it kept — and the
+single worst prediction in the whole test set, **max error 75.37**, is inside the abstained
+set. Retained max error is 10.97. The outlier flagged in the point-model section above is
+exactly what the gate catches.
+
+The cost is real: **42% abstention** is a lot of runs sent for measurement. `TOLERABLE_ERROR`
+is the dial and it is a process decision, not a hyperparameter to tune for a nicer number.
+
+### Negative result: GSI does not fire here, and the reason is specific
+
+GSI flagged **0.6%** of stage B — a stage withheld from training entirely. Testing whether
+it has any signal at all:
+
+```
+GSI on training stage A: median 3.32  p95 6.50  max 33.36
+GSI on unseen  stage B: median 3.23  p95 4.92  max 303.51
+GSI separates A from B?  ROC-AUC = 0.450     (0.5 = no signal)
+```
+
+**Below 0.5.** No threshold rescues it — at every level tested, the stage-B flag rate is at
+or below the stage-A false-alarm rate.
+
+This is not "GSI is broken", it is **the wrong instrument for this failure**. Stage A and
+stage B have similar *input* distributions; what differs is the input→outcome mapping —
+error rises from MAE 0.24 to 7.84 with no input novelty. That is **concept drift, not
+covariate shift**, and GSI measures covariate shift by construction. RI caught it (35%
+abstention) because two model families diverge when the learned mapping is wrong.
+
+GSI is kept, because covariate shift is a real failure mode it *would* catch (a new tool, a
+re-scaled sensor) and it costs nothing when quiet — 0.0% false alarms in-distribution. But
+do not claim it is doing work on this dataset. On this data, **RI is carrying the gate.**
+
+## Serving
+
+An abstention returns **no interval and no point estimate** — only the reason, the RI/GSI
+values, and any novel variables. Returning an interval next to a refusal invites the reader
+to use the interval anyway. `SKILL.md` instructs Bob to report the refusal and not
+substitute its own estimate.
+
 ## What is not done
 
 - `lots.json` fabrications are **not yet retired**; that is the remaining half of Track A.
