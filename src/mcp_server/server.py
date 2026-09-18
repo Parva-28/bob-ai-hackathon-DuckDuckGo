@@ -458,8 +458,23 @@ def rank_root_causes(classification: dict | None = None,
                       "corrective actions. On the pre-run path these are preventive actions "
                       "to take before the lot is released.")
 def get_corrective_action_playbook(top_hypothesis: dict, preventive: bool = False) -> dict:
+    # Actions are a RECOMMENDATION, not a measurement, and they are the only output
+    # of this server that proposes a physical intervention. They sit in the same UI
+    # as conformal intervals and trained-classifier output, so they are stamped:
+    # every action is investigative, none is a process-control change, and a human
+    # decides. Naming the claim type is the cheapest guard against a reader
+    # treating "inspect the RF match network" as carrying the same evidential
+    # weight as a measured 94.0% coverage figure.
+    def _stamp(d: dict) -> dict:
+        d["claim_type"] = "recommendation"
+        d["_advisory"] = (
+            "Investigative steps for an engineer to evaluate, derived from the "
+            "top hypothesis. NOT a validated corrective action and NOT a "
+            "process-control instruction. Nothing here is measured.")
+        return d
+
     if adapters.real_playbook:
-        return adapters.real_playbook(top_hypothesis)
+        return _stamp(dict(adapters.real_playbook(top_hypothesis)))
     desc = (top_hypothesis or {}).get("description", "")
     cat = (top_hypothesis or {}).get("category") or "process"
     verb = "Before releasing the lot, verify" if preventive else "Verify"

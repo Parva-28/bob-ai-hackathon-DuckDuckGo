@@ -106,6 +106,14 @@ This matters because the failure it prevents actually happened: a LITHO lot was 
 three CMP-03 precedents at similarity 0.0, and the ranking blamed CMP slurry flow on a
 tool the lot never ran on.
 
+## Actions are recommendations, not findings
+
+`get_corrective_action_playbook` returns `claim_type: "recommendation"`. Those are
+investigative steps for an engineer to evaluate — **not** validated corrective actions and
+**not** process-control instructions. Present them as "what to check", never as "what to
+change", and never with the weight of a measured result. Pass on the `_advisory` text if
+the user asks what they are.
+
 ## Two kinds of confidence — do not conflate them
 
 `rank_root_causes` returns `confidence_basis: "llm_uncalibrated"`. That number is an

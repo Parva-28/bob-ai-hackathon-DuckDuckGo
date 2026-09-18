@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import AppShell from "@/components/AppShell";
+import { ProvenanceChip } from "@/components/AsyncBoundary";
 import { AsyncBoundary } from "@/components/AsyncBoundary";
 import { useCases } from "@/lib/api";
 import {
@@ -186,7 +187,14 @@ export default function CasesPage() {
                 </div>
 
                 <div className="panel" style={{ padding: "13px" }}>
-                  <h3 style={{ fontSize: "11px", color: "#273e51", marginBottom: "4px" }}>Confirmed Root Cause</h3>
+                  {/* Was "Confirmed Root Cause". These records are constructed from the
+                      WM-811K taxonomy and documented failure modes — nothing in them was
+                      confirmed by an engineer on a real wafer, so the heading asserted a
+                      standard of evidence the data does not meet. */}
+                  <h3 style={{ fontSize: "11px", color: "#273e51", marginBottom: "4px" }}>
+                    Recorded cause
+                    <ProvenanceChip kind={selectedCase.provenance} />
+                  </h3>
                   <p style={{ fontSize: "10.5px", color: "#425466", lineHeight: "1.45" }}>{selectedCase.confirmedRootCause}</p>
                 </div>
 
