@@ -38,36 +38,36 @@ interface Message {
 }
 
 const GET_SUGGESTIONS = (lotId: string) => {
-  if (lotId === "L-6002") {
+  if (lotId === "L-4515") {
     return [
       {
         icon: Search,
-        label: "Why is L-6002 nominal?",
-        query: "Why is Lot L-6002 rated Nominal at 18/100 risk score?",
+        label: "Why is L-4515 nominal?",
+        query: "Why is Lot L-4515 rated Nominal at 18/100 risk score?",
       },
       {
         icon: TrendingUp,
         label: "Verify recipe parameters",
-        query: "Check planned dose, focus, and overlay parameters for L-6002 on LITHO-07",
+        query: "Check planned dose, focus, and overlay parameters for L-4515 on LITHO-02",
       },
       {
         icon: FileText,
-        label: "Check LITHO-07 health",
-        query: "What is the optical and stage health status of LITHO-07?",
+        label: "Check LITHO-02 health",
+        query: "What is the optical and stage health status of LITHO-02?",
       },
       {
         icon: Lightbulb,
         label: "Can this lot be released?",
-        query: "Is Lot L-6002 authorized for standard production release?",
+        query: "Is Lot L-4515 authorized for standard production release?",
       },
     ];
   }
-  if (lotId === "L-6001") {
+  if (lotId === "L-4502") {
     return [
       {
         icon: Search,
         label: "Why moderate risk?",
-        query: "Why is Lot L-6001 scored at 42/100 Moderate Risk on CMP-03?",
+        query: "Why is Lot L-4502 scored at 42/100 Moderate Risk on CMP-03?",
       },
       {
         icon: TrendingUp,
@@ -77,36 +77,36 @@ const GET_SUGGESTIONS = (lotId: string) => {
       {
         icon: FileText,
         label: "Matched precedents",
-        query: "What historical cases match L-6001 (e.g. HC-018)?",
+        query: "What historical cases match L-4502 (e.g. HC-018)?",
       },
       {
         icon: Lightbulb,
         label: "Pre-run advisory",
-        query: "What pre-run actions should I take before polishing L-6001?",
+        query: "What pre-run actions should I take before polishing L-4502?",
       },
     ];
   }
-  if (lotId === "WFR-24-0818") {
+  if (lotId === "L-4511") {
     return [
       {
         icon: Search,
         label: "Why elevated risk?",
-        query: "Why is upcoming Lot WFR-24-0818 scored at 68/100 Elevated Risk?",
+        query: "Why is upcoming Lot L-4511 scored at 68/100 Elevated Risk?",
       },
       {
         icon: TrendingUp,
         label: "RF setpoint deviation",
-        query: "Explain the +8% RF power setpoint and unseasoned chamber on ETCH-04",
+        query: "Explain the +8% RF power setpoint and unseasoned chamber on ETCH-07",
       },
       {
         icon: FileText,
         label: "Matched precedents",
-        query: "How does WFR-24-0818 correlate to CASE-1042?",
+        query: "How does L-4511 correlate to CASE-1042?",
       },
       {
         icon: Lightbulb,
         label: "Containment advice",
-        query: "Should I hold WFR-24-0818 in FOUP buffer and run test wafers?",
+        query: "Should I hold L-4511 in FOUP buffer and run test wafers?",
       },
     ];
   }
@@ -114,17 +114,17 @@ const GET_SUGGESTIONS = (lotId: string) => {
     {
       icon: Search,
       label: "Why did lot fail?",
-      query: "Why did lot WFR-24-0817 drop to 74.2% yield?",
+      query: "Why did lot L-4471 drop to 74.2% yield?",
     },
     {
       icon: TrendingUp,
       label: "Explain RF spike",
-      query: "What caused the +4.8σ RF power transient spike on ETCH-04?",
+      query: "What caused the +4.8σ RF power transient spike on ETCH-07?",
     },
     {
       icon: FileText,
       label: "Show tool history",
-      query: "Has this ever happened in the past on ETCH-04?",
+      query: "Has this ever happened in the past on ETCH-07?",
     },
     {
       icon: Lightbulb,
@@ -134,16 +134,16 @@ const GET_SUGGESTIONS = (lotId: string) => {
   ];
 };
 
-export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", currentRoute = "/overview" }: CopilotProps) {
+export default function YieldGuardCopilot({ activeLotId = "L-4471", currentRoute = "/overview" }: CopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [activeSteps, setActiveSteps] = useState<string[]>([]);
 
-  const isL6002 = activeLotId === "L-6002";
-  const isL6001 = activeLotId === "L-6001";
-  const is0818 = activeLotId === "WFR-24-0818";
+  const isL6002 = activeLotId === "L-4515";
+  const isL6001 = activeLotId === "L-4502";
+  const is0818 = activeLotId === "L-4511";
 
   const getInitialWelcome = (): Message => {
     if (isL6002) {
@@ -151,16 +151,16 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
         id: "welcome-l6002",
         role: "assistant",
         content:
-          "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot L-6002** on scanner **LITHO-07** (Pre-Run Triage: **18 / 100 Nominal**). All planned parameters are 0.0% nominal and cleared for standard production release. How can I assist you?",
+          "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot L-4515** on scanner **LITHO-02** (Pre-Run Triage: **18 / 100 Nominal**). All planned parameters are 0.0% nominal and cleared for standard production release. How can I assist you?",
         timestamp: "16:21",
         steps: [
-          "MCP Handshake: Initialized IBM Bob session for Lot L-6002 on LITHO-07",
-          "Invoked MCP Tool: get_lot_data('L-6002') -> Status: PLANNED, Product: P-MEM-1A",
-          "Invoked MCP Tool: flag_at_risk_batch('L-6002') -> Risk Score: 18/100 (NOMINAL)",
-          "Invoked MCP Tool: query_telemetry(['LITHO-07']) -> Optical alignment 1.2 nm (< 2.0 nm nominal)",
+          "MCP Handshake: Initialized IBM Bob session for Lot L-4515 on LITHO-02",
+          "Invoked MCP Tool: get_lot_data('L-4515') -> Status: PLANNED, Product: P-MEM-1A",
+          "Invoked MCP Tool: flag_at_risk_batch('L-4515') -> Risk Score: 18/100 (NOMINAL)",
+          "Invoked MCP Tool: query_telemetry(['LITHO-02']) -> Optical alignment 1.2 nm (< 2.0 nm nominal)",
         ],
         thoughtSeconds: 1.2,
-        citations: ["LITHO-07 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP Server"],
+        citations: ["LITHO-02 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP Server"],
         actions: [
           { label: "View Batch Risk", href: "/batch-risk" },
           { label: "Planned Lots", href: "/lot-analysis" },
@@ -171,16 +171,16 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
       id: "welcome",
       role: "assistant",
       content:
-        "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot WFR-24-0817** and tool **ETCH-04** (Yield Excursion: **74.2%**). How can I assist your yield investigation today?",
+        "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot L-4471** and tool **ETCH-07** (Yield Excursion: **74.2%**). How can I assist your yield investigation today?",
       timestamp: "16:21",
       steps: [
         "MCP Handshake: Initialized IBM Bob session on Fab 07 telemetry stream",
-        "Invoked MCP Tool: get_lot_data('WFR-24-0817') -> Status: EXCURSION, Tool: ETCH-04",
+        "Invoked MCP Tool: get_lot_data('L-4471') -> Status: EXCURSION, Tool: ETCH-07",
         "Invoked MCP Tool: classify_wafer_map('case_2a.npy') -> Pattern: Edge-Ring (WaferCNN: 98.4% F1)",
-        "Invoked MCP Tool: score_sensor_anomaly('WFR-24-0817') -> +4.8σ RF Power Transient",
+        "Invoked MCP Tool: score_sensor_anomaly('L-4471') -> +4.8σ RF Power Transient",
       ],
       thoughtSeconds: 1.4,
-      citations: ["Fab 07 Fleet Feed", "ETCH-04 Sensor Signature", "WM-811K WaferCNN", "IBM Bob MCP Server"],
+      citations: ["Fab 07 Fleet Feed", "ETCH-07 Sensor Signature", "WM-811K WaferCNN", "IBM Bob MCP Server"],
       actions: [
         { label: "View Investigation", href: "/investigation" },
         { label: "Open Playbook", href: "/playbook" },
@@ -218,8 +218,8 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
   }, []);
 
 const REGISTERED_CLEANROOM_LOTS = new Set([
-  "L-6002", "L-6001", "WFR-24-0818", "WFR-24-0817", "WFR-24-0816",
-  "WFR-24-0814", "WFR-24-0811", "WFR-24-0809", "L-4471", "L-4402",
+  "L-4515", "L-4502", "L-4511", "L-4471", "L-4402",
+  "L-4418", "L-4815", "L-5120", "L-4471", "L-4402",
   "L-4418", "L-3310", "L-4815", "L-5120", "L-5502", "L-5540",
   "L-4502", "L-4507", "L-4511", "L-4515"
 ]);
@@ -362,7 +362,7 @@ function extractLotIdFromQuery(text: string): string | null {
       return {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: `### Lot Not Found: \`${extractedLot}\`\n\nI could not find any active, planned, or historical records for lot **${extractedLot}** in the Fab 07 MES database or cleanroom telemetry archive.\n\n**Zero Fabricated Data Mandate (Cleanroom Safety):**\nUnder cleanroom compliance and Fab 07 AI governance policies, YieldGuard Copilot strictly refuses to hallucinate, fabricate, or synthesize equipment assignments, recipe parameters, or risk assessments for unregistered lots.\n\n**Registered Cleanroom Lots in Fab 07:**\n- **Pre-Run Planned Lots:** \`L-6002\` (LITHO-07, 18/100 Nominal), \`L-6001\` (CMP-03, 42/100 Moderate Risk), \`WFR-24-0818\` (ETCH-04, 68/100 Elevated Risk)\n- **Tested / Excursion Lots:** \`WFR-24-0817\` (ETCH-04, Excursion 74.2%), \`WFR-24-0816\`, \`WFR-24-0814\`, \`WFR-24-0811\`, \`WFR-24-0809\`, \`L-4471\`, \`L-4402\`, \`L-4418\`, \`L-3310\`, \`L-4815\`, \`L-5120\`\n\nPlease verify the lot ID or select a valid registered lot from the **Lot Queue** or **Batch Risk Triage** dashboard.`,
+        content: `### Lot Not Found: \`${extractedLot}\`\n\nI could not find any active, planned, or historical records for lot **${extractedLot}** in the Fab 07 MES database or cleanroom telemetry archive.\n\n**Zero Fabricated Data Mandate (Cleanroom Safety):**\nUnder cleanroom compliance and Fab 07 AI governance policies, YieldGuard Copilot strictly refuses to hallucinate, fabricate, or synthesize equipment assignments, recipe parameters, or risk assessments for unregistered lots.\n\n**Registered Cleanroom Lots in Fab 07:**\n- **Pre-Run Planned Lots:** \`L-4515\` (LITHO-02, 18/100 Nominal), \`L-4502\` (CMP-03, 42/100 Moderate Risk), \`L-4511\` (ETCH-07, 68/100 Elevated Risk)\n- **Tested / Excursion Lots:** \`L-4471\` (ETCH-07, Excursion 74.2%), \`L-4402\`, \`L-4418\`, \`L-4815\`, \`L-5120\`, \`L-4471\`, \`L-4402\`, \`L-4418\`, \`L-3310\`, \`L-4815\`, \`L-5120\`\n\nPlease verify the lot ID or select a valid registered lot from the **Lot Queue** or **Batch Risk Triage** dashboard.`,
         timestamp,
         confidence: 0,
         citations: [
@@ -378,14 +378,14 @@ function extractLotIdFromQuery(text: string): string | null {
       };
     }
 
-    if (effectiveLot === "L-6002") {
+    if (effectiveLot === "L-4515") {
       return {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: `### Batch Risk Triage Assessment: Lot L-6002\n\n**STATUS: NOMINAL (Composite Triage Score: 18 / 100)**\n\nLot **L-6002** is scheduled for **LITHO-07** (Product \`P-MEM-1A\`, Line \`FAB1-B\`) and is **NOT classified as high risk**.\n\n#### Why Lot L-6002 is Evaluated as Nominal (Low Risk):\n1. **Zero Recipe Parameter Deviations:** All planned setpoints match engineering baselines perfectly:\n   - **Exposure Dose Target:** 24.5 mJ/cm² (Baseline: 24.5 mJ/cm², **0.0% delta**)\n   - **Focus Offset:** 0.0 nm (Baseline: 0.0 nm, **0.0% delta**)\n   - **Overlay Alignment:** 1.2 nm (Baseline: < 2.0 nm, **Nominal**)\n2. **Healthy Scanner State:** LITHO-07 has zero active drift alarms and an overall health index of 99.1%.\n3. **Zero Precedent Correlations:** 0 matches in the Fab 07 historical low-yield vector archive.\n4. **Pre-Run State:** This lot is planned and has not yet started fabrication, so no physical wafer defects or sensor transients exist.\n\n#### Recommended Action:\n- **Proceed with standard production release:** No machine holds or interlocks required.`,
+        content: `### Batch Risk Triage Assessment: Lot L-4515\n\n**STATUS: NOMINAL (Composite Triage Score: 18 / 100)**\n\nLot **L-4515** is scheduled for **LITHO-02** (Product \`P-MEM-1A\`, Line \`FAB1-B\`) and is **NOT classified as high risk**.\n\n#### Why Lot L-4515 is Evaluated as Nominal (Low Risk):\n1. **Zero Recipe Parameter Deviations:** All planned setpoints match engineering baselines perfectly:\n   - **Exposure Dose Target:** 24.5 mJ/cm² (Baseline: 24.5 mJ/cm², **0.0% delta**)\n   - **Focus Offset:** 0.0 nm (Baseline: 0.0 nm, **0.0% delta**)\n   - **Overlay Alignment:** 1.2 nm (Baseline: < 2.0 nm, **Nominal**)\n2. **Healthy Scanner State:** LITHO-02 has zero active drift alarms and an overall health index of 99.1%.\n3. **Zero Precedent Correlations:** 0 matches in the Fab 07 historical low-yield vector archive.\n4. **Pre-Run State:** This lot is planned and has not yet started fabrication, so no physical wafer defects or sensor transients exist.\n\n#### Recommended Action:\n- **Proceed with standard production release:** No machine holds or interlocks required.`,
         timestamp,
         confidence: null,
-        citations: ["LITHO-07 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"],
+        citations: ["LITHO-02 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"],
         actions: [
           { label: "View Batch Risk Dashboard", href: "/batch-risk" },
           { label: "Review All Planned Lots", href: "/lot-analysis" },
@@ -393,11 +393,11 @@ function extractLotIdFromQuery(text: string): string | null {
       };
     }
 
-    if (effectiveLot === "L-6001") {
+    if (effectiveLot === "L-4502") {
       return {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: `### Batch Risk Triage Assessment: Lot L-6001\n\n**STATUS: MODERATE RISK (Composite Triage Score: 42 / 100)**\n\nLot **L-6001** is scheduled on **CMP-03** (Product \`P-LOGIC-3N\`).\n\n- **Slurry Flow Target:** Planned 180 mL/min vs 185 mL/min baseline (**-2.7% deficit**).\n- **Pad Life Consumed:** Currently at **84%** (exceeds recommended 75% threshold).\n- **Matched Case:** Correlates with historical case **HC-018** (pad wear slurry starvation).\n\n**Recommended Pre-Run Action:** Inspect CMP-03 delivery line pressure and schedule pad conditioning before running multi-die logic lot.`,
+        content: `### Batch Risk Triage Assessment: Lot L-4502\n\n**STATUS: MODERATE RISK (Composite Triage Score: 42 / 100)**\n\nLot **L-4502** is scheduled on **CMP-03** (Product \`P-LOGIC-3N\`).\n\n- **Slurry Flow Target:** Planned 180 mL/min vs 185 mL/min baseline (**-2.7% deficit**).\n- **Pad Life Consumed:** Currently at **84%** (exceeds recommended 75% threshold).\n- **Matched Case:** Correlates with historical case **HC-018** (pad wear slurry starvation).\n\n**Recommended Pre-Run Action:** Inspect CMP-03 delivery line pressure and schedule pad conditioning before running multi-die logic lot.`,
         timestamp,
         confidence: null,
         citations: ["CMP-03 Sensor Feed", "Pad Life Monitor (84%)", "Matched Precedent: HC-018", "IBM Bob MCP: flag_at_risk_batch"],
@@ -412,13 +412,13 @@ function extractLotIdFromQuery(text: string): string | null {
       return {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: `### Immediate Cleanroom Containment Protocol for ${effectiveLot}\n\n1. **Lock Machine ETCH-04 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.\n2. **Quarantine Downstream Lot WFR-24-0818 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
+        content: `### Immediate Cleanroom Containment Protocol for ${effectiveLot}\n\n1. **Lock Machine ETCH-07 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.\n2. **Quarantine Downstream Lot L-4511 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
         timestamp,
         confidence: null,
         citations: ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"],
         actions: [
           { label: "Open Action Playbook", href: "/playbook" },
-          { label: "Hold Lot WFR-24-0818", href: "/batch-risk" },
+          { label: "Hold Lot L-4511", href: "/batch-risk" },
         ],
       };
     }
@@ -426,10 +426,10 @@ function extractLotIdFromQuery(text: string): string | null {
     return {
       id: `ai-${Date.now()}`,
       role: "assistant",
-      content: `Yes. Similar RF spikes on **ETCH-04** have occurred 3 times in the past 6 months, most recently on lot **WFR-24-0623**. In all cases, the excursions were associated with chamber pressure instability and resulted in thickness non-uniformity (TU > spec).\n\n**Correlating Precedent:**\n- **CASE-1042:** RF match network vacuum variable capacitor slippage post-PM on FAB2-A (91% cosine match).\n- **Action Taken:** Re-torqued stepper coupler and recalibrated match-box impedance.`,
+      content: `Yes. Similar RF spikes on **ETCH-07** have occurred 3 times in the past 6 months, most recently on lot **L-3310**. In all cases, the excursions were associated with chamber pressure instability and resulted in thickness non-uniformity (TU > spec).\n\n**Correlating Precedent:**\n- **CASE-1042:** RF match network vacuum variable capacitor slippage post-PM on FAB2-A (91% cosine match).\n- **Action Taken:** Re-torqued stepper coupler and recalibrated match-box impedance.`,
       timestamp,
       confidence: null,
-      citations: ["Historical Lot Analysis", "ETCH-04 Event Log", "CASE-1042 Archive", "IBM Bob MCP: retrieve_similar_cases"],
+      citations: ["Historical Lot Analysis", "ETCH-07 Event Log", "CASE-1042 Archive", "IBM Bob MCP: retrieve_similar_cases"],
       actions: [
         { label: "View Historical Cases", href: "/cases" },
         { label: "Examine Evidence in Workspace", href: "/investigation" },
@@ -492,7 +492,7 @@ function extractLotIdFromQuery(text: string): string | null {
                     {
                       id: "welcome-reset",
                       role: "assistant",
-                      content: `Conversation reset. Active context on **Lot ${activeLotId}** (${isL6002 ? "LITHO-07" : isL6001 ? "CMP-03" : "ETCH-04"}). How can I help?`,
+                      content: `Conversation reset. Active context on **Lot ${activeLotId}** (${isL6002 ? "LITHO-02" : isL6001 ? "CMP-03" : "ETCH-07"}). How can I help?`,
                       timestamp: "Just now",
                       steps: [
                         "MCP Handshake: Reset session and reloaded lot context",
@@ -771,7 +771,7 @@ function extractLotIdFromQuery(text: string): string | null {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder={`Ask anything about Lot ${activeLotId}, ${isL6002 ? "LITHO-07" : isL6001 ? "CMP-03" : "ETCH-04"}, or process parameters...`}
+                placeholder={`Ask anything about Lot ${activeLotId}, ${isL6002 ? "LITHO-02" : isL6001 ? "CMP-03" : "ETCH-07"}, or process parameters...`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 style={{

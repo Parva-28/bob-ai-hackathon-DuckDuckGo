@@ -30,7 +30,7 @@ interface EquipmentTool {
 
 const TOOLS: EquipmentTool[] = [
   {
-    id: "ETCH-04",
+    id: "ETCH-07",
     type: "Etch Chamber",
     chamber: "CH-1",
     status: "Excursion",
@@ -115,7 +115,7 @@ const TOOLS: EquipmentTool[] = [
     ]
   },
   {
-    id: "LITHO-07",
+    id: "LITHO-02",
     type: "Photolithography Scanner",
     chamber: "BAY-07",
     status: "Nominal",
@@ -174,7 +174,7 @@ export default function EquipmentPage() {
           <div className="metric-card metric-danger">
             <div className="metric-top"><span>Excursion Warnings</span><AlertTriangle size={15} /></div>
             <div className="metric-value">2 Active</div>
-            <div className="metric-detail">ETCH-04 (+4.8σ), HANDLER-01 (+3.4σ)</div>
+            <div className="metric-detail">ETCH-07 (+4.8σ), HANDLER-01 (+3.4σ)</div>
           </div>
           <div className="metric-card metric-warning">
             <div className="metric-top"><span>Parameter Drift</span><Activity size={15} /></div>

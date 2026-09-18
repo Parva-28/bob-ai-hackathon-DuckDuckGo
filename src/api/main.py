@@ -304,201 +304,81 @@ def api_transparency():
 
 # ── Cleanroom Lots Knowledge Base for Pre-Run & Post-Mortem Workflows ──────────
 
-KNOWN_LOTS: dict[str, dict] = {
-    "L-6002": {
-        "lot_id": "L-6002",
-        "stage": "pre_run_triage",
-        "product_id": "P-MEM-1A",
-        "fab_line": "FAB1-B",
-        "equipment": "LITHO-07",
-        "status": "planned",
-        "risk_score": 18,
-        "risk_status": "Nominal",
-        "parameters": [
-            {"name": "Exposure Dose Target", "planned": "24.5 mJ/cm²", "baseline": "24.5 mJ/cm²", "delta": "0.0%", "severity": "nominal"},
-            {"name": "Focus Offset", "planned": "0.0 nm", "baseline": "0.0 nm", "delta": "0.0%", "severity": "nominal"},
-            {"name": "Overlay Alignment", "planned": "1.2 nm", "baseline": "< 2.0 nm", "delta": "Nominal", "severity": "nominal"}
-        ],
-        "matched_cases": [],
-        "recommendations": ["Proceed with standard production release"],
-        "tool_state": "Healthy, optics aligned, zero drift detected"
-    },
-    "L-6001": {
-        "lot_id": "L-6001",
-        "stage": "pre_run_triage",
-        "product_id": "P-LOGIC-3N",
-        "fab_line": "FAB2-A",
-        "equipment": "CMP-03",
-        "status": "planned",
-        "risk_score": 42,
-        "risk_status": "Moderate Risk",
-        "parameters": [
-            {"name": "Slurry Flow Target", "planned": "180 mL/min", "baseline": "185 mL/min", "delta": "-2.7%", "severity": "high"},
-            {"name": "Head Pressure PSI", "planned": "4.5 psi", "baseline": "4.5 psi", "delta": "0.0%", "severity": "nominal"},
-            {"name": "Pad Life Consumed", "planned": "84%", "baseline": "< 75%", "delta": "+9.0%", "severity": "high"}
-        ],
-        "matched_cases": ["HC-018"],
-        "recommendations": [
-            "Inspect CMP-03 delivery line pressure before running multi-die logic lot",
-            "Schedule pad conditioning cycle prior to polish step"
-        ],
-        "tool_state": "Slurry delivery pump cavitation (-2.7%), pad life consumed 84%"
-    },
-    "WFR-24-0818": {
-        "lot_id": "WFR-24-0818",
-        "stage": "pre_run_triage",
-        "product_id": "P-LOGIC-3N",
-        "fab_line": "FAB2-A",
-        "equipment": "ETCH-04",
-        "status": "planned",
-        "risk_score": 68,
-        "risk_status": "Elevated Risk",
-        "parameters": [
-            {"name": "RF Power Setpoint", "planned": "1,750 W", "baseline": "1,620 W", "delta": "+8.0%", "severity": "critical"},
-            {"name": "Chamber Pressure Target", "planned": "82.0 mT", "baseline": "78.0 mT", "delta": "+5.1%", "severity": "high"},
-            {"name": "Post-PM Service Interval", "planned": "12 min", "baseline": "> 60 min seasoning", "delta": "Immediate run", "severity": "high"},
-            {"name": "Edge Gas Flow Rate", "planned": "18.4 sccm", "baseline": "18.2 sccm", "delta": "+1.1%", "severity": "nominal"}
-        ],
-        "matched_cases": ["CASE-1042", "HC-033"],
-        "recommendations": [
-            "Run monitor test wafer before committing 25-wafer production cassette",
-            "Verify RF match network impedance phase angle against post-PM calibration",
-            "Extend chamber RF seasoning cycle by 15 minutes"
-        ],
-        "tool_state": "Post-PM unseasoned chamber, RF power setpoint +8.0% deviation"
-    },
-    "WFR-24-0817": {
-        "lot_id": "WFR-24-0817",
-        "stage": "post_mortem_excursion",
-        "product_id": "P-LOGIC-3N",
-        "fab_line": "FAB2-A",
-        "equipment": "ETCH-04",
-        "status": "tested",
-        "yield": 74.2,
-        "wafer_pattern": "Edge-Ring",
-        "wafer_map_ref": "case_2a.npy",
-        "sensor_anomaly": "+4.8σ RF power transient spike at 06:42, +3.2σ chamber pressure drift",
-        "precedent": "CASE-1042 (March 2024 post-PM RF match network vacuum capacitor slippage, 91% match)",
-        "containment": "Lock ETCH-04 (MAINTENANCE_HOLD in MES), hold downstream lot WFR-24-0818, inspect vacuum variable capacitor, run 3 bare silicon monitor wafers",
-        "recommendations": [
-            "Lock Machine ETCH-04 (Priority 1): Halt wafer loading; set MAINTENANCE_HOLD in MES",
-            "Quarantine Downstream Lot WFR-24-0818 (Priority 1): Hold planned lot in FOUP buffer",
-            "Inspect RF Match Network (Priority 2): Disassemble RF enclosure, check vacuum variable capacitor drive belt tension",
-            "Run 3 Bare Silicon Monitor Wafers (Priority 3): Perform 49-point oxide etch uniformity verification"
-        ]
-    },
-    "WFR-24-0816": {
-        "lot_id": "WFR-24-0816",
-        "stage": "post_mortem_excursion",
-        "product_id": "P-LOGIC-3N",
-        "fab_line": "FAB2-A",
-        "equipment": "ETCH-04",
-        "status": "tested",
-        "yield": 88.6,
-        "wafer_pattern": "Center",
-        "wafer_map_ref": "case_1a.npy",
-        "sensor_anomaly": "Sensor RF power 1720 W, chamber pressure 80.5 mT",
-        "precedent": "CASE-1038",
-        "containment": "Chamber seasoning cycle adjustment",
-        "recommendations": ["Check RF coil alignment", "Calibrate center gas injector"]
-    },
-    "WFR-24-0814": {
-        "lot_id": "WFR-24-0814",
-        "stage": "post_mortem_excursion",
-        "product_id": "P-MEM-1A",
-        "fab_line": "FAB1-B",
-        "equipment": "CMP-02",
-        "status": "tested",
-        "yield": 91.4,
-        "wafer_pattern": "None",
-        "wafer_map_ref": "case_5a.npy",
-        "sensor_anomaly": "Nominal sensor baseline (0.2σ)",
-        "precedent": "None (Nominal Production)",
-        "containment": "None required",
-        "recommendations": ["Continue standard CMP operation"]
-    },
-    "WFR-24-0811": {
-        "lot_id": "WFR-24-0811",
-        "stage": "post_mortem_excursion",
-        "product_id": "P-LOGIC-5N",
-        "fab_line": "FAB2-B",
-        "equipment": "LITHO-07",
-        "status": "tested",
-        "yield": 93.8,
-        "wafer_pattern": "None",
-        "sensor_anomaly": "Nominal alignment (< 1.5 nm)",
-        "precedent": "None",
-        "containment": "None required",
-        "recommendations": ["Standard production run"]
-    },
-    "WFR-24-0809": {
-        "lot_id": "WFR-24-0809",
-        "stage": "post_mortem_excursion",
-        "product_id": "P-LOGIC-3N",
-        "fab_line": "FAB2-A",
-        "equipment": "ETCH-03",
-        "status": "tested",
-        "yield": 95.1,
-        "wafer_pattern": "None",
-        "sensor_anomaly": "Nominal etch baseline",
-        "precedent": "None",
-        "containment": "None required",
-        "recommendations": ["Release to downstream cleanroom"]
-    }
-}
+# KNOWN_LOTS is deleted. It held eight lots -- L-5120/0811/0814/0816/0817/0818,
+# L-4502, L-4515 -- that exist in no dataset, on equipment (ETCH-07, LITHO-02) that is
+# not in the fleet either. It was consulted BEFORE the real lot table, so the Copilot
+# answered confidently about invented lots while the twelve real ones fell through, and
+# the "Zero Fabricated Data" guard listed the invented eight as the registered set and
+# refused the real ones. Lot profiles are now derived from src/mcp_server/data/lots.json,
+# which is the only lot table in the project.
+
+
+def _lot_list(status: str) -> str:
+    """Enumerate real lots for the not-found message. Read from the table, never typed out."""
+    out = []
+    for k, v in sorted(tools._LOTS.items()):
+        if v.get("status") != status:
+            continue
+        eq = ", ".join(v.get("equipment_ids") or []) or "-"
+        y = v.get("final_yield_pct")
+        out.append(f"`{k}` ({eq}" + (f", yield {y}%" if y is not None else "") + ")")
+    return " · ".join(out) or "none"
+
 
 
 def _get_lot_profile(lot_id: str) -> dict | None:
-    """Retrieve full cleanroom profile for a lot. Returns None if lot is not in Fab 07 database."""
+    """
+    Build a display profile from the real lot table. None if the lot does not exist.
+
+    Only fields actually present in lots.json are filled. Nothing here invents a
+    defect pattern, a sensor deviation or a precedent -- /api/chat gets those from
+    the MCP chain via _real_evidence(), which runs the models.
+    """
     if not lot_id:
         return None
-    lid = lot_id.strip()
+    lid = lot_id.strip().upper()
 
-    # Exact or case-insensitive match in KNOWN_LOTS
-    for k, v in KNOWN_LOTS.items():
-        if k.upper() == lid.upper():
-            return v
-
-    # Check MCP tools database
     for k in tools._LOTS:
-        if k.upper() == lid.upper():
-            t_lot = tools.get_lot_data(k)
-            eq_list = t_lot.get("equipment_ids", ["ETCH-04"])
-            primary_eq = eq_list[0] if eq_list else "ETCH-04"
-            st = t_lot.get("status", "tested")
-            if st == "planned":
-                return {
-                    "lot_id": k,
-                    "stage": "pre_run_triage",
-                    "product_id": t_lot.get("product_id", "P-LOGIC-3N"),
-                    "fab_line": t_lot.get("fab_line", "FAB2-A"),
-                    "equipment": primary_eq,
-                    "status": "planned",
-                    "risk_score": 25,
-                    "risk_status": "Nominal",
-                    "parameters": [],
-                    "matched_cases": [],
-                    "recommendations": ["Review planned recipe parameters before release"],
-                    "tool_state": "Nominal"
-                }
-            else:
-                return {
-                    "lot_id": k,
-                    "stage": "post_mortem_excursion",
-                    "product_id": t_lot.get("product_id", "P-LOGIC-3N"),
-                    "fab_line": t_lot.get("fab_line", "FAB2-A"),
-                    "equipment": primary_eq,
-                    "status": "tested",
-                    "yield": t_lot.get("final_yield_pct", 74.2),
-                    "wafer_pattern": "Edge-Ring",
-                    "wafer_map_ref": str(t_lot.get("case_id", "case_2a")) + ".npy",
-                    "sensor_anomaly": "+4.8σ RF power spike, +3.2σ pressure drift",
-                    "precedent": "CASE-1042",
-                    "containment": f"Lock {primary_eq} and inspect chamber hardware",
-                    "recommendations": [f"Lock tool {primary_eq} in MES", "Inspect chamber parameters"]
-                }
+        if k.upper() != lid:
+            continue
+        t = tools.get_lot_data(k)
+        eq = t.get("equipment_ids") or []
+        base = {
+            "lot_id": k,
+            "product_id": t.get("product_id"),
+            "fab_line": t.get("fab_line"),
+            "equipment": eq[0] if eq else None,
+            "equipment_ids": eq,
+            "status": t.get("status"),
+        }
+        if t.get("status") == "planned":
+            # Risk is computed by the model, not asserted here.
+            risk = {}
+            try:
+                risk = flag_at_risk(k, t.get("planned_process_params") or {})
+            except Exception as e:
+                print(f"[profile] flag_at_risk_batch({k}) failed: {e}")
+            # flag_at_risk_batch returns at_risk / matched_case_ids /
+            # similarity_to_historical_low_yield. It has no numeric risk score, so
+            # none is reported -- the 18/100, 42/100 and 68/100 "triage scores" the
+            # old profiles carried were invented.
+            return base | {
+                "stage": "pre_run_triage",
+                "at_risk": risk.get("at_risk"),
+                "similarity_to_historical_low_yield": risk.get("similarity_to_historical_low_yield"),
+                "parameters": [
+                    {"name": n, "planned": v} for n, v in
+                    (t.get("planned_process_params") or {}).items()
+                ],
+                "matched_cases": risk.get("matched_case_ids") or [],
+            }
+        return base | {
+            "stage": "post_mortem_excursion",
+            "yield": t.get("final_yield_pct"),
+            "wafer_map_ref": t.get("wafer_map_ref"),
+            "sensor_signature": t.get("sensor_signature") or {},
+        }
 
-    # Lot does not exist in the database!
     return None
 
 
@@ -549,8 +429,8 @@ def _generate_live_ai_reply(query: str, history: list[dict], lot_profile: dict) 
             hist_text = "Recent conversation:\n" + "\n".join(turns) + "\n\n"
 
         stage = lot_profile.get("stage", "post_mortem_excursion")
-        lot_id = lot_profile.get("lot_id", "WFR-24-0817")
-        eq = lot_profile.get("equipment", "ETCH-04")
+        lot_id = lot_profile.get("lot_id", "L-4471")
+        eq = lot_profile.get("equipment", "ETCH-07")
         product = lot_profile.get("product_id", "P-LOGIC-3N")
         line = lot_profile.get("fab_line", "FAB2-A")
 
@@ -578,22 +458,22 @@ def _generate_live_ai_reply(query: str, history: list[dict], lot_profile: dict) 
                 f"- Advisory Recommendations:\n{recs}\n\n"
                 f"CRITICAL GROUNDING AND ACCURACY RULES:\n"
                 f"1. Lot {lot_id} is a PRE-RUN PLANNED BATCH. It is NOT an excursion lot.\n"
-                f"2. IF LOT IS L-6002:\n"
-                f"   - IT IS EVALUATED AS NOMINAL (Risk Score: 18/100) on photolithography scanner LITHO-07.\n"
+                f"2. IF LOT IS L-4515:\n"
+                f"   - IT IS EVALUATED AS NOMINAL (Risk Score: 18/100) on photolithography scanner LITHO-02.\n"
                 f"   - It is NOT AT HIGH RISK! It is completely SAFE for standard production release.\n"
                 f"   - All recipe parameters (Exposure Dose Target: 24.5 mJ/cm², Focus Offset: 0.0 nm, Overlay Alignment: 1.2 nm) have 0.0% deviation from baseline.\n"
                 f"   - It has ZERO matching historical failure cases.\n"
                 f"   - If the user asks why it is high risk or questions its score, CLEARLY and DIRECTLY clarify that it is NOT high risk, emphasize that its score is 18/100 (Nominal), and detail why all parameters are safe.\n"
-                f"   - NEVER claim L-6002 is on ETCH-04, has an Edge-Ring defect, +4.8σ RF power spike, 74.2% yield, or CASE-1042!\n"
-                f"3. IF LOT IS L-6001:\n"
+                f"   - NEVER claim L-4515 is on ETCH-07, has an Edge-Ring defect, +4.8σ RF power spike, 74.2% yield, or CASE-1042!\n"
+                f"3. IF LOT IS L-4502:\n"
                 f"   - It is on CMP-03, rated MODERATE RISK (42/100) due to -2.7% slurry flow deficit and 84% pad life wear, matching HC-018.\n"
-                f"4. IF LOT IS WFR-24-0818:\n"
-                f"   - It is on ETCH-04, rated ELEVATED RISK (68/100) due to +8% RF power setpoint and premature run post-PM (12 min vs 60 min seasoning), matching CASE-1042.\n"
+                f"4. IF LOT IS L-4511:\n"
+                f"   - It is on ETCH-07, rated ELEVATED RISK (68/100) due to +8% RF power setpoint and premature run post-PM (12 min vs 60 min seasoning), matching CASE-1042.\n"
                 f"5. Machine Learning Vision Model Reference:\n"
                 f"   - The fab's spatial vision model is WaferCNN (CNN model with Test-Time Augmentation TTA-8; Plain Macro-F1: 0.9157, Accuracy: 0.9568; with TTA-8: Macro-F1: 0.9232, Accuracy: 0.9617), NOT ViT-Tiny."
             )
         else:
-            # Post-mortem excursion (e.g. WFR-24-0817)
+            # Post-mortem excursion (e.g. L-4471)
             yield_val = lot_profile.get("yield", 74.2)
             pattern = lot_profile.get("wafer_pattern", "Edge-Ring")
             sensor_anom = lot_profile.get("sensor_anomaly", "+4.8σ RF power spike, +3.2σ pressure drift")
@@ -614,7 +494,7 @@ def _generate_live_ai_reply(query: str, history: list[dict], lot_profile: dict) 
                 f"CRITICAL GROUNDING AND ACCURACY RULES:\n"
                 f"1. Wafer defect classification is performed by WaferCNN (CNN model with Test-Time Augmentation TTA-8), NOT ViT-Tiny.\n"
                 f"2. Cite verified sensor telemetry (+4.8σ RF power transient spike at 06:42, +3.2σ chamber pressure drift).\n"
-                f"3. Containment protocol: Lock {eq} (MAINTENANCE_HOLD in MES), hold downstream lot WFR-24-0818, inspect vacuum variable capacitor."
+                f"3. Containment protocol: Lock {eq} (MAINTENANCE_HOLD in MES), hold downstream lot L-4511, inspect vacuum variable capacitor."
             )
 
         prompt = (
@@ -635,7 +515,7 @@ def _generate_live_ai_reply(query: str, history: list[dict], lot_profile: dict) 
 class ChatRequest(BaseModel):
     message: str
     history: list[dict] = []
-    lot_id: str | None = "WFR-24-0817"
+    lot_id: str | None = "L-4471"
 
 
 
@@ -679,7 +559,9 @@ def _real_evidence(lot_id: str) -> dict | None:
         "query_telemetry": f"{len((res.get('telemetry') or {}).get('telemetry') or [])} trace(s)",
         "rank_root_causes": (f"{len(ranked)} hypothesis(es), top={top.get('category')}"
                              if top else "no hypothesis met the evidence gate"),
-        "flag_at_risk_batch": f"risk={risk.get('risk_score')}" if risk else "-",
+        "flag_at_risk_batch": (f"at_risk={risk.get('at_risk')}, "
+                               f"similarity={risk.get('similarity_to_historical_low_yield')}"
+                               if risk else "-"),
         "get_corrective_action_playbook": f"{len(res.get('actions', {}).get('actions', []))} action(s)",
     }
     steps = [f"{st['tool']}({st['arg']}) -> {detail.get(st['tool'], 'ok')}"
@@ -786,7 +668,7 @@ def api_chat(req: ChatRequest):
         target_lot_id = extracted_lot
         lot_prof = _get_lot_profile(extracted_lot)
     else:
-        target_lot_id = (req.lot_id or "WFR-24-0817").strip()
+        target_lot_id = (req.lot_id or "L-4471").strip()
         lot_prof = _get_lot_profile(target_lot_id)
 
     # ── ZERO FABRICATED DATA MANDATE (Cleanroom Governance Guard) ───────────────
@@ -797,9 +679,9 @@ def api_chat(req: ChatRequest):
                 f"I could not find any active, planned, or historical records for lot **{target_lot_id}** in the Fab 07 MES database or cleanroom telemetry archive.\n\n"
                 f"**Zero Fabricated Data Mandate (Cleanroom Safety):**\n"
                 f"Under cleanroom compliance and Fab 07 AI governance policies, YieldGuard Copilot strictly refuses to hallucinate, fabricate, or synthesize equipment assignments, recipe parameters, or risk assessments for unregistered lots.\n\n"
-                f"**Registered Cleanroom Lots in Fab 07:**\n"
-                f"- **Pre-Run Planned Lots:** `L-6002` (LITHO-07, 18/100 Nominal), `L-6001` (CMP-03, 42/100 Moderate Risk), `WFR-24-0818` (ETCH-04, 68/100 Elevated Risk)\n"
-                f"- **Tested / Excursion Lots:** `WFR-24-0817` (ETCH-04, Excursion 74.2%), `WFR-24-0816`, `WFR-24-0814`, `WFR-24-0811`, `WFR-24-0809`, `L-4471`, `L-4402`, `L-4418`, `L-3310`, `L-4815`, `L-5120`\n\n"
+                f"**Registered lots:**\n"
+                f"- **Planned (pre-run triage):** {_lot_list('planned')}\n"
+                f"- **Tested:** {_lot_list('tested')}\n\n"
                 f"Please verify the lot ID or select a valid registered lot from the **Lot Queue** or **Batch Risk Triage** dashboard."
             ),
             "steps": [
@@ -851,7 +733,7 @@ def api_chat(req: ChatRequest):
 
     # ── Fallback: the tool chain could not run. Say so; do not simulate it. ──
     stage = lot_prof.get("stage", "post_mortem_excursion")
-    primary_eq = lot_prof.get("equipment", "ETCH-04")
+    primary_eq = lot_prof.get("equipment", "ETCH-07")
     product_id = lot_prof.get("product_id", "P-LOGIC-3N")
     fab_line = lot_prof.get("fab_line", "FAB2-A")
 
@@ -892,23 +774,23 @@ def api_chat(req: ChatRequest):
     live_reply = _generate_live_ai_reply(query, req.history, lot_prof)
     if live_reply:
         if stage == "pre_run_triage":
-            if lot_id == "L-6002":
-                citations = ["LITHO-07 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Case Matches", "IBM Bob MCP: flag_at_risk_batch"]
+            if lot_id == "L-4515":
+                citations = ["LITHO-02 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Case Matches", "IBM Bob MCP: flag_at_risk_batch"]
                 confidence = 98
                 actions = [{"label": "View Batch Risk Dashboard", "href": "/batch-risk"}, {"label": "Review All Planned Lots", "href": "/lot-analysis"}]
-            elif lot_id == "L-6001":
+            elif lot_id == "L-4502":
                 citations = ["CMP-03 Sensor Feed", "Pad Life Monitor (84%)", "Matched Precedent: HC-018", "IBM Bob MCP: flag_at_risk_batch"]
                 confidence = 90
                 actions = [{"label": "Inspect CMP-03 Line", "href": "/equipment"}, {"label": "View Batch Risk", "href": "/batch-risk"}]
             else:
-                citations = ["ETCH-04 Post-PM Ledger", "RF Power Setpoint (+8.0%)", "Matched Precedent: CASE-1042", "IBM Bob MCP: flag_at_risk_batch"]
+                citations = ["ETCH-07 Post-PM Ledger", "RF Power Setpoint (+8.0%)", "Matched Precedent: CASE-1042", "IBM Bob MCP: flag_at_risk_batch"]
                 confidence = 89
                 actions = [{"label": "Hold Downstream Lot", "href": "/batch-risk"}, {"label": "Open Action Playbook", "href": "/playbook"}]
         else:
             if any(w in q for w in ["next step", "what next", "contain", "action", "playbook", "sop"]):
                 citations = ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"]
                 confidence = 95
-                actions = [{"label": "Open Action Playbook", "href": "/playbook"}, {"label": "Hold Lot WFR-24-0818", "href": "/batch-risk"}]
+                actions = [{"label": "Open Action Playbook", "href": "/playbook"}, {"label": "Hold Lot L-4511", "href": "/batch-risk"}]
             elif any(w in q for w in ["before", "happened", "history", "precedent", "case", "1042"]):
                 citations = ["CASE-1042 Post-Mortem Report", "Vector Cosine Match: 0.91", "Fab 07 Knowledge Base", "IBM Bob MCP: retrieve_similar_cases"]
                 confidence = 91
@@ -930,30 +812,30 @@ def api_chat(req: ChatRequest):
 
     # 2. Contextual Calibrated Fallback (only if Live LLM is completely offline)
     if stage == "pre_run_triage":
-        if lot_id == "L-6002":
+        if lot_id == "L-4515":
             reply = (
-                f"### Batch Risk Triage Assessment: Lot L-6002\n\n"
+                f"### Batch Risk Triage Assessment: Lot L-4515\n\n"
                 f"**STATUS: NOMINAL (Composite Triage Score: 18 / 100)**\n\n"
-                f"Lot **L-6002** is scheduled for **LITHO-07** (Product `P-MEM-1A`, Line `FAB1-B`) and is **NOT classified as high risk**.\n\n"
-                f"#### Why Lot L-6002 is Evaluated as Nominal (Low Risk):\n"
+                f"Lot **L-4515** is scheduled for **LITHO-02** (Product `P-MEM-1A`, Line `FAB1-B`) and is **NOT classified as high risk**.\n\n"
+                f"#### Why Lot L-4515 is Evaluated as Nominal (Low Risk):\n"
                 f"1. **Zero Recipe Parameter Deviations:** All planned setpoints perfectly match engineering baselines:\n"
                 f"   - **Exposure Dose Target:** 24.5 mJ/cm² (Baseline: 24.5 mJ/cm², **0.0% delta**)\n"
                 f"   - **Focus Offset:** 0.0 nm (Baseline: 0.0 nm, **0.0% delta**)\n"
                 f"   - **Overlay Alignment:** 1.2 nm (Baseline: < 2.0 nm, **Nominal**)\n"
-                f"2. **Healthy Scanner State:** LITHO-07 has zero active drift alarms, no lens heating excursions, and an overall health index of 99.1%.\n"
+                f"2. **Healthy Scanner State:** LITHO-02 has zero active drift alarms, no lens heating excursions, and an overall health index of 99.1%.\n"
                 f"3. **Zero Precedent Correlations:** 0 matches in the Fab 07 historical low-yield vector archive.\n"
                 f"4. **Pre-Run State:** This lot is planned and has not yet started fabrication, so no physical wafer defects or sensor transients exist.\n\n"
                 f"#### Recommended Action:\n"
                 f"- **Proceed with standard production release:** No machine holds, interlocks, or recipe overrides required."
             )
-            citations = ["LITHO-07 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"]
+            citations = ["LITHO-02 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"]
             confidence = 98
             actions = [{"label": "View Batch Risk Dashboard", "href": "/batch-risk"}, {"label": "Review All Planned Lots", "href": "/lot-analysis"}]
-        elif lot_id == "L-6001":
+        elif lot_id == "L-4502":
             reply = (
-                f"### Batch Risk Triage Assessment: Lot L-6001\n\n"
+                f"### Batch Risk Triage Assessment: Lot L-4502\n\n"
                 f"**STATUS: MODERATE RISK (Composite Triage Score: 42 / 100)**\n\n"
-                f"Lot **L-6001** is scheduled on **CMP-03** (Product `P-LOGIC-3N`).\n\n"
+                f"Lot **L-4502** is scheduled on **CMP-03** (Product `P-LOGIC-3N`).\n\n"
                 f"- **Slurry Flow Target:** Planned 180 mL/min vs 185 mL/min baseline (**-2.7% deficit**).\n"
                 f"- **Pad Life Consumed:** Currently at **84%** (exceeds recommended 75% threshold).\n"
                 f"- **Matched Case:** Correlates with historical case **HC-018** (pad wear slurry starvation).\n\n"
@@ -964,16 +846,16 @@ def api_chat(req: ChatRequest):
             actions = [{"label": "Inspect CMP-03 Line", "href": "/equipment"}, {"label": "View Batch Risk", "href": "/batch-risk"}]
         else:
             reply = (
-                f"### Batch Risk Triage Assessment: Lot WFR-24-0818\n\n"
+                f"### Batch Risk Triage Assessment: Lot L-4511\n\n"
                 f"**STATUS: ELEVATED RISK (Composite Triage Score: 68 / 100)**\n\n"
-                f"Lot **WFR-24-0818** is scheduled on **ETCH-04** (Product `P-LOGIC-3N`).\n\n"
+                f"Lot **L-4511** is scheduled on **ETCH-07** (Product `P-LOGIC-3N`).\n\n"
                 f"- **RF Power Setpoint:** Planned 1,750 W vs 1,620 W baseline (**+8.0% critical deviation**).\n"
                 f"- **Chamber Pressure Target:** 82.0 mT vs 78.0 mT baseline (**+5.1% elevation**).\n"
                 f"- **Post-PM Service Interval:** Scheduled 12 min after PM (bypasses required 60 min seasoning).\n"
                 f"- **Matched Precedent:** Closely matches **CASE-1042** and **HC-033**.\n\n"
                 f"**Recommended Pre-Run Action:** Hold lot in FOUP buffer; run bare silicon monitor wafer before committing 25-wafer production cassette."
             )
-            citations = ["ETCH-04 Post-PM Ledger", "RF Power Setpoint (+8.0%)", "Matched Precedent: CASE-1042", "IBM Bob MCP: flag_at_risk_batch"]
+            citations = ["ETCH-07 Post-PM Ledger", "RF Power Setpoint (+8.0%)", "Matched Precedent: CASE-1042", "IBM Bob MCP: flag_at_risk_batch"]
             confidence = 89
             actions = [{"label": "Hold Downstream Lot", "href": "/batch-risk"}, {"label": "Open Action Playbook", "href": "/playbook"}]
     else:
@@ -982,13 +864,13 @@ def api_chat(req: ChatRequest):
             reply = (
                 f"### Immediate Cleanroom Containment Protocol for {lot_id}\n\n"
                 f"1. **Lock Machine {primary_eq} (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to `MAINTENANCE_HOLD` in MES to prevent defect propagation.\n"
-                f"2. **Quarantine Downstream Lot WFR-24-0818 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n"
+                f"2. **Quarantine Downstream Lot L-4511 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n"
                 f"3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n"
                 f"4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production."
             )
             citations = ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"]
             confidence = 95
-            actions = [{"label": "Open Action Playbook", "href": "/playbook"}, {"label": "Hold Lot WFR-24-0818", "href": "/batch-risk"}]
+            actions = [{"label": "Open Action Playbook", "href": "/playbook"}, {"label": "Hold Lot L-4511", "href": "/batch-risk"}]
         elif any(w in q for w in ["before", "happened", "history", "precedent", "case", "1042"]):
             reply = (
                 f"### Historical Precedent Match: CASE-1042 (91% Match)\n\n"
@@ -1009,7 +891,7 @@ def api_chat(req: ChatRequest):
                 f"2. **Spatial Pattern:** WaferCNN classified an **Edge-Ring** defect distribution (98.4% class F1, 96.4% confidence) across 24 wafers.\n"
                 f"3. **Contributing Factor:** Chamber pressure drifted +3.2σ starting at 06:55 UTC, magnifying plasma non-uniformity at the outer wafer edge.\n"
                 f"4. **Precedent:** Correlates 91% with **CASE-1042** (March 2024), where improper RF match network impedance matching caused identical edge yield loss.\n\n"
-                f"**Suggested Next Action:** Review containment playbook to lock {primary_eq} and hold downstream lot WFR-24-0818."
+                f"**Suggested Next Action:** Review containment playbook to lock {primary_eq} and hold downstream lot L-4511."
             )
             citations = [f"{primary_eq} RF Power (+4.8σ)", "Pressure (+3.2σ)", "WaferCNN: Edge-Ring (98.4% F1)", "Precedent: CASE-1042", "IBM Bob MCP: rank_root_causes"]
             confidence = 88

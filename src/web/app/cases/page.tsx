@@ -28,7 +28,7 @@ const HISTORICAL_CASES: CaseRecord[] = [
   {
     caseId: "CASE-1042",
     defectClass: "Edge-Ring",
-    equipmentId: "ETCH-04",
+    equipmentId: "ETCH-07",
     category: "equipment",
     confirmedRootCause: "RF match calibration out of tolerance after PM; transient RF power overshoot at wafer edge",
     outcome: "Recalibration and chamber seasoning cleared the edge signature; Yield recovered to 94.6%",

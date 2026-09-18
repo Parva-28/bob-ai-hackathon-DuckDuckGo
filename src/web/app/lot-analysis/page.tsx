@@ -25,21 +25,21 @@ interface LotItem {
   plannedParams?: Record<string, number>;
 }
 
+// Generated from src/mcp_server/data/lots.json -- the project's only lot table.
+// Patterns are what the shipped WaferCNN actually predicts for each lot's map.
 const LOT_REGISTRY: LotItem[] = [
-  { id: "WFR-24-0817", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-04", "CMP-03"], yield: 74.2, status: "tested", pattern: "Edge-Ring", caseId: "case_2a", sensors: { rf_power_w: 1874, chamber_pressure_mt: 84.2, esc_temp_c: 63.1 } },
-  { id: "WFR-24-0816", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-04"], yield: 88.6, status: "tested", pattern: "Center", caseId: "case_1a", sensors: { rf_power_w: 1720, chamber_pressure_mt: 80.5 } },
-  { id: "WFR-24-0814", product: "P-MEM-1A", line: "FAB1-B", equipment: ["CMP-02"], yield: 91.4, status: "tested", pattern: "None", caseId: "case_5a" },
-  { id: "WFR-24-0818", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-04"], yield: null, status: "planned", pattern: "Pre-run (Risk 68)", plannedParams: { rf_power_setpoint_w: 1750, pressure_target_mt: 82.0 } },
-  { id: "L-4471", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-07", "CMP-03"], yield: 61.0, status: "tested", pattern: "Edge-Ring", caseId: "case_2a", sensors: { rf_power_w: 1890, slurry_flow: 140 } },
-  { id: "L-4402", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: 68.5, status: "tested", pattern: "Center", caseId: "case_1a", sensors: { slurry_flow_rate: -2.4 } },
-  { id: "L-4418", product: "P-MEM-1A", line: "FAB1-B", equipment: ["CMP-03"], yield: 72.0, status: "tested", pattern: "Center", caseId: "case_1b", sensors: { pad_life_pct: 1.1 } },
-  { id: "L-3310", product: "P-LOGIC-5N", line: "FAB2-B", equipment: ["HANDLER-01"], yield: 54.0, status: "tested", pattern: "Scratch", caseId: "case_3a", sensors: { vibration_g: 3.4 } },
-  { id: "L-4815", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["LITHO-02"], yield: 64.0, status: "tested", pattern: "Donut", caseId: "case_4a", sensors: { focus_offset_nm: 2.9 } },
-  { id: "L-5120", product: "P-MEM-2B", line: "FAB1-A", equipment: ["ETCH-07"], yield: 79.5, status: "tested", pattern: "Edge-Ring", caseId: "case_2b", sensors: { gas_flow_sccm: -2.1 } },
-  { id: "L-6001", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: null, status: "planned", plannedParams: { slurry_flow_target: 180, head_pressure_psi: 4.5 } },
-  { id: "L-6002", product: "P-MEM-1A", line: "FAB1-B", equipment: ["LITHO-07"], yield: null, status: "planned", pattern: "Nominal (Risk 18)", plannedParams: { exposure_dose_target_mj: 24.5, focus_offset_nm: 0.0, overlay_alignment_nm: 1.2 } },
-  { id: "WFR-24-0811", product: "P-LOGIC-5N", line: "FAB2-B", equipment: ["LITHO-07"], yield: 93.8, status: "tested", pattern: "None" },
-  { id: "WFR-24-0809", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-03"], yield: 95.1, status: "tested", pattern: "None" },
+  { id: "L-3310", product: "P-MEM-5N", line: "FAB1-C", equipment: ["HANDLER-01"], yield: 79.6, status: "tested", pattern: "Scratch", caseId: "case_3a", sensors: {"sensor_12": 0.1, "sensor_45": -0.1, "sensor_87": 0.0} },
+  { id: "L-4402", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: 68.4, status: "tested", pattern: "Center", caseId: "case_1a", sensors: {"sensor_12": -2.4, "sensor_45": -1.9, "sensor_87": 0.2} },
+  { id: "L-4418", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: 72.1, status: "tested", pattern: "Center", caseId: "case_1c", sensors: {"sensor_12": -0.9, "sensor_45": -1.1, "sensor_91": 1.7} },
+  { id: "L-4471", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-07", "CMP-03"], yield: 61.0, status: "tested", pattern: "Edge-Ring", caseId: "case_2a", sensors: {"sensor_23": 2.8, "sensor_24": 2.2, "sensor_45": 0.1} },
+  { id: "L-4502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: null, status: "planned", pattern: "Pre-run", caseId: "case_1a", plannedParams: {"slurry_flow_rate": 0.61, "pad_life_pct": 0.42, "head_pressure_psi": 5.1} },
+  { id: "L-4507", product: "P-MEM-5N", line: "FAB1-C", equipment: ["FILTER-B12"], yield: null, status: "planned", pattern: "Pre-run", caseId: "case_5a", plannedParams: {"particle_count_per_m3": 1420.0, "hepa_runtime_hours": 31000.0} },
+  { id: "L-4511", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-07"], yield: null, status: "planned", pattern: "Pre-run", caseId: "case_2b", plannedParams: {"rf_power_w": 1500.0, "gas_flow_sccm": 181.0, "days_since_pm": 40.0} },
+  { id: "L-4515", product: "P-LOGIC-3N", line: "FAB2-B", equipment: ["LITHO-02"], yield: null, status: "planned", pattern: "Pre-run", caseId: "case_4b", plannedParams: {"lens_temp_c": 23.0, "reticle_swaps_24h": 1.0, "overlay_nm": 7.1} },
+  { id: "L-4815", product: "P-LOGIC-3N", line: "FAB2-B", equipment: ["LITHO-02"], yield: 70.2, status: "tested", pattern: "Donut", caseId: "case_4a", sensors: {"sensor_61": 1.9, "sensor_62": 2.1, "sensor_99": 1.4} },
+  { id: "L-5120", product: "P-MEM-5N", line: "FAB1-C", equipment: ["FILTER-B12", "ETCH-07"], yield: 74.8, status: "tested", pattern: "Random", caseId: "case_5a", sensors: {"sensor_71": 2.2, "sensor_72": 1.5, "sensor_12": 0.2} },
+  { id: "L-5502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["TESTER-04", "CMP-03"], yield: 8.2, status: "tested", pattern: "Near-full", caseId: "case_6c", sensors: {"sensor_tester_01": 3.1, "sensor_12": 0.0, "sensor_45": 0.1, "sensor_87": -0.1} },
+  { id: "L-5540", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["HANDLER-01"], yield: 11.5, status: "tested", pattern: "Near-full", caseId: "case_6b", sensors: {"sensor_12": 0.3, "sensor_45": 0.2, "sensor_87": 0.1, "sensor_route_mismatch": 2.7} },
 ];
 
 export default function LotAnalysisPage() {

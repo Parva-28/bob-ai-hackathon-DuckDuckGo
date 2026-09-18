@@ -51,12 +51,21 @@ type Lot = {
   wafers: string;
 };
 
+// Generated from src/mcp_server/data/lots.json. Patterns are the shipped WaferCNN's
+// actual predictions; planned lots have no wafer and therefore no pattern.
 const LOTS: Lot[] = [
-  { id: "WFR-24-0817", status: "Investigation active", yield: "74.2%", target: "92.0%", pattern: "Edge-Ring", equipment: "ETCH-04", updated: "8 min ago", severity: "critical", wafers: "24 / 25" },
-  { id: "WFR-24-0816", status: "Review required", yield: "88.6%", target: "92.0%", pattern: "Center cluster", equipment: "ETCH-04", updated: "42 min ago", severity: "high", wafers: "24 / 25" },
-  { id: "WFR-24-0814", status: "Monitoring", yield: "91.4%", target: "92.0%", pattern: "None detected", equipment: "CMP-02", updated: "1 hr ago", severity: "medium", wafers: "25 / 25" },
-  { id: "WFR-24-0811", status: "Closed", yield: "93.8%", target: "92.0%", pattern: "None detected", equipment: "LITHO-07", updated: "3 hr ago", severity: "low", wafers: "25 / 25" },
-  { id: "WFR-24-0809", status: "Closed", yield: "95.1%", target: "92.0%", pattern: "None detected", equipment: "ETCH-03", updated: "5 hr ago", severity: "low", wafers: "25 / 25" },
+  { id: "L-5502", status: "Excursion active", yield: "8.2%", target: "92.0%", pattern: "Near-full", equipment: "TESTER-04", updated: "-", severity: "critical", wafers: "25 / 25" },
+  { id: "L-5540", status: "Excursion active", yield: "11.5%", target: "92.0%", pattern: "Near-full", equipment: "HANDLER-01", updated: "-", severity: "critical", wafers: "25 / 25" },
+  { id: "L-4471", status: "Review required", yield: "61.0%", target: "92.0%", pattern: "Edge-Ring", equipment: "ETCH-07", updated: "-", severity: "high", wafers: "25 / 25" },
+  { id: "L-4402", status: "Review required", yield: "68.4%", target: "92.0%", pattern: "Center", equipment: "CMP-03", updated: "-", severity: "high", wafers: "25 / 25" },
+  { id: "L-4815", status: "Monitoring", yield: "70.2%", target: "92.0%", pattern: "Donut", equipment: "LITHO-02", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-4418", status: "Monitoring", yield: "72.1%", target: "92.0%", pattern: "Center", equipment: "CMP-03", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-5120", status: "Monitoring", yield: "74.8%", target: "92.0%", pattern: "Random", equipment: "FILTER-B12", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-3310", status: "Monitoring", yield: "79.6%", target: "92.0%", pattern: "Scratch", equipment: "HANDLER-01", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-4502", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "CMP-03", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-4507", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "FILTER-B12", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-4511", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "ETCH-07", updated: "-", severity: "medium", wafers: "25 / 25" },
+  { id: "L-4515", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "LITHO-02", updated: "-", severity: "medium", wafers: "25 / 25" },
 ];
 
 const SENSORS = [
@@ -97,10 +106,10 @@ const HYPOTHESES = [
 ];
 
 const TIMELINE = [
-  { time: "06:42", label: "Preventive maintenance completed", type: "pm", detail: "ETCH-04 chamber clean + RF match inspection" },
+  { time: "06:42", label: "Preventive maintenance completed", type: "pm", detail: "ETCH-07 chamber clean + RF match inspection" },
   { time: "06:55", label: "Pressure drift begins", type: "shift", detail: "Chamber pressure crosses +2σ baseline" },
   { time: "07:08", label: "RF power instability detected", type: "alert", detail: "Three overshoot events in 90 seconds" },
-  { time: "07:19", label: "Lot WFR-24-0817 completes", type: "lot", detail: "Final yield 74.2% · 18 defects / wafer avg" },
+  { time: "07:19", label: "Lot L-4471 completes", type: "lot", detail: "Final yield 74.2% · 18 defects / wafer avg" },
 ];
 
 function StatusPill({ severity, children }: { severity: Severity | "nominal"; children: ReactNode }) {
@@ -147,7 +156,7 @@ function Metric({ label, value, detail, tone = "neutral", icon }: { label: strin
   );
 }
 
-function WaferMap({ lotId = "WFR-24-0817" }: { lotId?: string }) {
+function WaferMap({ lotId = "L-4471" }: { lotId?: string }) {
   const dots = useMemo(() => {
     return Array.from({ length: 120 }, (_, i) => {
       const angle = i * 2.399;
@@ -252,7 +261,7 @@ export default function InvestigationPage() {
       id: 2,
       author: "Kenji Tanaka",
       role: "Lead Process Tech",
-      text: "ETCH-04 placed on engineering hold. Ready for RF match tuning and 3-wafer baseline qualification.",
+      text: "ETCH-07 placed on engineering hold. Ready for RF match tuning and 3-wafer baseline qualification.",
       time: "Today · 07:50",
     },
   ]);
@@ -269,7 +278,7 @@ export default function InvestigationPage() {
   };
 
   const downloadAuditReport = () => {
-    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot.id}\nStatus: ${activeLot.status}\nFinal yield: ${activeLot.yield} (target ${activeLot.target})\nDefect pattern: Edge-Ring · 96% classification confidence\nPrimary hypothesis: RF-power instability after PM · 87% confidence\nSensor anomalies: RF power +4.8σ; Chamber pressure +3.2σ; ESC temperature +2.6σ\nHistorical match: CASE-1042 · 91% similarity · Yield recovered to 94.6%\nNext-lot risk: 68/100 · Elevated similarity to low-yield conditions\n\nRECOMMENDED ACTIONS\n1. Inspect RF match network\n2. Place ETCH-04 on watch\n3. Run monitor wafer\n4. Update PM checklist\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · Evidence sources linked: 9 · Human review required`;
+    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot.id}\nStatus: ${activeLot.status}\nFinal yield: ${activeLot.yield} (target ${activeLot.target})\nDefect pattern: Edge-Ring · 96% classification confidence\nPrimary hypothesis: RF-power instability after PM · 87% confidence\nSensor anomalies: RF power +4.8σ; Chamber pressure +3.2σ; ESC temperature +2.6σ\nHistorical match: CASE-1042 · 91% similarity · Yield recovered to 94.6%\nNext-lot risk: 68/100 · Elevated similarity to low-yield conditions\n\nRECOMMENDED ACTIONS\n1. Inspect RF match network\n2. Place ETCH-07 on watch\n3. Run monitor wafer\n4. Update PM checklist\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · Evidence sources linked: 9 · Human review required`;
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -469,7 +478,7 @@ export default function InvestigationPage() {
             <section className="panel telemetry-panel">
               <SectionHeader
                 eyebrow="04 / IN-LINE TELEMETRY"
-                title="ETCH-04 · RF power"
+                title="ETCH-07 · RF power"
                 icon={<LineChart size={15} />}
                 action={
                   <div className="chart-controls">
@@ -728,7 +737,7 @@ export default function InvestigationPage() {
                   ))}
                   {[
                     "Inspect RF match network",
-                    "Place ETCH-04 on watch",
+                    "Place ETCH-07 on watch",
                     "Run monitor wafer",
                     "Update PM checklist",
                   ].map(item => (
@@ -794,7 +803,7 @@ export default function InvestigationPage() {
               </div>
               <div className="case-meta">
                 <span><Clock3 size={12} /> Nov 14, 2025</span>
-                <span><Cpu size={12} /> ETCH-04</span>
+                <span><Cpu size={12} /> ETCH-07</span>
                 <span><Gauge size={12} /> Similarity high</span>
               </div>
               <div className="case-quote">
@@ -823,10 +832,10 @@ export default function InvestigationPage() {
                   </span>
                   <MessageSquareText size={13} />
                 </button>
-                <button className="action-row" onClick={() => openFeedback("Place ETCH-04 on watch")}>
+                <button className="action-row" onClick={() => openFeedback("Place ETCH-07 on watch")}>
                   <span className="action-check" />
                   <span>
-                    <b>Place ETCH-04 on watch</b>
+                    <b>Place ETCH-07 on watch</b>
                     <small>Do not auto-change equipment settings</small>
                   </span>
                   <MessageSquareText size={13} />
@@ -880,7 +889,7 @@ export default function InvestigationPage() {
                 <span className="risk-dot" /> Elevated similarity to low-yield conditions
               </div>
               <p style={{ fontSize: "10px", color: "#6a7c8b", marginTop: "6px", lineHeight: "1.45" }}>
-                Upcoming lot <b>WFR-24-0818</b> shares the same equipment and 4 of 6 high-weight process parameters.
+                Upcoming lot <b>L-4511</b> shares the same equipment and 4 of 6 high-weight process parameters.
               </p>
               <div className="risk-params">
                 <div><span>RF power setpoint</span><b>+2.4%</b></div>
@@ -997,7 +1006,7 @@ export default function InvestigationPage() {
                   <div>
                     <span>Composite anomaly score</span>
                     <b>High severity · 3 signals above threshold</b>
-                    <small>Baseline window: previous 30 lots on ETCH-04</small>
+                    <small>Baseline window: previous 30 lots on ETCH-07</small>
                   </div>
                 </div>
                 <div className="drawer-section">

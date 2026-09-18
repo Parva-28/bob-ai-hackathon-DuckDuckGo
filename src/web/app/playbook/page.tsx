@@ -33,9 +33,9 @@ interface ActionItem {
 const INITIAL_ACTIONS: ActionItem[] = [
   {
     id: "ACT-101",
-    title: "Inspect RF Match Network on ETCH-04",
+    title: "Inspect RF Match Network on ETCH-07",
     category: "Immediate (P1)",
-    equipment: "ETCH-04",
+    equipment: "ETCH-07",
     description: "Compare post-PM calibration impedance phase angle against golden spec. Verify capacitor preset positions.",
     assignee: "K. Vance (RF Specialist)",
     sla: "30 min",
@@ -43,9 +43,9 @@ const INITIAL_ACTIONS: ActionItem[] = [
   },
   {
     id: "ACT-102",
-    title: "Place ETCH-04 on Engineering Watch",
+    title: "Place ETCH-07 on Engineering Watch",
     category: "Immediate (P1)",
-    equipment: "ETCH-04",
+    equipment: "ETCH-07",
     description: "Lock automated production dispatch. Require engineer sign-off for next cassette run.",
     assignee: "M. Sato (Yield Lead)",
     sla: "Immediate",
@@ -55,7 +55,7 @@ const INITIAL_ACTIONS: ActionItem[] = [
     id: "ACT-103",
     title: "Run Monitor Test Wafer",
     category: "Verification (P2)",
-    equipment: "ETCH-04",
+    equipment: "ETCH-07",
     description: "Process single bare-silicon test wafer to measure 4mm edge exclusion etch rate uniformity before batch release.",
     assignee: "Fab 07 Tech Crew",
     sla: "2 hours",
@@ -75,7 +75,7 @@ const INITIAL_ACTIONS: ActionItem[] = [
     id: "ACT-105",
     title: "Update Standard PM Checklist SOP-3401",
     category: "Preventive (P3)",
-    equipment: "ETCH-04",
+    equipment: "ETCH-07",
     description: "Add mandatory 20-minute chamber RF seasoning cycle following any RF match assembly PM.",
     assignee: "Quality Assurance",
     sla: "24 hours",
@@ -86,7 +86,7 @@ const INITIAL_ACTIONS: ActionItem[] = [
 export default function PlaybookPage() {
   const [actions, setActions] = useState<ActionItem[]>(INITIAL_ACTIONS);
   const [newTitle, setNewTitle] = useState("");
-  const [newEquip, setNewEquip] = useState("ETCH-04");
+  const [newEquip, setNewEquip] = useState("ETCH-07");
   const [newCat, setNewCat] = useState<"Immediate (P1)" | "Verification (P2)" | "Preventive (P3)">("Immediate (P1)");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -185,7 +185,7 @@ export default function PlaybookPage() {
                 onChange={e => setNewEquip(e.target.value)}
                 style={{ height: "34px", padding: "0 10px", borderRadius: "6px", border: "1px solid #dce4e8", fontSize: "11px", outline: "none", background: "#ffffff" }}
               >
-                {["ETCH-04", "CMP-03", "ETCH-07", "LITHO-02", "HANDLER-01"].map(e => (
+                {["ETCH-07", "CMP-03", "ETCH-07", "LITHO-02", "HANDLER-01"].map(e => (
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>

@@ -23,9 +23,9 @@ interface PlannedLotRisk {
 
 const PLANNED_LOTS: PlannedLotRisk[] = [
   {
-    lotId: "WFR-24-0818",
+    lotId: "L-4511",
     productId: "P-LOGIC-3N",
-    equipment: "ETCH-04",
+    equipment: "ETCH-07",
     riskScore: 68,
     status: "Elevated Risk",
     matchedCases: ["CASE-1042", "HC-033"],
@@ -42,7 +42,7 @@ const PLANNED_LOTS: PlannedLotRisk[] = [
     ]
   },
   {
-    lotId: "L-6001",
+    lotId: "L-4502",
     productId: "P-LOGIC-3N",
     equipment: "CMP-03",
     riskScore: 42,
@@ -59,9 +59,9 @@ const PLANNED_LOTS: PlannedLotRisk[] = [
     ]
   },
   {
-    lotId: "L-6002",
+    lotId: "L-4515",
     productId: "P-MEM-1A",
-    equipment: "LITHO-07",
+    equipment: "LITHO-02",
     riskScore: 18,
     status: "Nominal",
     matchedCases: [],

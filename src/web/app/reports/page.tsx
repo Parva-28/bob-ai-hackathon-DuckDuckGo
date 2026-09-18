@@ -31,18 +31,18 @@ interface ReportItem {
 const REPORTS: ReportItem[] = [
   {
     id: "REP-2026-0817",
-    lotId: "WFR-24-0817",
+    lotId: "L-4471",
     title: "Yield Excursion Investigation Dossier: Edge-Ring Anomaly",
     author: "Mei Sato (Yield Engineer)",
     date: "Today · 08:14",
     severity: "critical",
     status: "Finalized",
     defectClass: "Edge-Ring",
-    findings: "RF power overshoot (+4.8σ) on ETCH-04 after 06:42 PM clean. Matched CASE-1042 at 91% similarity."
+    findings: "RF power overshoot (+4.8σ) on ETCH-07 after 06:42 PM clean. Matched CASE-1042 at 91% similarity."
   },
   {
     id: "REP-2026-0816",
-    lotId: "WFR-24-0816",
+    lotId: "L-4402",
     title: "Center Defect Cluster Root Cause Audit",
     author: "Mei Sato (Yield Engineer)",
     date: "Yesterday",
@@ -53,7 +53,7 @@ const REPORTS: ReportItem[] = [
   },
   {
     id: "REP-2026-0814",
-    lotId: "WFR-24-0814",
+    lotId: "L-4418",
     title: "Routine Qualification Audit: FAB1-B Memory Line",
     author: "Quality Assurance",
     date: "3 days ago",
@@ -64,7 +64,7 @@ const REPORTS: ReportItem[] = [
   },
   {
     id: "REP-2026-0810",
-    lotId: "WFR-24-0810",
+    lotId: "L-5540",
     title: "Robotic Transfer End-Effector Scratch Containment Dossier",
     author: "T. Gomez (Automation Lead)",
     date: "1 week ago",

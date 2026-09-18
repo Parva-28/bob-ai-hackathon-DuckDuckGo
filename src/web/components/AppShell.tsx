@@ -122,9 +122,9 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   };
 
   const searchResults = [
-    { title: "Lot WFR-24-0817", category: "Lot Excursion", href: "/investigation", detail: "74.2% Yield · Edge-Ring Pattern" },
-    { title: "Lot WFR-24-0818", category: "Planned Lot", href: "/batch-risk", detail: "Risk Score 68/100 · ETCH-04" },
-    { title: "ETCH-04", category: "Equipment", href: "/equipment", detail: "RF Power +4.8σ Transient Spike" },
+    { title: "Lot L-4471", category: "Lot Excursion", href: "/investigation", detail: "74.2% Yield · Edge-Ring Pattern" },
+    { title: "Lot L-4511", category: "Planned Lot", href: "/batch-risk", detail: "Risk Score 68/100 · ETCH-07" },
+    { title: "ETCH-07", category: "Equipment", href: "/equipment", detail: "RF Power +4.8σ Transient Spike" },
     { title: "CMP-03", category: "Equipment", href: "/equipment", detail: "Slurry Flow Drift -2.4σ" },
     { title: "CASE-1042", category: "Historical Case", href: "/cases", detail: "Edge-ring defects after RF match PM (91% Match)" },
     { title: "Inspect RF Match Network", category: "Action Playbook", href: "/playbook", detail: "Priority 1 Immediate Action" },

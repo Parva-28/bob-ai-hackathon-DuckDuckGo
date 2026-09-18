@@ -21,18 +21,25 @@ export default function OverviewPage() {
 
   const kpis = [
     { label: "Fab Average Yield", value: "91.2%", detail: "↓ 0.8 pts vs 92.0% target", tone: "warning", icon: <TrendingDown size={16} /> },
-    { label: "Active Excursions", value: "1 Lot", detail: "WFR-24-0817 (74.2% yield)", tone: "danger", icon: <AlertTriangle size={16} /> },
-    { label: "Equipment on Watch", value: "2 Tools", detail: "ETCH-04 (+4.8σ), CMP-03 (-2.4σ)", tone: "warning", icon: <Cpu size={16} /> },
+    { label: "Active Excursions", value: "1 Lot", detail: "L-4471 (74.2% yield)", tone: "danger", icon: <AlertTriangle size={16} /> },
+    { label: "Equipment on Watch", value: "2 Tools", detail: "ETCH-07 (+4.8σ), CMP-03 (-2.4σ)", tone: "warning", icon: <Cpu size={16} /> },
     { label: "AI Reasoning Health", value: "100%", detail: "18/18 Benchmark Cases Validated", tone: "good", icon: <ShieldCheck size={16} /> },
   ];
 
+  // Generated from src/mcp_server/data/lots.json.
   const lots = [
-    { id: "WFR-24-0817", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-04", yield: "74.2%", status: "Excursion Active", pattern: "Edge-Ring", severity: "critical", time: "8 min ago" },
-    { id: "WFR-24-0816", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-04", yield: "88.6%", status: "Review Required", pattern: "Center", severity: "high", time: "42 min ago" },
-    { id: "WFR-24-0814", product: "P-MEM-1A", line: "FAB1-B", equipment: "CMP-02", yield: "91.4%", status: "Monitoring", pattern: "None", severity: "medium", time: "1 hr ago" },
-    { id: "WFR-24-0818", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-04", yield: "--", status: "Planned (Pre-run)", pattern: "Risk 68/100", severity: "high", time: "Upcoming" },
-    { id: "WFR-24-0811", product: "P-LOGIC-5N", line: "FAB2-B", equipment: "LITHO-07", yield: "93.8%", status: "Nominal", pattern: "None", severity: "low", time: "3 hr ago" },
-    { id: "WFR-24-0809", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-03", yield: "95.1%", status: "Nominal", pattern: "None", severity: "low", time: "5 hr ago" },
+    { id: "L-5502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "TESTER-04", yield: "8.2%", status: "Excursion active", pattern: "Near-full", severity: "critical", time: "-" },
+    { id: "L-5540", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "HANDLER-01", yield: "11.5%", status: "Excursion active", pattern: "Near-full", severity: "critical", time: "-" },
+    { id: "L-4471", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-07", yield: "61.0%", status: "Review required", pattern: "Edge-Ring", severity: "high", time: "-" },
+    { id: "L-4402", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "68.4%", status: "Review required", pattern: "Center", severity: "high", time: "-" },
+    { id: "L-4815", product: "P-LOGIC-3N", line: "FAB2-B", equipment: "LITHO-02", yield: "70.2%", status: "Monitoring", pattern: "Donut", severity: "medium", time: "-" },
+    { id: "L-4418", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "72.1%", status: "Monitoring", pattern: "Center", severity: "medium", time: "-" },
+    { id: "L-5120", product: "P-MEM-5N", line: "FAB1-C", equipment: "FILTER-B12", yield: "74.8%", status: "Monitoring", pattern: "Random", severity: "medium", time: "-" },
+    { id: "L-3310", product: "P-MEM-5N", line: "FAB1-C", equipment: "HANDLER-01", yield: "79.6%", status: "Monitoring", pattern: "Scratch", severity: "medium", time: "-" },
+    { id: "L-4502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
+    { id: "L-4507", product: "P-MEM-5N", line: "FAB1-C", equipment: "FILTER-B12", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
+    { id: "L-4511", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-07", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
+    { id: "L-4515", product: "P-LOGIC-3N", line: "FAB2-B", equipment: "LITHO-02", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
   ];
 
   const filteredLots = lots.filter(l => {
@@ -42,7 +49,7 @@ export default function OverviewPage() {
   });
 
   const exportSummary = () => {
-    const report = `YIELDGUARD AI · FAB 07 FLEET OVERVIEW\nDate: ${new Date().toISOString()}\nFab Average Yield: 91.2% (Target: 92.0%)\nActive Excursions: WFR-24-0817 (74.2% yield, ETCH-04)\nEquipment on Watch: ETCH-04 (+4.8σ), CMP-03 (-2.4σ)\n\nLOT REGISTRY SNAPSHOT\n${lots.map(l => `- ${l.id}: ${l.product} | ${l.equipment} | Yield: ${l.yield} | Status: ${l.status}`).join("\n")}`;
+    const report = `YIELDGUARD AI · FAB 07 FLEET OVERVIEW\nDate: ${new Date().toISOString()}\nFab Average Yield: 91.2% (Target: 92.0%)\nActive Excursions: L-4471 (74.2% yield, ETCH-07)\nEquipment on Watch: ETCH-07 (+4.8σ), CMP-03 (-2.4σ)\n\nLOT REGISTRY SNAPSHOT\n${lots.map(l => `- ${l.id}: ${l.product} | ${l.equipment} | Yield: ${l.yield} | Status: ${l.status}`).join("\n")}`;
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -53,7 +60,7 @@ export default function OverviewPage() {
   };
 
   return (
-    <AppShell activeLotId="WFR-24-0817">
+    <AppShell activeLotId="L-4471">
       <div className="page-content">
         {/* Single Page Header with Contextual Actions */}
         <div className="page-heading">
@@ -83,9 +90,9 @@ export default function OverviewPage() {
               <AlertTriangle size={18} />
             </div>
             <div>
-              <b>Urgent Excursion: Lot WFR-24-0817</b>
+              <b>Urgent Excursion: Lot L-4471</b>
               <span>
-                Final yield dropped to <strong>74.2%</strong> on <strong>ETCH-04</strong> · Edge-ring defect pattern detected across 24 wafers.
+                Final yield dropped to <strong>74.2%</strong> on <strong>ETCH-07</strong> · Edge-ring defect pattern detected across 24 wafers.
               </span>
             </div>
           </div>
@@ -94,7 +101,7 @@ export default function OverviewPage() {
             className="button primary"
             style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
           >
-            Investigate Lot WFR-24-0817 <ArrowRight size={14} />
+            Investigate Lot L-4471 <ArrowRight size={14} />
           </Link>
         </div>
 
@@ -221,7 +228,7 @@ export default function OverviewPage() {
               <div className="sensor-list">
                 <div className="sensor-row">
                   <div>
-                    <b style={{ color: "#273e51", fontSize: "10.5px" }}>ETCH-04</b>
+                    <b style={{ color: "#273e51", fontSize: "10.5px" }}>ETCH-07</b>
                     <div style={{ color: "#7b8e9c", fontSize: "9px" }}>RF Power transient spike (1,874 W)</div>
                   </div>
                   <strong style={{ color: "#b5473f", font: "600 11px 'IBM Plex Mono', monospace" }}>+4.8σ</strong>
@@ -237,7 +244,7 @@ export default function OverviewPage() {
                 </div>
                 <div className="sensor-row">
                   <div>
-                    <b style={{ color: "#273e51", fontSize: "10.5px" }}>LITHO-07</b>
+                    <b style={{ color: "#273e51", fontSize: "10.5px" }}>LITHO-02</b>
                     <div style={{ color: "#7b8e9c", fontSize: "9px" }}>Dose uniformity &amp; focus nominal</div>
                   </div>
                   <strong style={{ color: "#2e6e58", font: "600 11px 'IBM Plex Mono', monospace" }}>+0.2σ</strong>
@@ -256,7 +263,7 @@ export default function OverviewPage() {
                     <h2>Upcoming Lot Triage</h2>
                   </div>
                 </div>
-                <span className="triage-chip">WFR-24-0818</span>
+                <span className="triage-chip">L-4511</span>
               </div>
               <div className="risk-score-row">
                 <div className="risk-meter">
@@ -265,7 +272,7 @@ export default function OverviewPage() {
                 <div className="risk-number">68<span>/100</span></div>
               </div>
               <p style={{ color: "#6a7c8b", fontSize: "10px", marginTop: "8px", lineHeight: "1.45" }}>
-                Upcoming lot shares 4 high-weight parameters with low-yield conditions on ETCH-04.
+                Upcoming lot shares 4 high-weight parameters with low-yield conditions on ETCH-07.
               </p>
             </section>
           </aside>
