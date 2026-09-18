@@ -316,11 +316,33 @@ async def _run(args) -> int:
                 elif not ok:
                     print(f"    {R}FAIL{RST} {name} — {detail}")
 
+    # A run where the provider was unavailable is not a score of zero, it is not a
+    # score. Pacing fixed the per-minute limit; the per-DAY limit (flash-lite 500)
+    # produces the identical symptom — every case reports "rank_root_causes
+    # returned none" and the harness happily printed 0/18, which reads as a broken
+    # system. Detect it and refuse to report a number.
+    no_hyp = sum(1 for r in results
+                 if any((f[0] if isinstance(f, (list, tuple)) else str(f)).startswith(
+                         "hypotheses_returned") for f in r.failures))
+    invalid = (not mock) and len(results) and no_hyp / len(results) >= 0.25
+
     npass = sum(1 for r in results if r.passed)
     total_checks = sum(len(r.checks) for r in results)
     failed_checks = sum(len(r.failures) for r in results)
     nskip = sum(len(r.skipped) for r in results)
     print("-" * (9 + 11 + 7 + w + 7 + 13 + 6 + 8))
+    if invalid:
+        print(f"\n{R}RUN INVALID — {no_hyp} of {len(results)} cases got no hypotheses "
+              f"back from the reasoning provider.{RST}")
+        print(f"{Y}  This is almost certainly the provider, not the system: a rate or "
+              f"quota limit,{RST}")
+        print(f"{Y}  an outage, or missing credentials. Free-tier daily caps are "
+              f"gemini-3.5-flash-lite 500{RST}")
+        print(f"{Y}  requests and gemini-3.5-flash 20; one full run costs ~36. Check the "
+              f"error output above,{RST}")
+        print(f"{Y}  wait for the quota window, or set USE_MOCK_LLM=true. Do NOT quote a "
+              f"score from this run.{RST}")
+
     print(f"\n{npass}/{len(results)} sub-cases passed "
           f"({total_checks - failed_checks}/{total_checks} assertions"
           + (f", {nskip} skipped" if nskip else "") + ")")
@@ -345,6 +367,9 @@ async def _run(args) -> int:
     if args.json:
         Path(args.json).write_text(json.dumps({
             "pipeline": status,
+            "valid": not invalid,
+            "invalid_reason": (f"{no_hyp}/{len(results)} cases got no hypotheses — "
+                               "provider unavailable") if invalid else None,
             "passed": npass, "total": len(results),
             "metric_set": metrics,
             "results": [{"case_id": r.case_id, "passed": r.passed,
@@ -352,6 +377,8 @@ async def _run(args) -> int:
         }, indent=2))
         print(f"\nwrote {args.json}")
 
+    if invalid:
+        return 2   # distinct from 1 (real failures) so CI can tell them apart
     return 0 if npass == len(results) else 1
 
 
