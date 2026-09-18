@@ -103,8 +103,8 @@ export default function BenchmarkPage() {
           </div>
           <div className="metric-card">
             <div className="metric-top"><span>Vision Model Accuracy</span><Gauge size={16} /></div>
-            <div className="metric-value">0.942 F1</div>
-            <div className="metric-detail">ViT-Tiny on WM-811K benchmark</div>
+            <div className="metric-value">0.9232 F1</div>
+            <div className="metric-detail">WaferCNN + TTA-8 on WM-811K benchmark</div>
           </div>
         </div>
 

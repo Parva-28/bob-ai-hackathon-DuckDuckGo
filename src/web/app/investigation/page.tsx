@@ -532,7 +532,7 @@ export default function InvestigationPage() {
                     <div className="chain-node-content">
                       <span className="chain-label">WAFER PATTERN</span>
                       <b className="chain-value">Edge-Ring</b>
-                      <small className="chain-sub">96% confidence (ViT)</small>
+                      <small className="chain-sub">96% confidence (WaferCNN)</small>
                     </div>
                   </div>
                   <div className="chain-node">

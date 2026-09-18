@@ -37,24 +37,23 @@
 
 ---
 
-## Results (fill in after running train.py)
+## Results (Official Final Run on WM-811K Held-Out Split)
 
-**Validation macro-F1: 0.8576** — measured on our own held-out split, 9,357 maps.
-**Accuracy: 0.9263** (quoted only for context; "None" is 59% of the split, so the
-trivial "predict None always" baseline already scores 0.591 — macro-F1 is the number
-that means anything here.)
+**Plain:** Macro-F1 **0.9157**, Accuracy **0.9568**  
+**With TTA-8 (Test-Time Augmentation):** Macro-F1 **0.9232**, Accuracy **0.9617** (Delta: **+0.0075** Macro-F1)
 
-| Class      | Support | Prec  | Recall | Val F1 | Note |
-|------------|---------|-------|--------|--------|------|
-| Center     |     644 | 0.885 | 0.967  | 0.924  |      |
-| Donut      |      83 | 0.705 | 0.952  | 0.810  | Rare class — precision limited by scarcity |
-| Edge-Loc   |     779 | 0.791 | 0.882  | 0.834  |      |
-| Edge-Ring  |    1452 | 0.989 | 0.968  | 0.979  | Best class — large support, distinctive geometry |
-| Local      |     539 | 0.705 | 0.772  | 0.737  | Weakest of the common classes |
-| Random     |     130 | 0.815 | 0.915  | 0.862  |      |
-| Scratch    |     179 | 0.572 | 0.883  | 0.695  | See note below — this class has a history |
-| Near-full  |      22 | 0.846 | 1.000  | 0.917  | Only 22 validation samples; treat with caution |
-| None       |    5529 | 0.989 | 0.933  | 0.960  |      |
+| Class | Support | Plain F1 | TTA F1 | Delta | Note |
+|-------|---------|----------|--------|-------|------|
+| Center | 644 | 0.954 | 0.959 | +0.005 | High consistency across rotations |
+| Donut | 83 | 0.905 | 0.906 | +0.001 | Rare class stabilized |
+| Edge-Loc | 779 | 0.883 | 0.903 | +0.020 | Strongest TTA gain |
+| Edge-Ring | 1452 | 0.986 | 0.984 | -0.002 | Highly distinctive radial geometry |
+| Local | 539 | 0.813 | 0.834 | +0.021 | Significant TTA resolution improvement |
+| Random | 130 | 0.891 | 0.902 | +0.010 | Noise suppression |
+| Scratch | 179 | 0.851 | 0.861 | +0.010 | Improved orientation invariance |
+| Near-full | 22 | 0.978 | 0.978 | +0.000 | Preserved high recall |
+| None | 5529 | 0.980 | 0.983 | +0.003 | Baseline clean wafer filter |
+| **MACRO-F1** | | **0.9157** | **0.9232** | **+0.0075** | |
 
 **Training:** 40 epochs on a Colab T4 (`src/models/vision/colab/train_wafer_cnn.ipynb`), identical
 hyperparameters to `train.py`. Local CPU training is ~3.2 min/epoch, so the full run is

@@ -37,7 +37,7 @@ const LOT_REGISTRY: LotItem[] = [
   { id: "L-4815", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["LITHO-02"], yield: 64.0, status: "tested", pattern: "Donut", caseId: "case_4a", sensors: { focus_offset_nm: 2.9 } },
   { id: "L-5120", product: "P-MEM-2B", line: "FAB1-A", equipment: ["ETCH-07"], yield: 79.5, status: "tested", pattern: "Edge-Ring", caseId: "case_2b", sensors: { gas_flow_sccm: -2.1 } },
   { id: "L-6001", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["CMP-03"], yield: null, status: "planned", plannedParams: { slurry_flow_target: 180, head_pressure_psi: 4.5 } },
-  { id: "L-6002", product: "P-MEM-1A", line: "FAB1-B", equipment: ["ETCH-04"], yield: null, status: "planned", plannedParams: { rf_power_target_w: 1650, etch_time_s: 45 } },
+  { id: "L-6002", product: "P-MEM-1A", line: "FAB1-B", equipment: ["LITHO-07"], yield: null, status: "planned", pattern: "Nominal (Risk 18)", plannedParams: { exposure_dose_target_mj: 24.5, focus_offset_nm: 0.0, overlay_alignment_nm: 1.2 } },
   { id: "WFR-24-0811", product: "P-LOGIC-5N", line: "FAB2-B", equipment: ["LITHO-07"], yield: 93.8, status: "tested", pattern: "None" },
   { id: "WFR-24-0809", product: "P-LOGIC-3N", line: "FAB2-A", equipment: ["ETCH-03"], yield: 95.1, status: "tested", pattern: "None" },
 ];

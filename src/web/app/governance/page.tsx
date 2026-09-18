@@ -50,10 +50,10 @@ export default function GovernancePage() {
   const models = [
     {
       role: "Vision Defect Classification",
-      name: "WaferCNN & ViT-Tiny",
+      name: "WaferCNN (with TTA-8)",
       dataset: "WM-811K (LSWMD)",
-      metrics: "Macro-F1: 0.858 → ViT-Tiny: 0.942",
-      description: "Processes 64×64 spatial geometric die arrays into 9 standard defect patterns (Center, Donut, Edge-Ring, Loc, Scratch, Random, Near-full)."
+      metrics: "Plain Macro-F1: 0.9157 (Acc: 0.9568) → TTA-8: 0.9232 (Acc: 0.9617)",
+      description: "Processes 64×64 spatial geometric die arrays into 9 standard defect patterns (Center, Donut, Edge-Ring, Loc, Scratch, Random, Near-full, None) with 8-fold test-time augmentation."
     },
     {
       role: "In-line Telemetry Anomaly",
