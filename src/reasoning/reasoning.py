@@ -161,6 +161,20 @@ def _build_rank_prompt(
         for name, val in sorted(all_sensors.items(), key=lambda x: -abs(x[1]))
     ) if all_sensors else "    (see top_deviating_sensors above)"
 
+    # Pre-run lots have no measurements at all — only the recipe they are about to
+    # run. Without this block the model was asked to explain a planned lot from
+    # telemetry alone, so a parameter sitting in plain sight (reticle_swaps_24h on
+    # a LITHO lot) was unreachable and it grounded on an unrelated precedent
+    # instead. These are absolute SETPOINTS, not z-scores; labelling matters.
+    planned = anomaly.get("_planned_process_params") or {}
+    planned_block = ""
+    if planned:
+        rows = "\n".join(f"    {k} = {v}" for k, v in sorted(planned.items()))
+        planned_block = (
+            "\n    PLANNED PROCESS PARAMETERS (this lot has NOT run; these are the\n"
+            "    recipe setpoints it is scheduled with, absolute values and NOT z-scores):\n"
+            f"{rows}\n")
+
     prompt = textwrap.dedent(f"""\
     You are an expert semiconductor yield-analysis engineer performing root-cause analysis.
 
@@ -194,6 +208,7 @@ def _build_rank_prompt(
 
     Wafer defect classification: {predicted_class} (confidence={cls_confidence:.2f})
     Anomaly score: {anomaly_score:.2f}  (0=normal, 1=severe)
+    {planned_block}
     Top deviating sensors: {sensors_text}
 
     All sensor readings:

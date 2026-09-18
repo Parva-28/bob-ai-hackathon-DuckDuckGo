@@ -105,7 +105,15 @@ def analyse(lot_id: str) -> dict:
         steps.append({"tool": "retrieve_similar_cases", "arg": "pre-run"})
         tel = query_telemetry(lot.get("equipment_ids") or ["CMP-03"], "14d")
         steps.append({"tool": "query_telemetry", "arg": ", ".join(lot.get("equipment_ids", []))})
-        ranked = rank_causes(None, None, cases, tel)
+        # A planned lot has no measurements, so the recipe IS the evidence.
+        # Passing None here left the model with telemetry only.
+        pre_run_evidence = {
+            "anomaly_score": 0.0,
+            "top_deviating_sensors": [],
+            "_pre_run": True,
+            "_planned_process_params": lot.get("planned_process_params") or {},
+        }
+        ranked = rank_causes(None, pre_run_evidence, cases, tel)
         steps.append({"tool": "rank_root_causes", "arg": "classification=null, anomaly=null"})
         acts = playbook(ranked["hypotheses"][0], True) if ranked.get("hypotheses") else {"actions": []}
         steps.append({"tool": "get_corrective_action_playbook", "arg": "preventive=true"})

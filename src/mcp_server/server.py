@@ -204,7 +204,20 @@ def score_sensor_anomaly(lot_id: str, sensors: dict[str, float],
 def retrieve_similar_cases(defect_class: str | None = None,
                            sensor_signature: dict[str, float] | None = None,
                            top_k: int = 5) -> dict:
-    return {"cases": cases.search(defect_class, sensor_signature or {}, top_k)}
+    hits = cases.search(defect_class, sensor_signature or {}, top_k)
+    out = {"cases": hits}
+    if not hits:
+        # Say this plainly. "No precedent" is a finding; silently returning the
+        # alphabetically-first cases at similarity 0.0 invites the reasoning layer
+        # to cite equipment that has nothing to do with this lot.
+        out["_no_precedent"] = True
+        out["_note"] = (
+            f"No historical case scored above {cases.MIN_SIMILARITY} similarity. "
+            "There is NO precedent for this lot. Do not cite a case, and do not "
+            "name equipment that appears only in the case store — reason from the "
+            "sensor and telemetry evidence for THIS lot, or say the evidence is "
+            "insufficient.")
+    return out
 
 
 @mcp.tool(description="Query recent equipment telemetry (simulated SECS/GEM) for the given "

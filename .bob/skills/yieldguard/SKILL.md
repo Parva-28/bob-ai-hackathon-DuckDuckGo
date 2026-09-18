@@ -89,6 +89,23 @@ paired them. So:
 If asked to compare the two, say it plainly: the CMP result is evidence, the lot analysis
 is a demonstration. Do not present them with equal authority.
 
+## Pre-run lots and precedents
+
+For a **planned** lot there is no wafer map and no measurement — the recipe is the
+evidence. Pass its `planned_process_params` to `rank_root_causes` (as
+`_planned_process_params` inside the anomaly argument). Without them the only inputs are
+telemetry and precedents, and a parameter sitting in plain sight in the recipe becomes
+unreachable.
+
+`retrieve_similar_cases` may return `_no_precedent: true` and an empty list. That means
+**no historical case resembles this lot** — it is a finding, not an empty slot to fill.
+Do not cite a case, and do not name equipment that appears only in the case store. Reason
+from this lot's own sensors and telemetry, or say the evidence is insufficient.
+
+This matters because the failure it prevents actually happened: a LITHO lot was handed
+three CMP-03 precedents at similarity 0.0, and the ranking blamed CMP slurry flow on a
+tool the lot never ran on.
+
 ## Intervals
 
 `predict_removal_rate` returns an interval, and the interval is the answer — the point

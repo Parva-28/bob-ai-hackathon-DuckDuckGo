@@ -250,9 +250,9 @@ async def _run(args) -> int:
             # API calls at 3-6s each, and buffering the table until the end makes a
             # working run indistinguishable from a hang.
             # Live providers rate-limit, and firing 18 cases back to back trips
-            # them: Gemini's free tier allows 5 requests/minute, so an unpaced run
-            # 429s on everything after the first few and reports 0/18 as if the
-            # system were broken. Pace to stay inside the limit; --rpm 0 disables.
+            # them: an unpaced run 429s on everything after the first few and
+            # reports 0/18 as if the system were broken. gemini-3.5-flash-lite
+            # allows 15 req/min free-tier, gemini-3.5-flash only 5. --rpm 0 disables.
             # Each case makes two reasoning calls (rank_root_causes and
             # get_corrective_action_playbook), so the per-case gap is twice the
             # per-request gap or the second call trips the limit.
@@ -341,9 +341,10 @@ def main() -> int:
     p = argparse.ArgumentParser(description="YieldGuard eval harness")
     p.add_argument("--case", help="run only one case study, e.g. 6")
     p.add_argument("--verbose", action="store_true", help="show every assertion")
-    p.add_argument("--rpm", type=int, default=5,
-                   help="max reasoning requests per minute in live mode "
-                        "(Gemini free tier is 5). 0 disables pacing.")
+    p.add_argument("--rpm", type=int, default=15,
+                   help="max reasoning requests per minute in live mode. Free-tier "
+                        "limits: gemini-3.5-flash-lite 15, gemini-3.5-flash 5. "
+                        "0 disables pacing.")
     p.add_argument("--json", help="write machine-readable results to this path")
     return anyio.run(_run, p.parse_args())
 

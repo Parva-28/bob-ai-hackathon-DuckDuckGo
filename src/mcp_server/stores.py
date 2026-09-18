@@ -80,11 +80,18 @@ class CaseStore:
     def get(self, case_id: str) -> dict | None:
         return next((c for c in self._cases if c["case_id"] == case_id), None)
 
+    # Below this, a "match" is not a precedent. Cosine over disjoint key spaces
+    # is exactly 0.0, and returning the top_k of an all-zero ranking hands back
+    # whichever case_id sorts first — which is how a LITHO lot was given three
+    # CMP-03 slurry precedents and the model grounded a hypothesis on them.
+    MIN_SIMILARITY = 0.05
+
     def search(
         self,
         defect_class: str | None,
         sensor_signature: dict[str, float],
         top_k: int = 5,
+        min_similarity: float | None = None,
     ) -> list[dict]:
         """
         Rank cases by sensor similarity, with a modest boost for a matching
@@ -102,6 +109,8 @@ class CaseStore:
                 sim = min(1.0, sim + 0.15)
             scored.append((sim, c))
         scored.sort(key=lambda t: (-t[0], t[1]["case_id"]))
+        floor = self.MIN_SIMILARITY if min_similarity is None else min_similarity
+        scored = [(sim, c) for sim, c in scored if sim >= floor]
         return [
             {
                 "case_id": c["case_id"],
@@ -112,7 +121,9 @@ class CaseStore:
                 "equipment_id": c.get("equipment_id"),
                 "provenance": c.get("provenance", "constructed"),
             }
-            for sim, c in scored[: max(1, top_k)]
+            # No max(1, ...): an empty result is the correct answer when nothing
+            # clears the floor. Padding it to one guarantees a spurious precedent.
+            for sim, c in scored[:top_k]
         ]
 
     def add_confirmed(self, case: dict) -> str:
