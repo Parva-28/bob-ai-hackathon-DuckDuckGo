@@ -3434,4 +3434,45 @@ h1 span {
   color: #94a3b8;
   margin-top: 6px;
   text-align: center;
-}
+}
+/* ── async states + provenance ─────────────────────────────────────────────
+   Every screen is backed by the API now, so "loading" and "backend down" are
+   real states the UI must render. Falling back to placeholder numbers is the
+   failure this whole refactor removes. */
+
+.async-state {
+  display: flex; align-items: center; gap: 12px;
+  padding: 28px 24px; margin: 16px 0;
+  border: 1px solid #dce4e8; border-radius: 8px; background: #fbfcfc;
+  font-size: 12.5px; color: #4a5a68;
+}
+.async-error { border-color: #e6c9c6; background: #fdf7f6; justify-content: space-between; }
+.async-detail { font: 11px/1.6 "IBM Plex Mono", monospace; color: #7a8894; margin-top: 4px; }
+.async-spinner {
+  width: 15px; height: 15px; flex: none; border-radius: 50%;
+  border: 2px solid #d6dfe5; border-top-color: #3b6ea5;
+  animation: async-spin .7s linear infinite;
+}
+@keyframes async-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .async-spinner { animation-duration: 2s; }
+}
+
+.prov-chip {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  border-radius: 10px; font: 600 10px/1.7 "IBM Plex Mono", monospace;
+  text-transform: lowercase; letter-spacing: .02em; vertical-align: middle;
+}
+.prov-measured    { background: #defbe6; color: #0e6027; }
+.prov-constructed { background: #fff3d6; color: #7a5a12; }
+
+/* ── performance ───────────────────────────────────────────────────────────
+   Long tables are the only heavy thing here (2,002 CMP runs). content-visibility
+   lets the browser skip layout and paint for offscreen rows, which is most of
+   what a virtualiser buys at this size without adding a dependency. */
+
+.panel table tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 34px;
+}
+.panel { contain: layout style; }

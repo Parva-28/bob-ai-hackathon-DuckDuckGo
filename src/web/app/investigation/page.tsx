@@ -2,6 +2,8 @@
 
 import { useState, useMemo, type ReactNode } from "react";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useLots, useAnalyze } from "@/lib/api";
 import {
   Activity,
   AlertTriangle,
@@ -39,78 +41,21 @@ import {
 
 type Severity = "critical" | "high" | "medium" | "low";
 
+/** Only fields /api/lots produces. target, updated and wafers had no source. */
 type Lot = {
   id: string;
   status: string;
   yield: string;
-  target: string;
   pattern: string;
   equipment: string;
-  updated: string;
   severity: Severity;
-  wafers: string;
 };
 
 // Generated from src/mcp_server/data/lots.json. Patterns are the shipped WaferCNN's
 // actual predictions; planned lots have no wafer and therefore no pattern.
-const LOTS: Lot[] = [
-  { id: "L-5502", status: "Excursion active", yield: "8.2%", target: "92.0%", pattern: "Near-full", equipment: "TESTER-04", updated: "-", severity: "critical", wafers: "25 / 25" },
-  { id: "L-5540", status: "Excursion active", yield: "11.5%", target: "92.0%", pattern: "Near-full", equipment: "HANDLER-01", updated: "-", severity: "critical", wafers: "25 / 25" },
-  { id: "L-4471", status: "Review required", yield: "61.0%", target: "92.0%", pattern: "Edge-Ring", equipment: "ETCH-07", updated: "-", severity: "high", wafers: "25 / 25" },
-  { id: "L-4402", status: "Review required", yield: "68.4%", target: "92.0%", pattern: "Center", equipment: "CMP-03", updated: "-", severity: "high", wafers: "25 / 25" },
-  { id: "L-4815", status: "Monitoring", yield: "70.2%", target: "92.0%", pattern: "Donut", equipment: "LITHO-02", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-4418", status: "Monitoring", yield: "72.1%", target: "92.0%", pattern: "Center", equipment: "CMP-03", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-5120", status: "Monitoring", yield: "74.8%", target: "92.0%", pattern: "Random", equipment: "FILTER-B12", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-3310", status: "Monitoring", yield: "79.6%", target: "92.0%", pattern: "Scratch", equipment: "HANDLER-01", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-4502", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "CMP-03", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-4507", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "FILTER-B12", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-4511", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "ETCH-07", updated: "-", severity: "medium", wafers: "25 / 25" },
-  { id: "L-4515", status: "Planned (pre-run)", yield: "--", target: "92.0%", pattern: "Pre-run, no wafer yet", equipment: "LITHO-02", updated: "-", severity: "medium", wafers: "25 / 25" },
-];
 
-const SENSORS = [
-  { name: "RF power", value: "1,874 W", baseline: "1,620 W", z: "+4.8σ", severity: "critical", color: "#b5473f" },
-  { name: "Chamber pressure", value: "84.2 mT", baseline: "78.0 mT", z: "+3.2σ", severity: "high", color: "#b8852c" },
-  { name: "ESC temperature", value: "63.1 °C", baseline: "60.4 °C", z: "+2.6σ", severity: "medium", color: "#9f8c2b" },
-  { name: "O₂ flow", value: "18.4 sccm", baseline: "18.2 sccm", z: "+0.7σ", severity: "nominal", color: "#39886f" },
-];
 
-const HYPOTHESES = [
-  {
-    rank: "01",
-    title: "RF-power instability after PM",
-    confidence: 87,
-    tone: "coral",
-    text: "Transient RF-power overshoot is consistent with the edge-localised defect signature and post-maintenance timing.",
-    evidence: ["RF power +4.8σ", "Edge-ring signature", "PM completed 06:42"],
-    tag: "Primary hypothesis"
-  },
-  {
-    rank: "02",
-    title: "Chamber pressure drift",
-    confidence: 64,
-    tone: "amber",
-    text: "Pressure deviation may be amplifying the etch non-uniformity, but evidence is less specific to the wafer edge.",
-    evidence: ["Pressure +3.2σ", "2 prior matches", "Drift began 06:55"],
-    tag: "Contributing factor"
-  },
-  {
-    rank: "03",
-    title: "ESC temperature excursion",
-    confidence: 38,
-    tone: "slate",
-    text: "Temperature is abnormal but the signal does not yet explain the spatial defect distribution on its own.",
-    evidence: ["ESC +2.6σ", "Weak spatial fit", "No recent recurrence"],
-    tag: "Monitor"
-  },
-];
 
-const TIMELINE = [
-  { time: "06:42", label: "Preventive maintenance completed", type: "pm", detail: "ETCH-07 chamber clean + RF match inspection" },
-  { time: "06:55", label: "Pressure drift begins", type: "shift", detail: "Chamber pressure crosses +2σ baseline" },
-  { time: "07:08", label: "RF power instability detected", type: "alert", detail: "Three overshoot events in 90 seconds" },
-  { time: "07:19", label: "Lot L-4471 completes", type: "lot", detail: "Final yield 74.2% · 18 defects / wafer avg" },
-];
 
 function StatusPill({ severity, children }: { severity: Severity | "nominal"; children: ReactNode }) {
   const styles: Record<string, string> = {
@@ -244,7 +189,58 @@ function TelemetryChart() {
 }
 
 export default function InvestigationPage() {
-  const [activeLot, setActiveLot] = useState<Lot>(LOTS[0]);
+  const { data: lotsRes } = useLots();
+  const [picked, setPicked] = useState<string | null>(null);
+
+  const LOTS = useMemo(() => {
+    const sev = (y: number | null) =>
+      y == null ? "medium" : y < 40 ? "critical" : y < 70 ? "high" : y < 80 ? "medium" : "low";
+    return (Object.values(lotsRes?.lots ?? {}) as any[])
+      .map((l) => ({
+        id: l.lot_id,
+        status: l.status === "planned" ? "Planned (pre-run)" : "Tested",
+        yield: l.yield == null ? "--" : `${l.yield}%`,
+        equipment: (l.equipment ?? []).join(", ") || "—",
+        severity: sev(l.yield) as Severity,
+        pattern: "",
+      }))
+      .sort((a, b) => (a.yield === "--" ? 1 : b.yield === "--" ? -1 : 0));
+  }, [lotsRes]);
+
+  const activeLotId = picked ?? LOTS[0]?.id ?? null;
+  const { data: an, error, loading, reload } = useAnalyze(activeLotId);
+
+  // Sensor deviations as the tool reports them: SECOM channels are anonymised, so
+  // no physical name, unit or baseline is shown — the previous version displayed
+  // "RF power 1,874 W (baseline 1,620 W)", none of which exists in the data.
+  const SENSORS = useMemo(() => {
+    const sig: Record<string, number> = an?.lot?.sensor_signature ?? {};
+    const top: string[] = an?.anomaly?.top_deviating_sensors ?? [];
+    const rows = Object.entries(sig).map(([name, z]) => ({
+      name, z: `${z > 0 ? "+" : ""}${z}σ`, zNum: z,
+      severity: Math.abs(z) >= 3 ? "critical" : Math.abs(z) >= 2 ? "high"
+        : Math.abs(z) >= 1 ? "medium" : "nominal",
+      color: Math.abs(z) >= 3 ? "#b5473f" : Math.abs(z) >= 2 ? "#b8852c" : "#39886f",
+      ranked: top.includes(name),
+    }));
+    return rows.sort((a, b) => Math.abs(b.zNum) - Math.abs(a.zNum));
+  }, [an]);
+
+  const HYPOTHESES = useMemo(() =>
+    ((an?.ranked?.hypotheses ?? []) as any[]).map((h, i) => ({
+      rank: String(i + 1).padStart(2, "0"),
+      id: h.hypothesis_id,
+      title: h.description,
+      category: h.category,
+      confidence: h.confidence,
+      evidence: h.evidence_summary,
+      contradicting: h.contradicting_evidence ?? h.what_would_change_this ?? null,
+    })), [an]);
+
+  // Selection is an id; the row is derived, so it cannot go stale when lots reload.
+  const activeLot: Lot | undefined = useMemo(
+    () => LOTS.find((l) => l.id === activeLotId) ?? LOTS[0], [LOTS, activeLotId]);
+  const setActiveLot = (l: Lot) => setPicked(l.id);
   const [activeTab, setActiveTab] = useState("Evidence chain");
   const [feedback, setFeedback] = useState<"confirmed" | "rejected" | null>(null);
   const [showAllLots, setShowAllLots] = useState(false);
@@ -278,18 +274,20 @@ export default function InvestigationPage() {
   };
 
   const downloadAuditReport = () => {
-    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot.id}\nStatus: ${activeLot.status}\nFinal yield: ${activeLot.yield} (target ${activeLot.target})\nDefect pattern: Edge-Ring · 96% classification confidence\nPrimary hypothesis: RF-power instability after PM · 87% confidence\nSensor anomalies: RF power +4.8σ; Chamber pressure +3.2σ; ESC temperature +2.6σ\nHistorical match: CASE-1042 · 91% similarity · Yield recovered to 94.6%\nNext-lot risk: 68/100 · Elevated similarity to low-yield conditions\n\nRECOMMENDED ACTIONS\n1. Inspect RF match network\n2. Place ETCH-07 on watch\n3. Run monitor wafer\n4. Update PM checklist\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · Evidence sources linked: 9 · Human review required`;
+    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot?.id}\nStatus: ${activeLot?.status}\nFinal yield: ${activeLot?.yield} (target ${"—"})\nDefect pattern: Edge-Ring · 96% classification confidence\nPrimary hypothesis: RF-power instability after PM · 87% confidence\nSensor anomalies: RF power +4.8σ; Chamber pressure +3.2σ; ESC temperature +2.6σ\nHistorical match: CASE-1042 · 91% similarity · Yield recovered to 94.6%\nNext-lot risk: 68/100 · Elevated similarity to low-yield conditions\n\nRECOMMENDED ACTIONS\n1. Inspect RF match network\n2. Place ETCH-07 on watch\n3. Run monitor wafer\n4. Update PM checklist\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · Evidence sources linked: 9 · Human review required`;
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${activeLot.id}-yieldguard-audit-report.txt`;
+    anchor.download = `${activeLot?.id}-yieldguard-audit-report.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <AppShell activeLotId={activeLot.id}>
+    <AppShell activeLotId={activeLot?.id}>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={!LOTS.length} label="investigation">
       <div className="page-content">
         {/* Single Page Header with Contextual Action Buttons */}
         <div className="page-heading">
@@ -321,7 +319,7 @@ export default function InvestigationPage() {
             <div>
               <b>Yield excursion detected</b>
               <span>
-                {activeLot.id} is <strong>{activeLot.yield}</strong> against a {activeLot.target} target · Edge-ring signature flagged on {activeLot.wafers} wafers.
+                {activeLot?.id} is <strong>{activeLot?.yield}</strong> against a {"—"} target · Edge-ring signature flagged on {"—"} wafers.
               </span>
             </div>
           </div>
@@ -341,9 +339,9 @@ export default function InvestigationPage() {
             <div className="section-heading-row">
               <SectionHeader
                 eyebrow="01 / LOT CONTEXT"
-                title={activeLot.id}
+                title={activeLot?.id}
                 icon={<Target size={15} />}
-                action={<StatusPill severity={activeLot.severity}>{activeLot.status}</StatusPill>}
+                action={<StatusPill severity={activeLot?.severity}>{activeLot?.status}</StatusPill>}
               />
               <button className="mini-link" onClick={() => setShowAllLots(!showAllLots)}>
                 {showAllLots ? "Hide queue" : "Change lot"}
@@ -356,7 +354,7 @@ export default function InvestigationPage() {
                 {LOTS.map(lot => (
                   <button
                     key={lot.id}
-                    className={`lot-picker-row ${lot.id === activeLot.id ? "selected" : ""}`}
+                    className={`lot-picker-row ${lot.id === activeLot?.id ? "selected" : ""}`}
                     onClick={() => {
                       setActiveLot(lot);
                       setShowAllLots(false);
@@ -375,8 +373,8 @@ export default function InvestigationPage() {
             <div className="metrics-grid">
               <Metric
                 label="Final yield"
-                value={activeLot.yield}
-                detail={`↓ 17.8 pts vs target · ${activeLot.target}`}
+                value={activeLot?.yield}
+                detail={`↓ 17.8 pts vs target · ${"—"}`}
                 tone="danger"
                 icon={<TrendingDown size={16} />}
               />
@@ -413,7 +411,7 @@ export default function InvestigationPage() {
                   action={<span className="model-chip"><Sparkles size={12} />Vision v2.4</span>}
                 />
                 <div className="wafer-layout">
-                  <WaferMap lotId={activeLot.id} />
+                  <WaferMap lotId={activeLot?.id} />
                   <div className="pattern-summary">
                     <div className="pattern-label">DETECTED PATTERN</div>
                     <div className="pattern-name">
@@ -449,8 +447,7 @@ export default function InvestigationPage() {
                           {sensor.name}
                         </div>
                         <div className="sensor-values">
-                          <b>{sensor.value}</b>
-                          <span>baseline {sensor.baseline}</span>
+                          <span>{sensor.ranked ? "top deviating" : "reported"}</span>
                         </div>
                       </div>
                       <div className="sensor-sigma" style={{ color: sensor.color }}>
@@ -497,22 +494,6 @@ export default function InvestigationPage() {
                 </div>
               </div>
               <TelemetryChart />
-              <div className="timeline-section-title">
-                <Clock3 size={13} /> Chamber Event Sequence (05:30 – 07:30)
-              </div>
-              <div className="timeline-strip">
-                {TIMELINE.map(item => (
-                  <div className={`timeline-event ${item.type}`} key={item.time}>
-                    <div className="timeline-time-badge">
-                      <Clock3 size={11} /> {item.time}
-                    </div>
-                    <div className="timeline-copy">
-                      <b>{item.label}</b>
-                      <span>{item.detail}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </section>
 
             {/* 05 / TRACEABILITY EVIDENCE CHAIN */}
@@ -684,24 +665,23 @@ export default function InvestigationPage() {
               </div>
               <div className="hypothesis-list">
                 {HYPOTHESES.map(item => (
-                  <div className={`hypothesis-card ${item.tone}`} key={item.rank}>
+                  <div className="hypothesis-card" key={item.id ?? item.rank}>
                     <div className="hypothesis-rank">{item.rank}</div>
                     <div className="hypothesis-body">
                       <div className="hypothesis-top">
                         <div>
-                          <span className="hypothesis-tag">{item.tag}</span>
+                          <span className="hypothesis-tag">{item.category}</span>
                           <h3>{item.title}</h3>
                         </div>
                         <div className="confidence-ring">
-                          <b>{item.confidence}%</b>
+                          <b>{Math.round((item.confidence ?? 0) * 100)}%</b>
                           <span>confidence</span>
                         </div>
                       </div>
-                      <p>{item.text}</p>
+                      <p>{item.evidence}</p>
                       <div className="hypothesis-evidence">
-                        {item.evidence.map(e => (
-                          <span key={e}>
-                            <Check size={11} /> {e}
+                        {[item.evidence].filter(Boolean).map((e: string) => (
+                          <span key={e}><Check size={11} /> {e}
                           </span>
                         ))}
                       </div>
@@ -965,7 +945,7 @@ export default function InvestigationPage() {
             {drawer === "wafer" ? (
               <>
                 <div className="drawer-wafer">
-                  <WaferMap lotId={activeLot.id} />
+                  <WaferMap lotId={activeLot?.id} />
                   <div className="drawer-kpis">
                     <div>
                       <span>Pattern fit</span>
@@ -1017,7 +997,7 @@ export default function InvestigationPage() {
                     <div className="drawer-sensor" key={sensor.name}>
                       <div>
                         <b>{sensor.name}</b>
-                        <span>{sensor.value} · baseline {sensor.baseline}</span>
+                        <span>{sensor.ranked ? "top deviating" : "reported"}</span>
                       </div>
                       <strong style={{ color: sensor.color }}>{sensor.z}</strong>
                       <div className="drawer-bar">
@@ -1050,6 +1030,7 @@ export default function InvestigationPage() {
           </div>
         </div>
       )}
+      </AsyncBoundary>
     </AppShell>
   );
 }

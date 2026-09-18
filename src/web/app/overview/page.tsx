@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useLots, useStatus, useEval } from "@/lib/api";
 import {
   AlertTriangle,
   ArrowRight,
@@ -19,28 +21,53 @@ import {
 export default function OverviewPage() {
   const [filter, setFilter] = useState("all");
 
-  const kpis = [
-    { label: "Fab Average Yield", value: "91.2%", detail: "↓ 0.8 pts vs 92.0% target", tone: "warning", icon: <TrendingDown size={16} /> },
-    { label: "Active Excursions", value: "1 Lot", detail: "L-4471 (74.2% yield)", tone: "danger", icon: <AlertTriangle size={16} /> },
-    { label: "Equipment on Watch", value: "2 Tools", detail: "ETCH-07 (+4.8σ), CMP-03 (-2.4σ)", tone: "warning", icon: <Cpu size={16} /> },
-    { label: "AI Reasoning Health", value: "100%", detail: "18/18 Benchmark Cases Validated", tone: "good", icon: <ShieldCheck size={16} /> },
-  ];
+  const { data: lotsRes, error, loading, reload } = useLots();
+  const { data: status } = useStatus();
+  const { data: evalRes } = useEval();
 
-  // Generated from src/mcp_server/data/lots.json.
-  const lots = [
-    { id: "L-5502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "TESTER-04", yield: "8.2%", status: "Excursion active", pattern: "Near-full", severity: "critical", time: "-" },
-    { id: "L-5540", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "HANDLER-01", yield: "11.5%", status: "Excursion active", pattern: "Near-full", severity: "critical", time: "-" },
-    { id: "L-4471", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-07", yield: "61.0%", status: "Review required", pattern: "Edge-Ring", severity: "high", time: "-" },
-    { id: "L-4402", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "68.4%", status: "Review required", pattern: "Center", severity: "high", time: "-" },
-    { id: "L-4815", product: "P-LOGIC-3N", line: "FAB2-B", equipment: "LITHO-02", yield: "70.2%", status: "Monitoring", pattern: "Donut", severity: "medium", time: "-" },
-    { id: "L-4418", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "72.1%", status: "Monitoring", pattern: "Center", severity: "medium", time: "-" },
-    { id: "L-5120", product: "P-MEM-5N", line: "FAB1-C", equipment: "FILTER-B12", yield: "74.8%", status: "Monitoring", pattern: "Random", severity: "medium", time: "-" },
-    { id: "L-3310", product: "P-MEM-5N", line: "FAB1-C", equipment: "HANDLER-01", yield: "79.6%", status: "Monitoring", pattern: "Scratch", severity: "medium", time: "-" },
-    { id: "L-4502", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "CMP-03", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
-    { id: "L-4507", product: "P-MEM-5N", line: "FAB1-C", equipment: "FILTER-B12", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
-    { id: "L-4511", product: "P-LOGIC-3N", line: "FAB2-A", equipment: "ETCH-07", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
-    { id: "L-4515", product: "P-LOGIC-3N", line: "FAB2-B", equipment: "LITHO-02", yield: "--", status: "Planned (pre-run)", pattern: "Pre-run", severity: "medium", time: "-" },
-  ];
+  // Everything below is derived from the API. Nothing is typed in: a literal here
+  // is a number that silently goes stale the moment the data changes.
+  const lots = useMemo(() => {
+    const raw = lotsRes?.lots ?? {};
+    const sev = (y: number | null) =>
+      y == null ? "medium" : y < 40 ? "critical" : y < 70 ? "high" : y < 80 ? "medium" : "low";
+    return Object.values(raw).map((l: any) => ({
+      id: l.lot_id, product: l.product, line: l.line,
+      equipment: (l.equipment ?? []).join(", ") || "—",
+      yield: l.yield == null ? "--" : `${l.yield}%`,
+      yieldNum: l.yield,
+      status: l.status === "planned" ? "Planned (pre-run)"
+        : l.yield != null && l.yield < 40 ? "Excursion active"
+        : l.yield != null && l.yield < 70 ? "Review required" : "Monitoring",
+      severity: sev(l.yield),
+    })).sort((x, y) => (x.yieldNum ?? 1e9) - (y.yieldNum ?? 1e9));
+  }, [lotsRes]);
+
+  const worst = lots[0];   // sorted ascending by yield above
+
+  const kpis = useMemo(() => {
+    const tested = lots.filter(l => l.yieldNum != null);
+    const avg = tested.length
+      ? tested.reduce((a, l) => a + (l.yieldNum as number), 0) / tested.length : null;
+    const exc = tested.filter(l => (l.yieldNum as number) < 40);
+    const tools = status?.tools ?? {};
+    const realTools = Object.values(tools).filter(t => t === "real").length;
+    const passed = evalRes?.summary?.passed, total = evalRes?.summary?.total_cases;
+    return [
+      { label: "Mean lot yield", value: avg == null ? "—" : `${avg.toFixed(1)}%`,
+        detail: `${tested.length} tested lots`, tone: avg != null && avg < 70 ? "warning" : "good",
+        icon: <TrendingDown size={16} /> },
+      { label: "Active excursions", value: `${exc.length} lot${exc.length === 1 ? "" : "s"}`,
+        detail: exc.map(l => `${l.id} (${l.yield})`).join(", ") || "none below 40%",
+        tone: exc.length ? "danger" : "good", icon: <AlertTriangle size={16} /> },
+      { label: "Tools backed by models", value: `${realTools}`,
+        detail: `${Object.keys(tools).length} MCP tools, ${status?.stub_count ?? 0} stubs`,
+        tone: status?.stub_count ? "warning" : "good", icon: <Cpu size={16} /> },
+      { label: "Benchmark", value: passed != null && total ? `${passed}/${total}` : "—",
+        detail: evalRes?.summary?.source ?? "no live run recorded",
+        tone: passed === total ? "good" : "warning", icon: <ShieldCheck size={16} /> },
+    ];
+  }, [lots, status, evalRes]);
 
   const filteredLots = lots.filter(l => {
     if (filter === "excursion") return l.severity === "critical" || l.severity === "high";
@@ -49,7 +76,7 @@ export default function OverviewPage() {
   });
 
   const exportSummary = () => {
-    const report = `YIELDGUARD AI · FAB 07 FLEET OVERVIEW\nDate: ${new Date().toISOString()}\nFab Average Yield: 91.2% (Target: 92.0%)\nActive Excursions: L-4471 (74.2% yield, ETCH-07)\nEquipment on Watch: ETCH-07 (+4.8σ), CMP-03 (-2.4σ)\n\nLOT REGISTRY SNAPSHOT\n${lots.map(l => `- ${l.id}: ${l.product} | ${l.equipment} | Yield: ${l.yield} | Status: ${l.status}`).join("\n")}`;
+    const report = [`YIELDGUARD · FLEET OVERVIEW`, `Generated: ${new Date().toISOString()}`, "",...kpis.map(k => `${k.label}: ${k.value} (${k.detail})`), "", "LOTS",...lots.map(l => `- ${l.id}: ${l.product} | ${l.equipment} | yield ${l.yield} | ${l.status}`)].join("\n");
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -60,7 +87,9 @@ export default function OverviewPage() {
   };
 
   return (
-    <AppShell activeLotId="L-4471">
+    <AppShell activeLotId={lots[0]?.id}>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={!lots.length} label="lots">
       <div className="page-content">
         {/* Single Page Header with Contextual Actions */}
         <div className="page-heading">
@@ -77,8 +106,8 @@ export default function OverviewPage() {
             <button className="button ghost" onClick={exportSummary}>
               <FileText size={14} /> Export fab summary
             </button>
-            <button className="button primary" onClick={() => window.location.reload()}>
-              <RefreshCw size={14} /> Refresh telemetry
+            <button className="button primary" onClick={reload} disabled={loading}>
+              <RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
         </div>
@@ -90,9 +119,9 @@ export default function OverviewPage() {
               <AlertTriangle size={18} />
             </div>
             <div>
-              <b>Urgent Excursion: Lot L-4471</b>
+              <b>Lowest-yield lot: {worst?.id ?? "—"}</b>
               <span>
-                Final yield dropped to <strong>74.2%</strong> on <strong>ETCH-07</strong> · Edge-ring defect pattern detected across 24 wafers.
+                Final yield {worst?.yield ?? "—"} on {worst?.equipment ?? "—"} ({worst?.status ?? "—"}).
               </span>
             </div>
           </div>
@@ -101,7 +130,7 @@ export default function OverviewPage() {
             className="button primary"
             style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
           >
-            Investigate Lot L-4471 <ArrowRight size={14} />
+            Investigate {worst?.id ?? ""} <ArrowRight size={14} />
           </Link>
         </div>
 
@@ -160,7 +189,6 @@ export default function OverviewPage() {
                     <th style={{ padding: "10px 14px" }}>LOT ID</th>
                     <th style={{ padding: "10px 14px" }}>PRODUCT</th>
                     <th style={{ padding: "10px 14px" }}>TOOL</th>
-                    <th style={{ padding: "10px 14px" }}>PATTERN</th>
                     <th style={{ padding: "10px 14px" }}>YIELD</th>
                     <th style={{ padding: "10px 14px" }}>STATUS</th>
                     <th style={{ padding: "10px 14px", textAlign: "right" }}>ACTION</th>
@@ -176,7 +204,6 @@ export default function OverviewPage() {
                       </td>
                       <td style={{ padding: "11px 14px", color: "#425466" }}>{lot.product}</td>
                       <td style={{ padding: "11px 14px", color: "#425466" }}>{lot.equipment}</td>
-                      <td style={{ padding: "11px 14px", color: "#6a7d8c" }}>{lot.pattern}</td>
                       <td style={{ padding: "11px 14px", font: "700 11px 'IBM Plex Mono', monospace", color: lot.severity === "critical" ? "#b5473f" : "#2e6e58" }}>
                         {lot.yield}
                       </td>
@@ -284,6 +311,7 @@ export default function OverviewPage() {
           <span>YieldGuard AI · Fab 07 Sector Command Center</span>
         </footer>
       </div>
+      </AsyncBoundary>
     </AppShell>
   );
 }

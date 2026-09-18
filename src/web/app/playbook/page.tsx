@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useLots, useAnalyze } from "@/lib/api";
 import {
   Check,
   CheckCircle2,
@@ -19,74 +21,45 @@ import {
   Zap,
 } from "lucide-react";
 
+/**
+ * get_corrective_action_playbook returns exactly { description, priority }.
+ * category, assignee and sla were on the previous version of this type and have
+ * no source — an assignee the tool never produced is a fabricated work order.
+ */
 interface ActionItem {
   id: string;
-  title: string;
-  category: "Immediate (P1)" | "Verification (P2)" | "Preventive (P3)";
-  equipment: string;
   description: string;
-  assignee: string;
-  sla: string;
+  priority: string;
+  equipment: string;
   status: "PENDING" | "DISPATCHED" | "RESOLVED";
 }
 
-const INITIAL_ACTIONS: ActionItem[] = [
-  {
-    id: "ACT-101",
-    title: "Inspect RF Match Network on ETCH-07",
-    category: "Immediate (P1)",
-    equipment: "ETCH-07",
-    description: "Compare post-PM calibration impedance phase angle against golden spec. Verify capacitor preset positions.",
-    assignee: "K. Vance (RF Specialist)",
-    sla: "30 min",
-    status: "DISPATCHED"
-  },
-  {
-    id: "ACT-102",
-    title: "Place ETCH-07 on Engineering Watch",
-    category: "Immediate (P1)",
-    equipment: "ETCH-07",
-    description: "Lock automated production dispatch. Require engineer sign-off for next cassette run.",
-    assignee: "M. Sato (Yield Lead)",
-    sla: "Immediate",
-    status: "RESOLVED"
-  },
-  {
-    id: "ACT-103",
-    title: "Run Monitor Test Wafer",
-    category: "Verification (P2)",
-    equipment: "ETCH-07",
-    description: "Process single bare-silicon test wafer to measure 4mm edge exclusion etch rate uniformity before batch release.",
-    assignee: "Fab 07 Tech Crew",
-    sla: "2 hours",
-    status: "PENDING"
-  },
-  {
-    id: "ACT-104",
-    title: "Inspect Slurry Delivery Pump on CMP-03",
-    category: "Verification (P2)",
-    equipment: "CMP-03",
-    description: "Check slurry line pressure transducer and pump seal for mechanical cavitation / flow degradation (-2.4σ).",
-    assignee: "S. Miller (CMP Eng)",
-    sla: "4 hours",
-    status: "PENDING"
-  },
-  {
-    id: "ACT-105",
-    title: "Update Standard PM Checklist SOP-3401",
-    category: "Preventive (P3)",
-    equipment: "ETCH-07",
-    description: "Add mandatory 20-minute chamber RF seasoning cycle following any RF match assembly PM.",
-    assignee: "Quality Assurance",
-    sla: "24 hours",
-    status: "PENDING"
-  },
-];
 
 export default function PlaybookPage() {
+  const { data: lotsRes } = useLots();
+  const firstLot = useMemo(() => {
+    const ls = Object.values(lotsRes?.lots ?? {}) as any[];
+    return ls.filter((l) => l.status !== "planned")
+             .sort((a, b) => (a.yield ?? 1e9) - (b.yield ?? 1e9))[0]?.lot_id ?? null;
+  }, [lotsRes]);
+  const [lotId, setLotId] = useState<string | null>(null);
+  const active = lotId ?? firstLot;
+  const { data, error, loading, reload } = useAnalyze(active);
+
+  // Real playbook output for the selected lot. Dispatch state is local UI state:
+  // there is no MES to write to, and pretending otherwise would be a fake write.
+  const INITIAL_ACTIONS: ActionItem[] = useMemo(() =>
+    ((data?.actions?.actions ?? []) as any[]).map((a, i) => ({
+      id: `A-${i + 1}`,
+      description: a.description ?? String(a),
+      priority: a.priority ?? "—",
+      equipment: (data?.lot?.equipment_ids ?? []).join(", ") || "—",
+      status: "PENDING" as const,
+    })), [data]);
+
   const [actions, setActions] = useState<ActionItem[]>(INITIAL_ACTIONS);
   const [newTitle, setNewTitle] = useState("");
-  const [newEquip, setNewEquip] = useState("ETCH-07");
+  const [newEquip, setNewEquip] = useState<string>("");
   const [newCat, setNewCat] = useState<"Immediate (P1)" | "Verification (P2)" | "Preventive (P3)">("Immediate (P1)");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -104,24 +77,23 @@ export default function PlaybookPage() {
     if (!newTitle.trim()) return;
     const newAct: ActionItem = {
       id: `ACT-${Math.floor(100 + Math.random() * 900)}`,
-      title: newTitle.trim(),
-      category: newCat,
-      equipment: newEquip,
-      description: "Added by yield engineer during investigation workspace review.",
-      assignee: "Mei Sato",
-      sla: "1 hour",
-      status: "DISPATCHED"
+      description: newTitle.trim(),
+      priority: newCat || "high",
+      equipment: newEquip || "—",
+      status: "DISPATCHED",
     };
     setActions([newAct, ...actions]);
     setNewTitle("");
     setShowAddForm(false);
   };
 
-  const p1Count = actions.filter(a => a.category.includes("P1")).length;
+  const p1Count = actions.filter(a => a.priority === "high").length;
   const resolvedCount = actions.filter(a => a.status === "RESOLVED").length;
 
   return (
     <AppShell>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={!INITIAL_ACTIONS.length} label="playbook actions">
       <div className="page-content">
         {/* Header */}
         <div className="page-heading">
@@ -208,7 +180,7 @@ export default function PlaybookPage() {
         {/* Action Items List */}
         <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
           {actions.map(act => {
-            const isP1 = act.category.includes("P1");
+            const isP1 = act.priority === "high";
             const isResolved = act.status === "RESOLVED";
             const isDispatched = act.status === "DISPATCHED";
 
@@ -222,7 +194,7 @@ export default function PlaybookPage() {
                   alignItems: "center",
                   gap: "16px",
                   padding: "16px 18px",
-                  borderLeft: `4px solid ${isP1 ? "#b5473f" : act.category.includes("P2") ? "#b8852c" : "#2e6e58"}`,
+                  borderLeft: `4px solid ${isP1 ? "#b5473f" : act.priority === "medium" ? "#b8852c" : "#2e6e58"}`,
                   background: isResolved ? "#fbfcfc" : "#ffffff",
                   opacity: isResolved ? 0.8 : 1,
                 }}
@@ -230,14 +202,14 @@ export default function PlaybookPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                     <span style={{ font: "700 10.5px 'IBM Plex Mono', monospace", color: "#6a7d8c" }}>{act.id}</span>
-                    <span className={`status-pill ${isP1 ? "pill-critical" : act.category.includes("P2") ? "pill-high" : "pill-low"}`}>
-                      {act.category}
+                    <span className={`status-pill ${isP1 ? "pill-critical" : act.priority === "medium" ? "pill-high" : "pill-low"}`}>
+                      {act.priority}
                     </span>
                     <span style={{ fontSize: "10px", color: "#8a98a4" }}>Tool: <b>{act.equipment}</b></span>
                   </div>
 
                   <h3 style={{ fontSize: "13px", color: "#1d2c3a", fontWeight: 700, margin: "4px 0" }}>
-                    {act.title}
+                    {act.description}
                   </h3>
 
                   <p style={{ fontSize: "11px", color: "#6a7c8b", margin: "2px 0 6px" }}>
@@ -245,8 +217,8 @@ export default function PlaybookPage() {
                   </p>
 
                   <div style={{ display: "flex", gap: "14px", fontSize: "9.5px", color: "#8a98a4" }}>
-                    <span>Assignee: <b style={{ color: "#3b5062" }}>{act.assignee}</b></span>
-                    <span>SLA: <b style={{ color: "#3b5062" }}>{act.sla}</b></span>
+                    <span>Assignee: <b style={{ color: "#3b5062" }}>{act.equipment}</b></span>
+                    <span>SLA: <b style={{ color: "#3b5062" }}>{""}</b></span>
                   </div>
                 </div>
 
@@ -277,6 +249,7 @@ export default function PlaybookPage() {
           <span>YieldGuard AI · Corrective Action Module</span>
         </footer>
       </div>
+      </AsyncBoundary>
     </AppShell>
   );
 }

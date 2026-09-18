@@ -134,19 +134,17 @@ const GET_SUGGESTIONS = (lotId: string) => {
   ];
 };
 
-export default function YieldGuardCopilot({ activeLotId = "L-4471", currentRoute = "/overview" }: CopilotProps) {
+export default function YieldGuardCopilot({ activeLotId, currentRoute = "/overview" }: CopilotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [activeSteps, setActiveSteps] = useState<string[]>([]);
 
-  const isL6002 = activeLotId === "L-4515";
-  const isL6001 = activeLotId === "L-4502";
   const is0818 = activeLotId === "L-4511";
 
   const getInitialWelcome = (): Message => {
-    if (isL6002) {
+    if (false) {
       return {
         id: "welcome-l6002",
         role: "assistant",
@@ -171,7 +169,7 @@ export default function YieldGuardCopilot({ activeLotId = "L-4471", currentRoute
       id: "welcome",
       role: "assistant",
       content:
-        "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot L-4471** and tool **ETCH-07** (Yield Excursion: **74.2%**). How can I assist your yield investigation today?",
+        "I am **YieldGuard Copilot**, connected to the MCP tool chain. Ask about any registered lot and I will run the tools and answer from what they return.",
       timestamp: "16:21",
       steps: [
         "MCP Handshake: Initialized IBM Bob session on Fab 07 telemetry stream",
@@ -344,98 +342,29 @@ function extractLotIdFromQuery(text: string): string | null {
     if (!succeeded) {
       stepTimers.forEach(clearTimeout);
       const elapsedSec = Math.max(1.8, parseFloat(((Date.now() - startTime) / 1000).toFixed(1)));
-      const fallbackResponse = generateGroundedResponse(query, targetLotId);
+      const fallbackResponse = backendUnreachable();
       fallbackResponse.thoughtSeconds = elapsedSec;
       setMessages((prev) => [...prev, fallbackResponse]);
       setIsTyping(false);
     }
   };
 
-  const generateGroundedResponse = (query: string, lotId: string): Message => {
-    const q = query.toLowerCase();
-    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // The backend answers from the real MCP chain and handles unknown lots itself.
+  // This used to be a second, client-side answer generator with its own hardcoded
+  // lot list, risk scores and confidence values -- a fabricated shadow of the API
+  // that fired whenever the backend was unreachable. If the API is down, say so.
+  const backendUnreachable = (): Message => ({
+    id: `ai-${Date.now()}`,
+    role: "assistant",
+    content:
+      "### Backend unreachable\n\nI could not reach the YieldGuard API, so I have no " +
+      "tool output to reason over and will not answer from memory.\n\n" +
+      "Start it with:\n\n```\nuvicorn src.api.main:app --port 8787\n```",
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    citations: [],
+    confidence: null,
+  });
 
-    const extractedLot = extractLotIdFromQuery(query);
-    const effectiveLot = extractedLot || lotId;
-
-    if (extractedLot && !REGISTERED_CLEANROOM_LOTS.has(extractedLot.toUpperCase())) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Lot Not Found: \`${extractedLot}\`\n\nI could not find any active, planned, or historical records for lot **${extractedLot}** in the Fab 07 MES database or cleanroom telemetry archive.\n\n**Zero Fabricated Data Mandate (Cleanroom Safety):**\nUnder cleanroom compliance and Fab 07 AI governance policies, YieldGuard Copilot strictly refuses to hallucinate, fabricate, or synthesize equipment assignments, recipe parameters, or risk assessments for unregistered lots.\n\n**Registered Cleanroom Lots in Fab 07:**\n- **Pre-Run Planned Lots:** \`L-4515\` (LITHO-02, 18/100 Nominal), \`L-4502\` (CMP-03, 42/100 Moderate Risk), \`L-4511\` (ETCH-07, 68/100 Elevated Risk)\n- **Tested / Excursion Lots:** \`L-4471\` (ETCH-07, Excursion 74.2%), \`L-4402\`, \`L-4418\`, \`L-4815\`, \`L-5120\`, \`L-4471\`, \`L-4402\`, \`L-4418\`, \`L-3310\`, \`L-4815\`, \`L-5120\`\n\nPlease verify the lot ID or select a valid registered lot from the **Lot Queue** or **Batch Risk Triage** dashboard.`,
-        timestamp,
-        confidence: 0,
-        citations: [
-          "Fab 07 MES Registry (Lot Not Found)",
-          "AI Governance Contract (Zero Fabricated Data)",
-          "SECS/GEM Dispatch Interface",
-          "IBM Bob MCP: get_lot_data",
-        ],
-        actions: [
-          { label: "View Registered Lots", href: "/lot-analysis" },
-          { label: "Open Batch Risk", href: "/batch-risk" },
-        ],
-      };
-    }
-
-    if (effectiveLot === "L-4515") {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Batch Risk Triage Assessment: Lot L-4515\n\n**STATUS: NOMINAL (Composite Triage Score: 18 / 100)**\n\nLot **L-4515** is scheduled for **LITHO-02** (Product \`P-MEM-1A\`, Line \`FAB1-B\`) and is **NOT classified as high risk**.\n\n#### Why Lot L-4515 is Evaluated as Nominal (Low Risk):\n1. **Zero Recipe Parameter Deviations:** All planned setpoints match engineering baselines perfectly:\n   - **Exposure Dose Target:** 24.5 mJ/cm² (Baseline: 24.5 mJ/cm², **0.0% delta**)\n   - **Focus Offset:** 0.0 nm (Baseline: 0.0 nm, **0.0% delta**)\n   - **Overlay Alignment:** 1.2 nm (Baseline: < 2.0 nm, **Nominal**)\n2. **Healthy Scanner State:** LITHO-02 has zero active drift alarms and an overall health index of 99.1%.\n3. **Zero Precedent Correlations:** 0 matches in the Fab 07 historical low-yield vector archive.\n4. **Pre-Run State:** This lot is planned and has not yet started fabrication, so no physical wafer defects or sensor transients exist.\n\n#### Recommended Action:\n- **Proceed with standard production release:** No machine holds or interlocks required.`,
-        timestamp,
-        confidence: null,
-        citations: ["LITHO-02 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"],
-        actions: [
-          { label: "View Batch Risk Dashboard", href: "/batch-risk" },
-          { label: "Review All Planned Lots", href: "/lot-analysis" },
-        ],
-      };
-    }
-
-    if (effectiveLot === "L-4502") {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Batch Risk Triage Assessment: Lot L-4502\n\n**STATUS: MODERATE RISK (Composite Triage Score: 42 / 100)**\n\nLot **L-4502** is scheduled on **CMP-03** (Product \`P-LOGIC-3N\`).\n\n- **Slurry Flow Target:** Planned 180 mL/min vs 185 mL/min baseline (**-2.7% deficit**).\n- **Pad Life Consumed:** Currently at **84%** (exceeds recommended 75% threshold).\n- **Matched Case:** Correlates with historical case **HC-018** (pad wear slurry starvation).\n\n**Recommended Pre-Run Action:** Inspect CMP-03 delivery line pressure and schedule pad conditioning before running multi-die logic lot.`,
-        timestamp,
-        confidence: null,
-        citations: ["CMP-03 Sensor Feed", "Pad Life Monitor (84%)", "Matched Precedent: HC-018", "IBM Bob MCP: flag_at_risk_batch"],
-        actions: [
-          { label: "Inspect CMP-03 Line", href: "/equipment" },
-          { label: "View Batch Risk", href: "/batch-risk" },
-        ],
-      };
-    }
-
-    if (q.includes("contain") || q.includes("action") || q.includes("next step") || q.includes("playbook")) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Immediate Cleanroom Containment Protocol for ${effectiveLot}\n\n1. **Lock Machine ETCH-07 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.\n2. **Quarantine Downstream Lot L-4511 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
-        timestamp,
-        confidence: null,
-        citations: ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"],
-        actions: [
-          { label: "Open Action Playbook", href: "/playbook" },
-          { label: "Hold Lot L-4511", href: "/batch-risk" },
-        ],
-      };
-    }
-
-    return {
-      id: `ai-${Date.now()}`,
-      role: "assistant",
-      content: `Yes. Similar RF spikes on **ETCH-07** have occurred 3 times in the past 6 months, most recently on lot **L-3310**. In all cases, the excursions were associated with chamber pressure instability and resulted in thickness non-uniformity (TU > spec).\n\n**Correlating Precedent:**\n- **CASE-1042:** RF match network vacuum variable capacitor slippage post-PM on FAB2-A (91% cosine match).\n- **Action Taken:** Re-torqued stepper coupler and recalibrated match-box impedance.`,
-      timestamp,
-      confidence: null,
-      citations: ["Historical Lot Analysis", "ETCH-07 Event Log", "CASE-1042 Archive", "IBM Bob MCP: retrieve_similar_cases"],
-      actions: [
-        { label: "View Historical Cases", href: "/cases" },
-        { label: "Examine Evidence in Workspace", href: "/investigation" },
-      ],
-    };
-  };
 
   return (
     <>
@@ -492,7 +421,7 @@ function extractLotIdFromQuery(text: string): string | null {
                     {
                       id: "welcome-reset",
                       role: "assistant",
-                      content: `Conversation reset. Active context on **Lot ${activeLotId}** (${isL6002 ? "LITHO-02" : isL6001 ? "CMP-03" : "ETCH-07"}). How can I help?`,
+                      content: `Conversation reset. Active context on **Lot ${activeLotId}** (${false ? "LITHO-02" : false ? "CMP-03" : "ETCH-07"}). How can I help?`,
                       timestamp: "Just now",
                       steps: [
                         "MCP Handshake: Reset session and reloaded lot context",
@@ -519,7 +448,7 @@ function extractLotIdFromQuery(text: string): string | null {
           {/* Quick Suggestion Chips */}
           <div className="copilot-suggestions">
             <div className="chips-scroll">
-              {GET_SUGGESTIONS(activeLotId).map((s, idx) => {
+              {GET_SUGGESTIONS(activeLotId ?? "").map((s, idx) => {
                 const IconComponent = s.icon;
                 return (
                   <button
@@ -771,7 +700,7 @@ function extractLotIdFromQuery(text: string): string | null {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder={`Ask anything about Lot ${activeLotId}, ${isL6002 ? "LITHO-02" : isL6001 ? "CMP-03" : "ETCH-07"}, or process parameters...`}
+                placeholder={`Ask anything about Lot ${activeLotId}, ${false ? "LITHO-02" : false ? "CMP-03" : "ETCH-07"}, or process parameters...`}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 style={{

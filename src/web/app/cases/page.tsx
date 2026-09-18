@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useCases } from "@/lib/api";
 import {
   BookOpen,
   CheckCircle2,
@@ -24,110 +26,12 @@ interface CaseRecord {
   sensorSignature?: Record<string, number>;
 }
 
-const HISTORICAL_CASES: CaseRecord[] = [
-  {
-    caseId: "CASE-1042",
-    defectClass: "Edge-Ring",
-    equipmentId: "ETCH-07",
-    category: "equipment",
-    confirmedRootCause: "RF match calibration out of tolerance after PM; transient RF power overshoot at wafer edge",
-    outcome: "Recalibration and chamber seasoning cleared the edge signature; Yield recovered to 94.6%",
-    provenance: "fab_history",
-    date: "Nov 14, 2025",
-    quote: "RF match calibration was out of tolerance after PM. Recalibration and chamber seasoning cleared the edge signature.",
-    sensorSignature: { rf_power_w: 4.8, chamber_pressure_mt: 3.2, esc_temp_c: 2.6 }
-  },
-  {
-    caseId: "HC-018",
-    defectClass: "Center",
-    equipmentId: "CMP-03",
-    category: "equipment",
-    confirmedRootCause: "Slurry flow rate drift from a degrading slurry pump on CMP-03",
-    outcome: "Pump seal replaced; yield recovered to 94% within 2 lots",
-    provenance: "constructed",
-    date: "Oct 22, 2025",
-    sensorSignature: { slurry_flow_rate: -2.4, pad_life_pct: 1.1 }
-  },
-  {
-    caseId: "HC-021",
-    defectClass: "Center",
-    equipmentId: "CMP-03",
-    category: "equipment",
-    confirmedRootCause: "Polishing pad used past qualified life; calendar PM had not yet triggered",
-    outcome: "Pad replaced; PM policy moved to condition-based",
-    provenance: "constructed",
-    date: "Sep 18, 2025",
-    sensorSignature: { pad_life_pct: 2.1, head_pressure_psi: 1.8 }
-  },
-  {
-    caseId: "HC-024",
-    defectClass: "Center",
-    equipmentId: "CMP-03",
-    category: "material",
-    confirmedRootCause: "Incoming slurry vendor lot with out-of-spec viscosity",
-    outcome: "Vendor lot quarantined; incoming QC gate added",
-    provenance: "constructed",
-    date: "Aug 30, 2025",
-    sensorSignature: { slurry_viscosity_cp: 3.1 }
-  },
-  {
-    caseId: "HC-033",
-    defectClass: "Edge-Ring",
-    equipmentId: "ETCH-07",
-    category: "equipment",
-    confirmedRootCause: "RF power edge effect following chamber PM reassembly",
-    outcome: "RF match network retuned",
-    provenance: "constructed",
-    date: "Jul 15, 2025",
-    sensorSignature: { rf_power_w: 2.8, gas_flow_sccm: -2.1 }
-  },
-  {
-    caseId: "HC-035",
-    defectClass: "Edge-Ring",
-    equipmentId: "ETCH-07",
-    category: "equipment",
-    confirmedRootCause: "Partially clogged edge gas nozzle causing flow distribution imbalance",
-    outcome: "Nozzle assembly replaced and ultrasonic cleaned; uniformity restored",
-    provenance: "constructed",
-    date: "Jun 02, 2025",
-    sensorSignature: { gas_flow_sccm: -3.4 }
-  },
-  {
-    caseId: "HC-041",
-    defectClass: "Edge-Ring",
-    equipmentId: "ETCH-07",
-    category: "process",
-    confirmedRootCause: "Shared tool recipe seasoning drift between Logic and Memory production runs",
-    outcome: "Dedicated chamber seasoning recipe inserted between product transitions",
-    provenance: "constructed",
-    date: "May 19, 2025",
-    sensorSignature: { chamber_seasoning_idx: 1.9 }
-  },
-  {
-    caseId: "HC-050",
-    defectClass: "Scratch",
-    equipmentId: "HANDLER-01",
-    category: "equipment",
-    confirmedRootCause: "Wafer transfer robot end-effector mechanical chatter during vacuum grip",
-    outcome: "End-effector suction pads replaced and arm path re-taught",
-    provenance: "constructed",
-    date: "Apr 11, 2025",
-    sensorSignature: { vibration_g: 3.4 }
-  },
-  {
-    caseId: "HC-077",
-    defectClass: "Donut",
-    equipmentId: "LITHO-02",
-    category: "equipment",
-    confirmedRootCause: "Scanner projection lens heating creating radial focus drift",
-    outcome: "Lens cooling loop flushed; thermal focus compensation table updated",
-    provenance: "constructed",
-    date: "Mar 05, 2025",
-    sensorSignature: { focus_offset_nm: 2.9 }
-  },
-];
 
 export default function CasesPage() {
+  const { data, error, loading, reload } = useCases();
+  const HISTORICAL_CASES: CaseRecord[] = useMemo(
+    () => (data?.cases ?? []) as CaseRecord[], [data]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
@@ -146,6 +50,8 @@ export default function CasesPage() {
 
   return (
     <AppShell>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={!HISTORICAL_CASES.length} label="historical cases">
       <div className="page-content">
         {/* Single Page Header */}
         <div className="page-heading">
@@ -317,6 +223,7 @@ export default function CasesPage() {
           <span>YieldGuard AI · Historical Case Knowledgebase</span>
         </footer>
       </div>
+      </AsyncBoundary>
     </AppShell>
   );
 }

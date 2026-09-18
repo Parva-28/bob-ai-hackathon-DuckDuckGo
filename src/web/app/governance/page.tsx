@@ -1,7 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
+
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useMetrics, useTransparency } from "@/lib/api";
 import {
   Activity,
   BrainCircuit,
@@ -20,6 +24,37 @@ import {
 } from "lucide-react";
 
 export default function GovernancePage() {
+  const { data: metrics, error, loading, reload } = useMetrics();
+  const { data: transparency } = useTransparency();
+
+  // Read from the artifacts that produced them. A literal here is how
+  // "ViT-Tiny: 0.942" survived a model being retired.
+  const models = useMemo(() => {
+    const v = metrics?.vision ?? {}, t = metrics?.tabular ?? {}, c = metrics?.cmp ?? {};
+    const out: any[] = [];
+    if (v.macro_f1) out.push({
+      role: "Vision defect classification", name: `${v.model ?? "WaferCNN"} (${(v.params ?? 0).toLocaleString()} params)`,
+      dataset: `${v.dataset ?? "WM-811K"} — ${v.n_val ?? "?"} held-out maps`,
+      metrics: `Macro-F1 ${v.macro_f1} (${v.inference ?? "single view"}) · ${v.macro_f1_no_tta ?? "—"} plain`,
+      description: v.rejected ? `A ${v.rejected.model} was trained on the same split and rejected at macro-F1 ${v.rejected.macro_f1}.` : "",
+    });
+    if (t.val_recall_fail) out.push({
+      role: "In-line telemetry anomaly", name: t.model ?? "IsolationForest",
+      dataset: "SECOM (UCI id=179)",
+      metrics: `Fail-class recall ${t.val_recall_fail?.toFixed?.(3)} · precision ${t.val_prec_fail?.toFixed?.(3)} · ROC-AUC ${t.val_roc_auc}`,
+      description: `Confusion: TP ${t.confusion_matrix?.tp}, FP ${t.confusion_matrix?.fp}, FN ${t.confusion_matrix?.fn}. Small sample — wide intervals.`,
+    });
+    if (c.point?.test) out.push({
+      role: "CMP removal rate + conformal intervals", name: c.model ?? "HistGradientBoosting",
+      dataset: `${c.dataset} — ${c.n_test} held-out runs`,
+      metrics: `R² ${c.point.test.r2?.toFixed(4)} · RMSE ${c.point.test.rmse?.toFixed(2)} · max error ${c.point.test.max_error?.toFixed(2)}`,
+      description: c.caveat ?? "",
+    });
+    return out;
+  }, [metrics]);
+
+  const abstention = metrics?.abstention?.splits?.[0];
+
   const contracts = [
     {
       rule: "Grounding Mandate",
@@ -47,32 +82,11 @@ export default function GovernancePage() {
     },
   ];
 
-  const models = [
-    {
-      role: "Vision Defect Classification",
-      name: "WaferCNN (615,801 params, TTA-8)",
-      dataset: "WM-811K (LSWMD) — 9,357 held-out maps",
-      metrics: "Plain Macro-F1: 0.9157 (Acc 0.9568) → TTA-8: 0.9232 (Acc 0.9617)",
-      description: "Processes 64×64 die arrays into 9 defect patterns (Center, Donut, Edge-Loc, Edge-Ring, Local, Random, Scratch, Near-full, None) with 8-fold test-time augmentation. A ViT-Tiny was trained on the same split and rejected at macro-F1 0.6981."
-    },
-    {
-      role: "In-line Telemetry Anomaly",
-      name: "Variance-filtered IsolationForest",
-      dataset: "SECOM (UCI id=179) — 21 failing lots in validation",
-      metrics: "Fail-class recall 0.286 (6/21) · precision 0.194 — wide intervals, small sample",
-      description: "590 anonymised sensor channels standardised into z-scores, variance-filtered, scored by isolation trees calibrated on training pass rows. A supervised IF + gradient-boosting hybrid was built and rejected for scoring worse."
-    },
-    {
-      role: "Root-Cause Reasoning Engine",
-      name: "IBM Bob Agent / CoT Reasoning",
-      dataset: "Fab Ground Truth & MCP Tools",
-      metrics: "See /api/eval — pass rate is read from the last recorded live run",
-      description: "Structured Chain-of-Thought with negative evidence cross-validation and hypothesis ranking."
-    },
-  ];
-
+  
   return (
     <AppShell>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={!models.length} label="model metrics">
       <div className="page-content">
         {/* Header */}
         <div className="page-heading">
@@ -179,6 +193,7 @@ export default function GovernancePage() {
           <span>YieldGuard AI · Model governance & compliance module</span>
         </footer>
       </div>
+      </AsyncBoundary>
     </AppShell>
   );
 }

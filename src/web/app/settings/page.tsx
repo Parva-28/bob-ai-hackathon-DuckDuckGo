@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { useStatus, useEval } from "@/lib/api";
 import {
   Bell,
   BrainCircuit,
@@ -21,6 +23,11 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
+  const { data: status, error, loading, reload } = useStatus();
+  const { data: evalRes } = useEval();
+  const toolCount = Object.keys(status?.tools ?? {}).length;
+  const realCount = Object.values(status?.tools ?? {}).filter((t) => t === "real").length;
+
   const [anomalyThreshold, setAnomalyThreshold] = useState("2.0");
   const [yieldTarget, setYieldTarget] = useState("92.0");
   const [edgeExclusion, setEdgeExclusion] = useState("4");
@@ -35,6 +42,8 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
+      <AsyncBoundary loading={loading} error={error} onRetry={reload}
+                     empty={false} label="system status">
       <div className="page-content">
         {/* Header */}
         <div className="page-heading">
@@ -180,7 +189,7 @@ export default function SettingsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "11px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #edebe4" }}>
                   <span style={{ color: "#8a98a4" }}>FastAPI Backend:</span>
-                  <b style={{ color: "#2e6e58" }}>http://127.0.0.1:8787 (Online)</b>
+                  <b style={{ color: status ? "#2e6e58" : "#b3403a" }}>{status ? "connected" : "unreachable"}</b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #edebe4" }}>
                   <span style={{ color: "#8a98a4" }}>MCP Protocol:</span>
@@ -188,15 +197,15 @@ export default function SettingsPage() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #edebe4" }}>
                   <span style={{ color: "#8a98a4" }}>Pipeline Tools:</span>
-                  <b style={{ color: "#2e6e58" }}>9 Real Tools Active</b>
+                  <b style={{ color: "#2e6e58" }}>{realCount} of {toolCount} tools backed by models</b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "8px", borderBottom: "1px solid #edebe4" }}>
                   <span style={{ color: "#8a98a4" }}>Historical Fixtures:</span>
-                  <b style={{ color: "#3b5062" }}>18 Test Cases Loaded</b>
+                  <b style={{ color: "#3b5062" }}>{evalRes?.summary?.total_cases ?? "—"} fixtures loaded</b>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#8a98a4" }}>Fab Node Line:</span>
-                  <b style={{ color: "#3b5062" }}>Fab 07 · 3nm / 5nm Node</b>
+                  <b style={{ color: "#3b5062" }}>{status?.reasoning_mode ?? "—"}</b>
                 </div>
               </div>
             </section>
@@ -215,7 +224,6 @@ export default function SettingsPage() {
               <div style={{ fontSize: "11px", display: "flex", flexDirection: "column", gap: "6px" }}>
                 <div><span style={{ color: "#8a98a4" }}>Engineer: </span><b>Mei Sato</b></div>
                 <div><span style={{ color: "#8a98a4" }}>Role: </span><b>Senior Yield &amp; Defect Analysis Lead</b></div>
-                <div><span style={{ color: "#8a98a4" }}>Permissions: </span><b style={{ color: "#2e6e58" }}>Full Fab Dispatch Authority</b></div>
                 <div><span style={{ color: "#8a98a4" }}>Organization: </span><b>Fab 07 Semiconductor Quality</b></div>
               </div>
             </section>
@@ -228,6 +236,7 @@ export default function SettingsPage() {
           <span>YieldGuard AI · Fab 07 Workspace settings</span>
         </footer>
       </div>
+      </AsyncBoundary>
     </AppShell>
   );
 }

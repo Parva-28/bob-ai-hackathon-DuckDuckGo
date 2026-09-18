@@ -52,6 +52,8 @@ query_telemetry   = fn(tools.query_telemetry)
 rank_causes       = fn(tools.rank_root_causes)
 playbook          = fn(tools.get_corrective_action_playbook)
 flag_at_risk      = fn(tools.flag_at_risk_batch)
+predict_rr        = fn(tools.predict_removal_rate)
+get_cmp_run       = fn(tools.get_cmp_run)
 pipeline_status   = fn(tools.pipeline_status)
 
 # ── App setup ──────────────────────────────────────────────────────────────────
@@ -251,6 +253,89 @@ def api_eval():
         "fixtures": fixtures,
         "live_results": live_results
     }
+
+
+
+# ── endpoints added so every screen has a real source ────────────────────────
+# Each one is thin on purpose: it calls the same tool the agent calls, so the UI
+# cannot show a number the agent could not produce, and neither can drift.
+
+_MODELS_DIR = HERE.parent / "models"
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+@app.get("/api/equipment")
+def api_equipment(window: str = Query("14d")):
+    """Fleet telemetry. Equipment list is derived from the lot table, not typed out."""
+    eq = sorted({e for v in tools._LOTS.values() for e in (v.get("equipment_ids") or [])})
+    tel = query_telemetry(eq, window)
+    lots_by_eq: dict[str, list[str]] = {e: [] for e in eq}
+    for lid, v in tools._LOTS.items():
+        for e in (v.get("equipment_ids") or []):
+            lots_by_eq.setdefault(e, []).append(lid)
+    return {"window": window, "equipment_ids": eq,
+            "telemetry": tel.get("telemetry", []),
+            "equipment_meta": tel.get("equipment_meta", {}),
+            "lots_by_equipment": lots_by_eq}
+
+
+@app.get("/api/cases")
+def api_cases(pattern: str | None = None, k: int = 50):
+    """The historical case store behind retrieve_similar_cases."""
+    res = retrieve_cases(pattern, {}, k)
+    return {"pattern": pattern, "cases": res.get("cases", []),
+            "total_indexed": len(tools.cases.all_ids())}
+
+
+@app.get("/api/metrics")
+def api_metrics():
+    """Every model metric, read from the artifact that produced it."""
+    return {
+        "vision": _read_json(_MODELS_DIR / "vision" / "holdout_results.json"),
+        "tabular": _read_json(_MODELS_DIR / "tabular" / "checkpoints" / "model_meta.json"),
+        "cmp": _read_json(_MODELS_DIR / "cmp" / "cmp_results.json"),
+        "abstention": _read_json(_MODELS_DIR / "cmp" / "abstention_results.json"),
+    }
+
+
+@app.get("/api/cmp/runs")
+def api_cmp_runs(limit: int = 50):
+    """Real PHM 2016 polish runs — the measured-provenance counterpart to lots."""
+    try:
+        import pandas as pd
+        csv = _MODELS_DIR / "cmp" / "data" / "cmp_train.csv"
+        df = pd.read_csv(csv, usecols=["WAFER_ID", "STAGE", "AVG_REMOVAL_RATE"])
+        df = df[df["AVG_REMOVAL_RATE"] <= 1000.0]
+    except Exception as e:
+        return {"error": f"CMP data unavailable: {e}",
+                "remedy": "python src/models/cmp/data_prep.py", "runs": []}
+    cmp_res = _read_json(_MODELS_DIR / "cmp" / "cmp_results.json")
+    lims = (cmp_res.get("conformal", {}).get("alpha_0.10", {}).get("test", {})
+                   .get("excursion", {}).get("control_limits", {}))
+    return {"total": int(len(df)), "control_limits": lims,
+            "runs": [{"wafer_id": str(r.WAFER_ID), "stage": str(r.STAGE),
+                      "measured_removal_rate": float(r.AVG_REMOVAL_RATE)}
+                     for r in df.head(limit).itertuples()],
+            "data_provenance": tools.provenance.MEASURED}
+
+
+@app.get("/api/cmp/predict")
+def api_cmp_predict(wafer_id: str = Query(...), stage: str = Query("A"),
+                    alpha: float = Query(0.10), gate: bool = Query(True)):
+    """Look up a run, predict it, and return the truth so coverage is checkable live."""
+    run = get_cmp_run(wafer_id, stage)
+    if run.get("error"):
+        return run
+    pred = predict_rr(run["process_features"], alpha, gate)
+    return {"wafer_id": run["wafer_id"], "stage": run["stage"],
+            "measured_removal_rate": run["measured_removal_rate"],
+            "prediction": pred, "data_provenance": tools.provenance.MEASURED}
 
 
 @app.get("/api/transparency")

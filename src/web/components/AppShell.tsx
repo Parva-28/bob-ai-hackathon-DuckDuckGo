@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -23,9 +23,15 @@ import {
   Sparkles,
   Wrench,
   X,
+  Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import YieldGuardCopilot from "./YieldGuardCopilot";
+import dynamic from "next/dynamic";
+import { useLots, useEquipment } from "@/lib/api";
+
+// The Copilot is the largest component in the app and nothing above the fold
+// needs it, so it is kept out of the initial bundle.
+const YieldGuardCopilot = dynamic(() => import("./YieldGuardCopilot"), { ssr: false });
 
 type Toast = { id: number; title: string; desc?: string };
 
@@ -99,7 +105,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
     ["Action playbook", "/playbook", Wrench],
     ["Model governance", "/governance", BrainCircuit],
     ["18-Case benchmark", "/benchmark", Gauge],
-    ["Reports", "/reports", FileText],
+    ["Prediction & abstention", "/prediction", Activity],
   ];
 
   const systemNav: [string, string, LucideIcon][] = [
@@ -108,29 +114,38 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
 
   const getBreadcrumbContext = () => {
     if (pathname === "/" || pathname.startsWith("/overview")) return "Command Center";
-    if (pathname.startsWith("/investigation") || pathname.startsWith("/root-cause")) return "Investigation Workspace";
-    if (pathname.startsWith("/lot-analysis") || pathname.startsWith("/lots")) return "Lot Queue";
-    if (pathname.startsWith("/equipment") || pathname.startsWith("/fleet")) return "Equipment Telemetry";
-    if (pathname.startsWith("/cases") || pathname.startsWith("/historical-cases")) return "Historical Cases";
-    if (pathname.startsWith("/batch-risk") || pathname.startsWith("/risk")) return "Batch Risk Triage";
-    if (pathname.startsWith("/playbook") || pathname.startsWith("/action-playbook")) return "Action Playbook";
-    if (pathname.startsWith("/governance") || pathname.startsWith("/ai-governance")) return "Model Governance";
-    if (pathname.startsWith("/benchmark") || pathname.startsWith("/eval")) return "18-Case Benchmark";
-    if (pathname.startsWith("/reports")) return "Investigation Reports";
+    if (pathname.startsWith("/investigation")) return "Investigation Workspace";
+    if (pathname.startsWith("/lot-analysis")) return "Lot Queue";
+    if (pathname.startsWith("/equipment")) return "Equipment Telemetry";
+    if (pathname.startsWith("/cases")) return "Historical Cases";
+    if (pathname.startsWith("/batch-risk")) return "Batch Risk Triage";
+    if (pathname.startsWith("/playbook")) return "Action Playbook";
+    if (pathname.startsWith("/governance")) return "Model Governance";
+    if (pathname.startsWith("/benchmark")) return "18-Case Benchmark";
     if (pathname.startsWith("/settings")) return "Workspace Settings";
     return "YieldGuard AI";
   };
 
-  const searchResults = [
-    { title: "Lot L-4471", category: "Lot Excursion", href: "/investigation", detail: "74.2% Yield · Edge-Ring Pattern" },
-    { title: "Lot L-4511", category: "Planned Lot", href: "/batch-risk", detail: "Risk Score 68/100 · ETCH-07" },
-    { title: "ETCH-07", category: "Equipment", href: "/equipment", detail: "RF Power +4.8σ Transient Spike" },
-    { title: "CMP-03", category: "Equipment", href: "/equipment", detail: "Slurry Flow Drift -2.4σ" },
-    { title: "CASE-1042", category: "Historical Case", href: "/cases", detail: "Edge-ring defects after RF match PM (91% Match)" },
-    { title: "Inspect RF Match Network", category: "Action Playbook", href: "/playbook", detail: "Priority 1 Immediate Action" },
-    { title: "18-Case Evaluation Matrix", category: "Benchmark", href: "/benchmark", detail: "100% Pass Rate Across 6 Failure Modes" },
-  ].filter(
-    item =>
+  // Search index is built from live data. The previous hardcoded list advertised
+  // a "Risk Score 68/100" and a "100% Pass Rate" that no endpoint produces.
+  const { data: lotsRes } = useLots();
+  const { data: eqRes } = useEquipment();
+  const searchResults = useMemo(() => {
+    const lots = (Object.values(lotsRes?.lots ?? {}) as any[]).map((l) => ({
+      title: `Lot ${l.lot_id}`,
+      category: l.status === "planned" ? "Planned lot" : "Lot",
+      href: l.status === "planned" ? "/batch-risk" : `/investigation?lot=${l.lot_id}`,
+      detail: `${l.yield == null ? "pre-run" : l.yield + "% yield"} · ${(l.equipment ?? []).join(", ")}`,
+    }));
+    const eq = ((eqRes?.equipment_ids ?? []) as string[]).map((id) => ({
+      title: id, category: "Equipment", href: "/equipment",
+      detail: `${(eqRes?.lots_by_equipment?.[id] ?? []).length} lots`,
+    }));
+    return [...lots, ...eq];
+  }, [lotsRes, eqRes]);
+
+  const filteredSearch = searchResults.filter(
+      item =>
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.detail.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -324,7 +339,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
             <span className="workflow-sep">›</span>
             <Link
               href="/investigation"
-              className={`workflow-step ${pathname.startsWith("/investigation") || pathname.startsWith("/root-cause") ? "active" : ""}`}
+              className={`workflow-step ${pathname.startsWith("/investigation") ? "active" : ""}`}
               title="Step 2: Root-cause diagnosis with wafer map and sensors"
             >
               <span className="workflow-step-num">2</span>
@@ -333,7 +348,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
             <span className="workflow-sep">›</span>
             <Link
               href="/playbook"
-              className={`workflow-step ${pathname.startsWith("/playbook") || pathname.startsWith("/action-playbook") ? "active" : ""}`}
+              className={`workflow-step ${pathname.startsWith("/playbook") ? "active" : ""}`}
               title="Step 3: Containment and machine repair checklist"
             >
               <span className="workflow-step-num">3</span>
@@ -342,7 +357,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
             <span className="workflow-sep">›</span>
             <Link
               href="/batch-risk"
-              className={`workflow-step ${pathname.startsWith("/batch-risk") || pathname.startsWith("/risk") ? "active" : ""}`}
+              className={`workflow-step ${pathname.startsWith("/batch-risk") ? "active" : ""}`}
               title="Step 4: Quarantine upcoming at-risk lots"
             >
               <span className="workflow-step-num">4</span>
