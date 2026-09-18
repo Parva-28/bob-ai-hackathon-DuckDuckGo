@@ -25,39 +25,99 @@
 
 | Parameter       | Value                          |
 |-----------------|-------------------------------|
-| Architecture    | WaferCNN (ResNet-style, ~340 K params) |
+| Architecture    | WaferCNN (ResNet-style, **615,801** params) |
 | Epochs          | 40                            |
 | Batch size      | 128                           |
 | Optimiser       | Adam, lr=1e-3, weight_decay=1e-4 |
-| LR schedule     | ReduceLROnPlateau (×0.5 on val F1 plateau, patience=5) |
-| Loss            | CrossEntropyLoss with inverse-frequency class weights |
-| Sampler         | WeightedRandomSampler (oversamples rare classes) |
+| LR schedule     | CosineAnnealingLR (T_max=40)  |
+| Loss            | CrossEntropyLoss with **sqrt** inverse-frequency class weights |
+| Sampler         | None — plain shuffle          |
 | Augmentation    | Random h-flip, v-flip, 90° rotation (train only) |
+| Inference       | TTA-8 (4 rotations × 2 flips, softmax averaged) |
 | Device          | CUDA if available, else CPU    |
+
+Produced by `colab/train_simple.ipynb`. `train.py` still encodes the v1 recipe
+(`ReduceLROnPlateau` + full inverse-frequency weights + `WeightedRandomSampler`) and is
+**superseded** — see "What actually moved the number" below.
 
 ---
 
 ## Results (Official Final Run on WM-811K Held-Out Split)
 
-**Plain:** Macro-F1 **0.9157**, Accuracy **0.9568**  
-**With TTA-8 (Test-Time Augmentation):** Macro-F1 **0.9232**, Accuracy **0.9617** (Delta: **+0.0075** Macro-F1)
+**Plain:** macro-F1 **0.9157**, accuracy **0.9568**
+**With TTA-8:** macro-F1 **0.9232**, accuracy **0.9617** (delta **+0.0075**)
 
-| Class | Support | Plain F1 | TTA F1 | Delta | Note |
-|-------|---------|----------|--------|-------|------|
-| Center | 644 | 0.954 | 0.959 | +0.005 | High consistency across rotations |
-| Donut | 83 | 0.905 | 0.906 | +0.001 | Rare class stabilized |
-| Edge-Loc | 779 | 0.883 | 0.903 | +0.020 | Strongest TTA gain |
-| Edge-Ring | 1452 | 0.986 | 0.984 | -0.002 | Highly distinctive radial geometry |
-| Local | 539 | 0.813 | 0.834 | +0.021 | Significant TTA resolution improvement |
-| Random | 130 | 0.891 | 0.902 | +0.010 | Noise suppression |
-| Scratch | 179 | 0.851 | 0.861 | +0.010 | Improved orientation invariance |
-| Near-full | 22 | 0.978 | 0.978 | +0.000 | Preserved high recall |
-| None | 5529 | 0.980 | 0.983 | +0.003 | Baseline clean wafer filter |
-| **MACRO-F1** | | **0.9157** | **0.9232** | **+0.0075** | |
+Measured on our own held-out split, 9,357 maps. Accuracy is quoted only for context:
+"None" is 59% of the split, so the trivial "predict None always" baseline already scores
+0.591 — macro-F1 is the number that means anything here.
 
-**Training:** 40 epochs on a Colab T4 (`src/models/vision/colab/train_wafer_cnn.ipynb`), identical
-hyperparameters to `train.py`. Local CPU training is ~3.2 min/epoch, so the full run is
-over two hours on a laptop; on a T4 it is minutes.
+| Class | Support | v1 F1 | Plain F1 | TTA F1 | TTA delta | Note |
+|-------|---------|-------|----------|--------|-----------|------|
+| Center | 644 | 0.924 | 0.954 | 0.959 | +0.005 | |
+| Donut | 83 | 0.810 | 0.905 | 0.906 | +0.001 | 83 val samples — treat with caution |
+| Edge-Loc | 779 | 0.834 | 0.883 | 0.903 | +0.020 | Largest TTA gain |
+| Edge-Ring | 1452 | 0.979 | 0.986 | 0.984 | −0.002 | Best class; distinctive radial geometry |
+| Local | 539 | 0.737 | 0.813 | 0.834 | +0.021 | Still the weakest well-supported class |
+| Random | 130 | 0.862 | 0.891 | 0.902 | +0.010 | |
+| Scratch | 179 | 0.695 | 0.851 | 0.861 | +0.010 | Case Study 3 rests on this class |
+| Near-full | 22 | 0.917 | 0.978 | 0.978 | +0.000 | Only 22 val samples; indicative, not measured |
+| None | 5529 | 0.960 | 0.980 | 0.983 | +0.003 | |
+| **MACRO-F1** | | **0.8576** | **0.9157** | **0.9232** | **+0.0075** | |
+
+Read the per-class deltas against the sample size, not in isolation. Near-full has 22
+validation wafers, so **one wafer moves its F1 by ~0.022 and the macro average by ~0.0026** —
+larger than most of the TTA deltas in this table. The column is worth showing, but only
+Edge-Loc and Local move by more than single-wafer noise.
+
+
+Every class improved. Same architecture, same 615,801 parameters, same data, same split.
+
+### What actually moved the number
+
+Not the architecture. Two changes to the training recipe:
+
+1. **Removed the imbalance double-correction.** `train.py` applied inverse-frequency
+   weighting *twice* — once as a `WeightedRandomSampler` oversampling rare classes, and
+   again as `weight=` on `CrossEntropyLoss`. Compounded, this is what produced the epoch-5
+   collapse documented below. v2 uses **sqrt** inverse-frequency weights on the loss only,
+   with plain shuffling.
+2. **CosineAnnealingLR** instead of `ReduceLROnPlateau`.
+
+The two weakest classes gained the most, which is the signature of an imbalance fix rather
+than a capacity fix: **Scratch +0.156** (0.695 → 0.851) and **Local +0.076** (0.737 → 0.813).
+Scratch is the class Case Study 3's negative-evidence beat depends on, so this is the gain
+that mattered most.
+
+**TTA-8 at inference** adds a further +0.0075 macro-F1 for free — no retraining, 8× inference
+on a 0.6 M-param model, still milliseconds. Wafer defect patterns are dihedral-symmetric
+(a rotated Scratch is still a Scratch), so the same 8 transforms used in training augmentation
+are averaged at prediction time. Positive on 7 of 9 classes; Edge-Ring moves −0.002, which is
+noise at that support.
+
+### Negative result: the ViT is worse
+
+A compact ViT-Tiny (`WaferViT` in `model.py`, patch 8, embed 192, depth 4) was trained on the
+same split and **abandoned**:
+
+| | WaferCNN v1 | WaferViT | delta |
+|---|---|---|---|
+| macro-F1 | 0.8576 | 0.6981 | **−0.160** |
+| accuracy | 0.9263 | 0.8722 | −0.054 |
+| params | 615,801 | 1,806,537 | 2.9× larger |
+
+Worse on every single class, and it **never predicts `Local` even once** across all 9,357
+validation maps — 539 real Local wafers, zero predicted, F1 0.000. Scratch halved to 0.368.
+
+Two things worth recording:
+
+- `holdout_results_vit.json` reported **0.7248**, which does not reproduce; independent
+  evaluation gives **0.6981**. Macro-F1 over only the 8 classes the model ever predicts gives
+  0.7854. A class the model has silently abandoned must score 0, not drop out of the average —
+  all reporting now passes `labels=range(9)` explicitly.
+- This matches the literature on fab data: graph attention beat a plain MLP by only +0.012 R²
+  on real Intel Foundry deposition data. The headroom on this problem is in calibration and
+  imbalance handling, not in the backbone. The +0.058 from a recipe fix against −0.160 from a
+  3× larger architecture is the same lesson measured locally.
 
 ### Why the first attempt was misleading
 
@@ -88,17 +148,16 @@ is the only number that goes in the demo.
 
 ## Known Weak Classes — measured
 
-- **Scratch (F1 0.695, precision 0.572).** The weakest real class. A thin linear trail
-  survives the 64×64 resize poorly, and recall 0.883 against precision 0.572 means it still
-  over-predicts Scratch. This matters: **Case Study 3 is the Scratch beat**, so the
-  negative-evidence demo rests on the least reliable class. It classifies the case-study map
-  correctly at 0.987 confidence, but do not claim general reliability on this class.
-- **Local (F1 0.737).** Lowest of the well-supported classes; "Local" is a catch-all for
-  clustered defects that do not fit a named geometry, so the boundary with Edge-Loc is
-  genuinely fuzzy.
-- **Near-full (F1 0.917).** Looks strong, but there are only **22** validation samples.
+- **Local (F1 0.813).** Now the weakest well-supported class. "Local" is a catch-all for
+  clustered defects that do not fit a named geometry, so its boundary with Edge-Loc is
+  genuinely fuzzy — some of this ceiling is in the labels, not the model.
+- **Scratch (F1 0.851, up from 0.695).** No longer the weakest class, but **Case Study 3 is
+  the Scratch beat**, so it stays on this list. A thin linear trail still survives the 64×64
+  resize poorly. It classifies the case-study map correctly at high confidence; do not
+  extrapolate that to general reliability on thin patterns.
+- **Near-full (F1 0.978).** Looks excellent, but there are only **22** validation samples.
   A single misclassification moves F1 by ~0.02. Treat as indicative, not measured.
-- **Donut (F1 0.810).** 83 validation samples — same caveat, less severely.
+- **Donut (F1 0.905).** 83 validation samples — same caveat, less severely.
 
 ---
 
@@ -127,6 +186,11 @@ Full per-class metrics are regenerated into `holdout_results.json`.
 - Macro-F1 is measured on a 15% held-out validation split. No cross-validation was run
   (time constraint); treat it as an estimate with ~±2pp uncertainty, more for Near-full
   (22 samples) and Donut (83).
+- **The reported split is also the model-selection split.** The checkpoint is chosen as the
+  epoch with the best validation macro-F1, so 0.9157 is mildly optimistic as an estimate of
+  unseen-data performance. The v1→v2 comparison is still fair — both were selected the same
+  way on the same split — but a clean three-way train/val/test split is the honest fix and
+  has not been done.
 - **Loading the dataset needed two shims.** `LSWMD.pkl` was written under Python 2 with a
   pre-0.20 pandas, so it fails on a modern interpreter twice: `pandas.indexes` was renamed
   to `pandas.core.indexes`, and the byte stream is not ASCII-decodable. Both are properties

@@ -1,0 +1,6 @@
+{
+  "architecture": "WaferViT (ViT-Tiny)",
+  "macro_f1": 0.7247690056545656,
+  "params": 1806537,
+  "dataset": "WM-811K (64x64)"
+}

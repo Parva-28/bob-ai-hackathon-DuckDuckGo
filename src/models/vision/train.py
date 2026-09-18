@@ -10,15 +10,27 @@ Outputs:
     src/models/vision/training_log.json           — per-epoch metrics
 
 Class imbalance strategy:
-    Inverse-frequency class weights passed to CrossEntropyLoss.
-    Some rare classes (Donut, Near-full) have as few as ~150 samples —
-    weighted loss + aggressive augmentation are both needed.
+    sqrt inverse-frequency class weights on CrossEntropyLoss, and NOTHING ELSE.
+
+    The v1 recipe also wrapped the train loader in a WeightedRandomSampler, so
+    inverse-frequency weighting was applied twice and compounded. That is what
+    produced the epoch-5 collapse recorded in NOTES.md: Scratch precision 0.039,
+    None recall 0.192, accuracy 0.4614 — below the 0.591 you get by predicting
+    "None" every time. Forty epochs mostly recovered, but "recovered from
+    self-inflicted damage" is not the same as configured correctly.
+
+    Dropping the sampler and softening the weights to sqrt took macro-F1 from
+    0.8576 to 0.9157 at identical parameter count. Full inverse-frequency says 22
+    Near-full wafers deserve the same total gradient as 5,529 None wafers, which is
+    a very strong claim; sqrt is the standard middle ground.
 
 Augmentation (training only):
-    Horizontal flip + vertical flip (wafer maps are rotation-symmetric for most
-    defect types — flipping is label-preserving). No colour jitter (single channel,
-    binary values). Small random rotation (±90°) for Center/Donut patterns only
-    would be more precise, but a global flip is safe and simple.
+    Horizontal flip + vertical flip + 90° rotation. Wafer defect patterns are
+    dihedral-symmetric — a rotated Scratch is still a Scratch — so all 8 transforms
+    are label-preserving. No colour jitter (single channel, ternary values).
+
+    The same symmetry is exploited at inference by TTA-8 (see classify() in
+    classifier.py), worth a further +0.0075 macro-F1 for no retraining.
 """
 
 import json
@@ -28,7 +40,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import f1_score
 from tqdm import tqdm
 
@@ -40,12 +52,11 @@ DATA_DIR   = Path(__file__).parent / "data"
 CKPT_DIR   = Path(__file__).parent / "checkpoints"
 LOG_PATH   = Path(__file__).parent / "training_log.json"
 
-EPOCHS     = 40
-BATCH_SIZE = 128
-LR         = 1e-3
-LR_DECAY   = 0.5          # factor when val F1 plateaus
-PATIENCE   = 5            # epochs before LR decay
-DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
+EPOCHS      = 40
+BATCH_SIZE  = 128
+LR          = 1e-3
+WEIGHT_POW  = 0.5         # sqrt inverse-frequency; 1.0 = full, and over-corrects
+DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
 
 print(f"Training on: {DEVICE}")
 
@@ -79,16 +90,13 @@ class WaferDataset(Dataset):
 
 # ── class weights ─────────────────────────────────────────────────────────────
 
-def compute_class_weights(y: np.ndarray, num_classes: int) -> torch.Tensor:
-    counts = np.bincount(y, minlength=num_classes).astype(float)
-    counts = np.clip(counts, 1, None)
-    weights = 1.0 / counts
-    weights = weights / weights.sum() * num_classes  # normalise
+def compute_class_weights(y: np.ndarray, num_classes: int,
+                          power: float = WEIGHT_POW) -> torch.Tensor:
+    """(1/count)**power, normalised to mean 1. power=0.5 is sqrt inverse-frequency."""
+    counts  = np.clip(np.bincount(y, minlength=num_classes).astype(float), 1, None)
+    weights = (1.0 / counts) ** power
+    weights = weights / weights.sum() * num_classes
     return torch.tensor(weights, dtype=torch.float)
-
-
-def compute_sample_weights(y: np.ndarray, class_weights: torch.Tensor) -> np.ndarray:
-    return class_weights[y].numpy()
 
 
 # ── training loop ─────────────────────────────────────────────────────────────
@@ -108,13 +116,9 @@ def train():
     train_ds = WaferDataset(X_train, y_train, augment=True)
     val_ds   = WaferDataset(X_val,   y_val,   augment=False)
 
-    # weighted sampler to oversample rare classes during training
-    sample_w = compute_sample_weights(y_train, class_weights.cpu())
-    sampler  = WeightedRandomSampler(
-        weights=sample_w, num_samples=len(sample_w), replacement=True
-    )
-
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, sampler=sampler,
+    # Plain shuffle. No WeightedRandomSampler — see the module docstring: combining
+    # it with weighted loss applies the same correction twice.
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
                               num_workers=0, pin_memory=(DEVICE == "cuda"))
     val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False,
                               num_workers=0, pin_memory=(DEVICE == "cuda"))
@@ -122,10 +126,7 @@ def train():
     model     = get_model(num_classes=num_classes).to(DEVICE)
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=LR_DECAY, patience=PATIENCE
-    )  # NOTE: `verbose` was deprecated in torch 2.2 and removed in later 2.x.
-       # Passing it raises TypeError on torch>=2.14 before the first epoch runs.
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     best_f1  = 0.0
     log      = []
@@ -164,9 +165,11 @@ def train():
                 all_labels.extend(y_b.cpu().tolist())
 
         val_loss  /= total
+        # labels=range(num_classes) is load-bearing: a class the model never predicts
+        # must score 0, not vanish from the average and inflate it.
         macro_f1   = f1_score(all_labels, all_preds, average="macro",
-                               zero_division=0)
-        scheduler.step(macro_f1)
+                               labels=range(num_classes), zero_division=0)
+        scheduler.step()
 
         entry = {
             "epoch":      epoch,
@@ -182,7 +185,8 @@ def train():
 
         # per-class F1 on final epoch
         if epoch == EPOCHS:
-            per_class = f1_score(all_labels, all_preds, average=None, zero_division=0)
+            per_class = f1_score(all_labels, all_preds, average=None,
+                                 labels=range(num_classes), zero_division=0)
             print("\nPer-class F1 on validation split:")
             for i, f1 in enumerate(per_class):
                 print(f"  {IDX_TO_CLASS[i]:12s}: {f1:.4f}")

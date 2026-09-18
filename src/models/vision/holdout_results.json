@@ -1,68 +1,117 @@
 {
-  "model": "WaferCNN",
-  "dataset": "WM-811K",
-  "plain": {
-    "macro_f1": 0.9157,
-    "accuracy": 0.9568
-  },
-  "with_tta_8": {
-    "macro_f1": 0.9232,
-    "accuracy": 0.9617
-  },
+  "model": "WaferCNN (ResNet-style)",
+  "checkpoint": "checkpoints/best_model.pt",
+  "checkpoint_sha256": "47d5d5862c9548ce1ab87ce5d0531e722b0c0494111792a66d127cf8f7067954",
+  "params": 615801,
+  "dataset": "WM-811K (64x64), 15% stratified held-out split, random_state=42",
+  "n_val": 9357,
+  "inference": "TTA-8 (4 rotations x 2 mirrors, softmax averaged)",
+  "macro_f1": 0.9232,
+  "accuracy": 0.9617,
+  "macro_f1_no_tta": 0.9157,
+  "accuracy_no_tta": 0.9568,
   "per_class": {
     "Center": {
       "support": 644,
-      "plain_f1": 0.954,
-      "tta_f1": 0.959,
-      "delta": 0.005
+      "f1": 0.959,
+      "f1_no_tta": 0.954,
+      "tta_delta": 0.005,
+      "f1_v1": 0.924,
+      "precision": null,
+      "recall": null
     },
     "Donut": {
       "support": 83,
-      "plain_f1": 0.905,
-      "tta_f1": 0.906,
-      "delta": 0.001
+      "f1": 0.906,
+      "f1_no_tta": 0.905,
+      "tta_delta": 0.001,
+      "f1_v1": 0.81,
+      "precision": null,
+      "recall": null
     },
     "Edge-Loc": {
       "support": 779,
-      "plain_f1": 0.883,
-      "tta_f1": 0.903,
-      "delta": 0.020
+      "f1": 0.903,
+      "f1_no_tta": 0.883,
+      "tta_delta": 0.02,
+      "f1_v1": 0.834,
+      "precision": null,
+      "recall": null
     },
     "Edge-Ring": {
       "support": 1452,
-      "plain_f1": 0.986,
-      "tta_f1": 0.984,
-      "delta": -0.002
+      "f1": 0.984,
+      "f1_no_tta": 0.986,
+      "tta_delta": -0.002,
+      "f1_v1": 0.979,
+      "precision": null,
+      "recall": null
     },
     "Local": {
       "support": 539,
-      "plain_f1": 0.813,
-      "tta_f1": 0.834,
-      "delta": 0.021
+      "f1": 0.834,
+      "f1_no_tta": 0.813,
+      "tta_delta": 0.021,
+      "f1_v1": 0.737,
+      "precision": null,
+      "recall": null
     },
     "Random": {
       "support": 130,
-      "plain_f1": 0.891,
-      "tta_f1": 0.902,
-      "delta": 0.010
+      "f1": 0.902,
+      "f1_no_tta": 0.891,
+      "tta_delta": 0.011,
+      "f1_v1": 0.862,
+      "precision": null,
+      "recall": null
     },
     "Scratch": {
       "support": 179,
-      "plain_f1": 0.851,
-      "tta_f1": 0.861,
-      "delta": 0.010
+      "f1": 0.861,
+      "f1_no_tta": 0.851,
+      "tta_delta": 0.01,
+      "f1_v1": 0.695,
+      "precision": null,
+      "recall": null
     },
     "Near-full": {
       "support": 22,
-      "plain_f1": 0.978,
-      "tta_f1": 0.978,
-      "delta": 0.000
+      "f1": 0.978,
+      "f1_no_tta": 0.978,
+      "tta_delta": 0.0,
+      "f1_v1": 0.917,
+      "precision": null,
+      "recall": null
     },
     "None": {
       "support": 5529,
-      "plain_f1": 0.980,
-      "tta_f1": 0.983,
-      "delta": 0.003
+      "f1": 0.983,
+      "f1_no_tta": 0.98,
+      "tta_delta": 0.003,
+      "f1_v1": 0.96,
+      "precision": null,
+      "recall": null
     }
-  }
+  },
+  "previous": {
+    "version": "v1",
+    "checkpoint": "checkpoints/best_model_v1_0.8576.pt",
+    "macro_f1": 0.8576,
+    "accuracy": 0.9263,
+    "recipe": "WeightedRandomSampler + full inverse-frequency loss weights + ReduceLROnPlateau"
+  },
+  "rejected": {
+    "model": "WaferViT (ViT-Tiny)",
+    "params": 1806537,
+    "macro_f1": 0.6981,
+    "accuracy": 0.8722,
+    "reason": "worse on every class; never predicts Local across 9,357 maps"
+  },
+  "recipe": "sqrt inverse-frequency loss weights, no sampler, CosineAnnealingLR(T_max=40), Adam lr=1e-3 wd=1e-4, 40 epochs, batch 128",
+  "notes": [
+    "macro_f1 is averaged over all 9 classes (labels=range(9)); a class the model never predicts scores 0 rather than dropping out of the average.",
+    "precision and recall are null: reconstructed from the Colab per-class F1 table, which did not print them. Re-run colab/train_simple.ipynb to populate them.",
+    "Near-full has 22 validation samples: one wafer moves its F1 by ~0.022 and the macro average by ~0.0026, which exceeds most per-class tta_delta values here.",
+    "The reported split is also the model-selection split (checkpoint = best epoch by val macro-F1), so these figures are mildly optimistic for unseen data."
+  ]
 }
