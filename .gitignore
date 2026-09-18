@@ -113,3 +113,4 @@ __MACOSX/
 
 # PHM 2016 CMP raw traces (~11 MB, 558 CSVs) — data_prep.py re-downloads them
 src/models/cmp/data/raw/
+src/mcp_server/data/prior_reads.jsonl

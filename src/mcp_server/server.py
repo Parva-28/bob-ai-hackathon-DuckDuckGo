@@ -26,7 +26,7 @@ import adapters
 import provenance
 import lot_sensors
 from param_map import sigma_to_secom_raw, to_secom_space
-from stores import CaseStore, FeedbackStore, TelemetryStore
+from stores import CaseStore, FeedbackStore, PriorReadStore, TelemetryStore
 
 mcp = MCPServer(
     name="yieldguard",
@@ -51,6 +51,7 @@ mcp = MCPServer(
 cases = CaseStore()
 telemetry = TelemetryStore()
 feedback = FeedbackStore()
+prior_reads = PriorReadStore()
 
 DEFECT_CLASSES = ["Center", "Donut", "Edge-Loc", "Edge-Ring",
                   "Local", "Random", "Scratch", "Near-full", "None"]
@@ -543,10 +544,52 @@ def predict_removal_rate(process_features: dict[str, float], alpha: float = 0.10
     }
 
 
+@mcp.tool(description="Record the engineer's OWN hypothesis for a lot, before the model's "
+                      "ranking is shown to them. A cognitive forcing function: explanations "
+                      "alone raise acceptance of AI answers regardless of correctness "
+                      "(Bansal et al., CHI 2021), and only forcing functions reduced "
+                      "over-reliance. Call this before presenting rank_root_causes output "
+                      "to a human, and never summarise the model's ranking first.")
+def record_prior_read(lot_id: str, hypothesis: str, category: str,
+                      confidence: int, engineer: str = "unknown") -> dict:
+    try:
+        rec = prior_reads.submit(lot_id, hypothesis, category, confidence, engineer)
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
+    return {"status": "ok", "prior_id": rec["prior_id"], "lot_id": lot_id,
+            "note": "The model's ranking may now be shown."}
+
+
+@mcp.tool(description="Return the engineer's recorded prior reads for a lot, and whether the "
+                      "model's top hypothesis agreed with them. Use to report agreement "
+                      "honestly - a model that only ever confirms the engineer is adding "
+                      "nothing, and one that never does needs explaining.")
+def compare_prior_read(lot_id: str, model_category: str | None = None) -> dict:
+    priors = prior_reads.for_lot(lot_id)
+    if not priors:
+        return {"lot_id": lot_id, "prior_reads": [], "agreement": None,
+                "note": "No prior read recorded. The engineer has not committed a "
+                        "hypothesis for this lot yet."}
+    latest = priors[-1]
+    agree = (None if model_category is None
+             else latest.get("category") == model_category)
+    return {"lot_id": lot_id, "prior_reads": priors, "latest": latest,
+            "model_category": model_category, "agreement": agree,
+            "note": ("Engineer and model agree on category." if agree
+                     else "Engineer and model DISAGREE on category — say so explicitly."
+                     if agree is False else "No model category supplied.")}
+
+
 @mcp.tool(description="Record an engineer's verdict on a ranked hypothesis. Use the "
                       "hypothesis_id returned by rank_root_causes. Rejections matter as much "
                       "as confirmations - they stop a false positive being reinforced.")
 def submit_feedback(hypothesis_id: str, verdict: str, notes: str = "") -> dict:
+    # No one-click accept. A verdict with no reasoning is the click-through the
+    # forcing function exists to prevent, and it teaches the case store nothing.
+    if not str(notes).strip():
+        return {"status": "error",
+                "error": "notes is required: state why you are confirming or rejecting",
+                "hypothesis_id": hypothesis_id}
     try:
         rec = feedback.submit(hypothesis_id, verdict, notes)
     except ValueError as e:

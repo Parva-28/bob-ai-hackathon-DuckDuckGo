@@ -3476,3 +3476,35 @@ h1 span {
   contain-intrinsic-size: auto 34px;
 }
 .panel { contain: layout style; }
+
+/* ── cognitive forcing function ────────────────────────────────────────────
+   The engineer's own read, committed before the model's ranking is fetched.
+   Styled as a deliberate stop, not a dismissible banner: explanations alone
+   raise acceptance of AI answers regardless of correctness (Bansal et al.,
+   CHI 2021), and only forcing functions reduced over-reliance. */
+
+.prior-gate {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 18px 20px; margin: 14px 0;
+  border: 1px solid #cfd9e0; border-left: 3px solid #3b6ea5;
+  border-radius: 8px; background: #f7fafc;
+}
+.prior-gate-head { display: flex; gap: 10px; align-items: flex-start; }
+.prior-label { font: 600 11.5px/1.5 inherit; color: #33424f; margin-top: 2px; }
+.prior-detail {
+  font: 11px/1.6 "IBM Plex Mono", monospace; color: #6a7d8c;
+  display: flex; align-items: center; gap: 5px;
+}
+.prior-input {
+  width: 100%; padding: 9px 11px; font: 12px/1.6 inherit; color: #1c2733;
+  border: 1px solid #d6dfe5; border-radius: 6px; background: #fff; resize: vertical;
+}
+.prior-input:focus-visible { outline: 2px solid #3b6ea5; outline-offset: 1px; }
+.prior-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.prior-range { width: 100%; accent-color: #3b6ea5; }
+.prior-committed {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 16px; margin: 12px 0;
+  border: 1px solid #b9e2c6; border-radius: 8px; background: #f2fbf5;
+  font-size: 12px; color: #14532d;
+}

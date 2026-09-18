@@ -54,6 +54,9 @@ playbook          = fn(tools.get_corrective_action_playbook)
 flag_at_risk      = fn(tools.flag_at_risk_batch)
 predict_rr        = fn(tools.predict_removal_rate)
 get_cmp_run       = fn(tools.get_cmp_run)
+record_prior      = fn(tools.record_prior_read)
+compare_prior     = fn(tools.compare_prior_read)
+submit_fb         = fn(tools.submit_feedback)
 pipeline_status   = fn(tools.pipeline_status)
 
 # ── App setup ──────────────────────────────────────────────────────────────────
@@ -336,6 +339,44 @@ def api_cmp_predict(wafer_id: str = Query(...), stage: str = Query("A"),
     return {"wafer_id": run["wafer_id"], "stage": run["stage"],
             "measured_removal_rate": run["measured_removal_rate"],
             "prediction": pred, "data_provenance": tools.provenance.MEASURED}
+
+
+
+class PriorRead(BaseModel):
+    lot_id: str
+    hypothesis: str
+    category: str
+    confidence: int
+    engineer: str = "unknown"
+
+
+class Disposition(BaseModel):
+    hypothesis_id: str
+    verdict: str
+    notes: str = ""
+
+
+@app.get("/api/prior-read")
+def api_prior_read_get(lot: str = Query(...), model_category: str | None = None):
+    """Has the engineer committed a read for this lot yet, and did it agree?"""
+    return compare_prior(lot, model_category)
+
+
+@app.post("/api/prior-read")
+def api_prior_read_post(r: PriorRead):
+    """
+    Record the engineer's own hypothesis. The UI will not request the model's
+    ranking until this returns ok, so the ranking is never in the page before the
+    engineer has committed — the ordering is the intervention, and a gate the user
+    can peek behind is not a gate.
+    """
+    return record_prior(r.lot_id, r.hypothesis, r.category, r.confidence, r.engineer)
+
+
+@app.post("/api/disposition")
+def api_disposition(d: Disposition):
+    """Verdict write-back. Rejected without a rationale, deliberately."""
+    return submit_fb(d.hypothesis_id, d.verdict, d.notes)
 
 
 @app.get("/api/transparency")

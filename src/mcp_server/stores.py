@@ -29,6 +29,7 @@ _DATA = Path(__file__).parent / "data"
 # `.get(name, default)` returns "" when the var is SET BUT EMPTY, which is exactly how
 # it appears in a .env template. Path("") then fails every write. Treat empty as unset.
 _FEEDBACK_PATH = Path(os.environ.get("YIELDGUARD_FEEDBACK_PATH") or (_DATA / "feedback.jsonl"))
+_PRIOR_PATH = Path(os.environ.get("YIELDGUARD_PRIOR_PATH") or (_DATA / "prior_reads.jsonl"))
 
 
 # ── similarity ────────────────────────────────────────────────────────────────
@@ -218,6 +219,57 @@ class FeedbackStore:
             with self._path.open("a") as f:
                 f.write(json.dumps(record) + "\n")
         return record
+
+    def all(self) -> list[dict]:
+        if not self._path.exists():
+            return []
+        return [json.loads(l) for l in self._path.read_text().splitlines() if l.strip()]
+
+
+class PriorReadStore:
+    """
+    The engineer's own read of a lot, recorded BEFORE the model's ranking is shown.
+
+    This is a cognitive forcing function, and it exists because explanations alone
+    make the problem worse. Bansal et al. (CHI 2021) found explanations raised the
+    rate at which people accepted AI recommendations regardless of whether those
+    recommendations were correct. Bucinca et al. found explanations do not reduce
+    over-reliance and may increase it -- only cognitive forcing functions did.
+
+    So the ordering is the intervention: commit your own hypothesis first, then see
+    the model's. Persisting it is what makes it more than theatre -- the pair
+    (prior read, model ranking, final disposition) is auditable afterwards, and the
+    agreement rate between engineer and model becomes a measurable quantity rather
+    than an assumption.
+    """
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._path = path or _PRIOR_PATH
+        self._lock = threading.Lock()
+
+    def submit(self, lot_id: str, hypothesis: str, category: str,
+               confidence: int, engineer: str = "unknown") -> dict:
+        if not str(hypothesis).strip():
+            raise ValueError("a prior read needs a hypothesis; an empty one is not a read")
+        if not 0 <= int(confidence) <= 100:
+            raise ValueError("confidence must be 0-100")
+        record = {
+            "prior_id": f"PR-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}",
+            "lot_id": lot_id,
+            "hypothesis": str(hypothesis).strip(),
+            "category": category,
+            "confidence": int(confidence),
+            "engineer": engineer,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with self._lock:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with self._path.open("a") as f:
+                f.write(json.dumps(record) + "\n")
+        return record
+
+    def for_lot(self, lot_id: str) -> list[dict]:
+        return [r for r in self.all() if r.get("lot_id") == lot_id]
 
     def all(self) -> list[dict]:
         if not self._path.exists():

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { AsyncBoundary } from "@/components/AsyncBoundary";
+import { PriorReadGate, Disposition } from "@/components/PriorRead";
 import { useLots, useAnalyze } from "@/lib/api";
 import {
   Activity,
@@ -208,7 +209,16 @@ export default function InvestigationPage() {
   }, [lotsRes]);
 
   const activeLotId = picked ?? LOTS[0]?.id ?? null;
-  const { data: an, error, loading, reload } = useAnalyze(activeLotId);
+  // The ranking is gated at the FETCH, not at render: until a prior read is
+  // committed, /api/analyze is never called, so there is nothing in the page to
+  // reveal with devtools. A gate you can peek behind is not a gate.
+  const [prior, setPrior] = useState<{ category: string; hypothesis: string;
+                                       confidence: number } | null>(null);
+  const { data: an, error, loading, reload } = useAnalyze(prior ? activeLotId : null);
+
+  // Selecting a different lot retracts the gate — a read committed for one lot
+  // does not license seeing the model's answer for another.
+  useEffect(() => { setPrior(null); }, [activeLotId]);
 
   // Sensor deviations as the tool reports them: SECOM channels are anonymised, so
   // no physical name, unit or baseline is shown — the previous version displayed
@@ -660,9 +670,14 @@ export default function InvestigationPage() {
                   <Sparkles size={13} /> AI SYNTHESIS
                 </div>
                 <p>
-                  RF-power instability is the leading explanation for the edge-ring excursion. Conclusion is supported by independent wafer, sensor, telemetry, and historical evidence.
+                  Ranked by <code>rank_root_causes</code> from the fused evidence. Every
+                  hypothesis cites a named sensor, case ID or telemetry parameter, and
+                  confidence is the value the ranking layer produced.
                 </p>
               </div>
+              <PriorReadGate lotId={activeLotId} committed={prior} onCommit={setPrior}>
+              {(committed) => (
+              <>
               <div className="hypothesis-list">
                 {HYPOTHESES.map(item => (
                   <div className="hypothesis-card" key={item.id ?? item.rank}>
@@ -696,6 +711,14 @@ export default function InvestigationPage() {
                   </div>
                 ))}
               </div>
+              <Disposition
+                hypothesisId={HYPOTHESES[0]?.id}
+                priorCategory={committed.category}
+                modelCategory={HYPOTHESES[0]?.category}
+              />
+              </>
+              )}
+              </PriorReadGate>
             </section>
 
             {/* 07 / ENGINEER INPUT */}
@@ -712,7 +735,7 @@ export default function InvestigationPage() {
               <div className="feedback-targets">
                 <span>COMMENT ON</span>
                 <select value={feedbackTarget} onChange={e => setFeedbackTarget(e.target.value)}>
-                  {HYPOTHESES.map(item => (
+                  {(prior ? HYPOTHESES : []).map(item => (
                     <option key={item.title}>{item.title}</option>
                   ))}
                   {[
