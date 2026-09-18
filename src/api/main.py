@@ -259,24 +259,9 @@ def api_transparency():
     st = pipeline_status()
     return {
         "status": st,
-        "datasets": [
-            {
-                "name": "WM-811K (LSWMD)",
-                "domain": "Spatial Wafer Defect Patterns",
-                "samples": "811,457 wafer maps total; 172,950 labelled, of which 25,519 carry a defect pattern",
-                "classes": ["Center", "Donut", "Edge-Loc", "Edge-Ring", "Local", "Random", "Scratch", "Near-full", "None"],
-                "role": "Wafer defect pattern classification on 64x64 resized bin maps"
-            },
-            {
-                "name": "SECOM (UCI id=179)",
-                "domain": "In-line Fab Process Telemetry",
-                "samples": "1,567 lots across 590 sensor channels; 104 failures (6.6%)",
-                "attributes": "Anonymised. The published dataset does not name its sensors, so we do "
-                              "not claim to know which physical parameters they represent.",
-                "role": "High-dimensional imbalanced anomaly detection. No fault labels, so it "
-                        "cannot validate root-cause attribution -- only detection."
-            }
-        ],
+        # Provenance comes from the MCP layer so the API and the agent cannot
+        # drift into describing the data differently.
+        "data_provenance": tools.provenance.summary(),
         "contracts": [
             {
                 "rule": "Grounding Mandate",

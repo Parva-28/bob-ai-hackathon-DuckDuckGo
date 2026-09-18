@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from mcp.server.mcpserver import MCPServer
 
 import adapters
+import provenance
 import lot_sensors
 from param_map import sigma_to_secom_raw, to_secom_space
 from stores import CaseStore, FeedbackStore, TelemetryStore
@@ -98,7 +99,7 @@ def get_lot_data(lot_id: str) -> dict:
         "status": lot.get("status"),
         "equipment_ids": lot.get("equipment_ids", []),
         "planned_process_params": fx["planned_process_params"],
-        "provenance": "constructed scenario - not a real fab incident",
+        "data_provenance": provenance.CONSTRUCTED,
     }
     if planned:
         # A planned lot has no wafer map and no test result, by construction.
@@ -482,6 +483,40 @@ def flag_at_risk_batch(lot_id: str, planned_process_params: dict[str, float]) ->
     }
 
 
+@mcp.tool(description="Look up a real PHM 2016 CMP polish run by wafer_id and stage, and "
+                      "return its process features plus the measured removal rate. Unlike "
+                      "get_lot_data, the sensors and the outcome here were recorded on the "
+                      "SAME wafer, so a sensor-to-outcome claim is evidenced. Feed the "
+                      "returned process_features into predict_removal_rate.")
+def get_cmp_run(wafer_id: int | str, stage: str = "A") -> dict:
+    try:
+        import pandas as pd
+        csv = (Path(__file__).resolve().parents[1] / "models" / "cmp" / "data" / "cmp_train.csv")
+        feats = json.loads((csv.parent / "feature_names.json").read_text())
+        df = pd.read_csv(csv)
+    except Exception as e:
+        return {"error": f"CMP data unavailable: {type(e).__name__}: {e}",
+                "remedy": "python src/models/cmp/data_prep.py"}
+
+    hit = df[(df["WAFER_ID"].astype(str) == str(wafer_id))
+             & (df["STAGE"].astype(str).str.upper() == str(stage).upper())]
+    if hit.empty:
+        sample = df[["WAFER_ID", "STAGE"]].head(5).to_dict("records")
+        return {"error": f"no CMP run for wafer_id={wafer_id} stage={stage}",
+                "n_runs_available": int(len(df)), "examples": sample,
+                "hint": "Do not guess a wafer_id. Use one from examples."}
+
+    row = hit.iloc[0]
+    return {
+        "wafer_id": str(row["WAFER_ID"]), "stage": str(row["STAGE"]),
+        "process_features": {k: float(row[k]) for k in feats},
+        "measured_removal_rate": float(row["AVG_REMOVAL_RATE"]),
+        "data_provenance": provenance.MEASURED,
+        "next": "Pass process_features to predict_removal_rate to get a conformal "
+                "interval, then compare it against measured_removal_rate.",
+    }
+
+
 @mcp.tool(description="Predict CMP material removal rate for a planned or completed "
                       "polish run, and return a CONFORMAL PREDICTION INTERVAL, not just a "
                       "point estimate. Use the interval, not the point value, to judge "
@@ -520,6 +555,9 @@ def submit_feedback(hypothesis_id: str, verdict: str, notes: str = "") -> dict:
                       "stubs. Call this to state honestly what is real in a given run.")
 def pipeline_status() -> dict:
     d = adapters.describe_pipeline()
+    # State provenance in the same call that states which tools are real. A judge or
+    # an engineer asking "what is actually backed by data here" gets one answer.
+    d["data_provenance"] = provenance.summary()
     d["historical_cases"] = len(cases.all_ids())
     d["known_equipment"] = telemetry.known_equipment()
     d["fixtures_loaded"] = len(adapters.FIXTURES)
