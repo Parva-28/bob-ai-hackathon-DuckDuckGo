@@ -20,10 +20,12 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Sparkles,
   Wrench,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import YieldGuardCopilot from "./YieldGuardCopilot";
 
 type Toast = { id: number; title: string; desc?: string };
 
@@ -308,6 +310,46 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
               </>
             )}
           </div>
+          {/* 4-Step Golden Path Stepper */}
+          <div className="workflow-stepper">
+            <span className="workflow-stepper-label">WORKFLOW:</span>
+            <Link
+              href="/overview"
+              className={`workflow-step ${pathname === "/" || pathname.startsWith("/overview") ? "active" : ""}`}
+              title="Step 1: Check fleet yield and excursion alerts"
+            >
+              <span className="workflow-step-num">1</span>
+              <span>Alert</span>
+            </Link>
+            <span className="workflow-sep">›</span>
+            <Link
+              href="/investigation"
+              className={`workflow-step ${pathname.startsWith("/investigation") || pathname.startsWith("/root-cause") ? "active" : ""}`}
+              title="Step 2: Root-cause diagnosis with wafer map and sensors"
+            >
+              <span className="workflow-step-num">2</span>
+              <span>Diagnose</span>
+            </Link>
+            <span className="workflow-sep">›</span>
+            <Link
+              href="/playbook"
+              className={`workflow-step ${pathname.startsWith("/playbook") || pathname.startsWith("/action-playbook") ? "active" : ""}`}
+              title="Step 3: Containment and machine repair checklist"
+            >
+              <span className="workflow-step-num">3</span>
+              <span>Contain</span>
+            </Link>
+            <span className="workflow-sep">›</span>
+            <Link
+              href="/batch-risk"
+              className={`workflow-step ${pathname.startsWith("/batch-risk") || pathname.startsWith("/risk") ? "active" : ""}`}
+              title="Step 4: Quarantine upcoming at-risk lots"
+            >
+              <span className="workflow-step-num">4</span>
+              <span>Protect</span>
+            </Link>
+          </div>
+
           <div className="topbar-actions">
             <button
               className="command-search"
@@ -395,6 +437,9 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
           </div>
         ))}
       </div>
+
+      {/* ── Conversational AI Copilot ── */}
+      <YieldGuardCopilot activeLotId={activeLotId} currentRoute={pathname} />
     </div>
   );
 }

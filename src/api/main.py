@@ -19,7 +19,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 # Wire up the MCP server internals
 HERE = Path(__file__).parent
@@ -114,7 +114,14 @@ def analyse(lot_id: str) -> dict:
     return out
 
 
-# ── API Routes ─────────────────────────────────────────────────────────────────
+@app.get("/")
+def get_root():
+    """Serve analyst dashboard directly on the root path."""
+    dash_html = HERE.parent / "dashboard" / "index.html"
+    if dash_html.exists():
+        return HTMLResponse(dash_html.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>YieldGuard API Online</h1><p>Visit <a href='/docs'>/docs</a> or run the web console.</p>")
+
 
 @app.get("/api/status")
 def api_status():

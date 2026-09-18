@@ -1394,24 +1394,44 @@ h1 span {
 }
 
 .evidence-chain {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 8px;
 }
 
 .chain-node {
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.chain-node:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+}
+
+.chain-node-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .chain-icon {
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 7px;
   display: grid;
   place-items: center;
 }
@@ -1436,35 +1456,28 @@ h1 span {
   color: #6d5b93;
 }
 
-.chain-node span {
-  color: #8495a1;
-  font: 600 7.5px "IBM Plex Mono", monospace;
-  white-space: nowrap;
+.chain-node .chain-label {
+  color: #64748b;
+  font: 600 9.5px "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.chain-node b {
-  color: #273e51;
-  font-size: 10px;
-  white-space: nowrap;
+.chain-node .chain-value {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
-.chain-node small {
-  color: #7b8e9c;
-  font-size: 8px;
-  white-space: nowrap;
+.chain-node .chain-sub {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .chain-connector {
-  min-width: 16px;
-  display: flex;
-  align-items: center;
-  color: #9cb1c0;
-}
-
-.chain-connector span {
-  width: 100%;
-  height: 1px;
-  background: #dce5eb;
+  display: none;
 }
 
 /* ── Hierarchical Hypotheses (Primary standout vs secondary quiet) ── */
@@ -2474,3 +2487,878 @@ h1 span {
     grid-column: span 2;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ── IN-LINE TELEMETRY CHART & MILESTONE TIMELINE FIXES ──
+   ═══════════════════════════════════════════════════════════════ */
+
+.telemetry-chart {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  grid-template-rows: 140px auto;
+  column-gap: 10px;
+  row-gap: 8px;
+  margin: 14px 0 20px;
+  padding: 16px 16px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.chart-y {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font: 600 10.5px "IBM Plex Mono", monospace;
+  color: #64748b;
+  text-align: right;
+  padding-right: 6px;
+  user-select: none;
+}
+
+.telemetry-chart svg {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  height: 140px;
+  overflow: visible;
+}
+
+.chart-x {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  justify-content: space-between;
+  font: 600 10px "IBM Plex Mono", monospace;
+  color: #64748b;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  user-select: none;
+}
+
+.timeline-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 10px "IBM Plex Mono", monospace;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 18px 0 10px;
+}
+
+.timeline-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.timeline-event {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #94a3b8;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.timeline-event:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.timeline-event.pm {
+  border-left-color: #6366f1;
+}
+
+.timeline-event.shift {
+  border-left-color: #f59e0b;
+}
+
+.timeline-event.alert {
+  border-left-color: #ef4444;
+}
+
+.timeline-event.lot {
+  border-left-color: #10b981;
+}
+
+.timeline-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 10px "IBM Plex Mono", monospace;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.timeline-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-copy b {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.timeline-copy span {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ── 4-STEP GOLDEN PATH WORKFLOW STEPPER ──
+   ═══════════════════════════════════════════════════════════════ */
+
+.workflow-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.workflow-stepper-label {
+  font: 700 9px "IBM Plex Mono", monospace;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  transition: all 0.15s ease;
+  background: #f8fafc;
+  border: 1px solid transparent;
+}
+
+.workflow-step:hover {
+  background: #edf2f7;
+  color: #0f172a;
+}
+
+.workflow-step.active {
+  background: #274c6b;
+  color: #ffffff;
+  border-color: #1e3a53;
+}
+
+.workflow-step-num {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 9px "IBM Plex Mono", monospace;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.workflow-step.active .workflow-step-num {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.workflow-sep {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ── TELEMETRY CONTEXT & AUDIT NOTES ENHANCEMENTS ──
+   ═══════════════════════════════════════════════════════════════ */
+
+.telemetry-context-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.telemetry-context-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.telemetry-context-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #edf3f7;
+  color: #274c6b;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.telemetry-context-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.telemetry-context-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.telemetry-context-sub {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 10.5px "IBM Plex Mono", monospace;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.telemetry-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.telemetry-mini-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.mini-label {
+  font: 700 8.5px "IBM Plex Mono", monospace;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mini-val {
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mini-val.danger { color: #b5473f; }
+.mini-val.warning { color: #b8852c; }
+.mini-val.nominal { color: #2e6e58; }
+
+.mini-sub {
+  font: 500 10px "IBM Plex Mono", monospace;
+  color: #7b8e9c;
+}
+
+/* ── Engineer Notes Feed ── */
+.notes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.notes-input-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.notes-textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  resize: vertical;
+  min-height: 70px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.notes-textarea:focus {
+  border-color: #274c6b;
+  box-shadow: 0 0 0 2px rgba(39, 76, 107, 0.15);
+}
+
+.notes-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notes-author-tag {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.notes-author-tag b {
+  color: #334155;
+}
+
+.notes-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #274c6b;
+  border-radius: 6px;
+}
+
+.note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.note-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #edf3f7;
+  color: #274c6b;
+  font: 700 9px "IBM Plex Mono", monospace;
+  display: grid;
+  place-items: center;
+}
+
+.note-author-info b {
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.note-role {
+  font-size: 10px;
+  color: #7b8e9c;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.note-time {
+  font-size: 10.5px;
+  color: #94a3b8;
+}
+
+.note-text {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ── YIELDGUARD AI COPILOT (MATCHED TO APP PALETTE) ──
+   ═══════════════════════════════════════════════════════════════ */
+
+.copilot-launcher {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  z-index: 990;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 50px;
+  background: #131d2e;
+  color: #f8fafc;
+  border: 1px solid #2a3b50;
+  box-shadow: 0 8px 24px rgba(15, 23, 36, 0.45);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.copilot-launcher:hover {
+  transform: translateY(-2px) scale(1.02);
+  background: #182438;
+  border-color: #00d2b4;
+  box-shadow: 0 12px 30px rgba(0, 210, 180, 0.25);
+  color: #ffffff;
+}
+
+.copilot-sparkle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00d2b4;
+  box-shadow: 0 0 8px #00d2b4;
+  animation: pulse-dot 2s infinite;
+}
+
+.copilot-launcher-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.copilot-kbd {
+  font: 600 9px "IBM Plex Mono", monospace;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #cbd5e1;
+}
+
+/* Copilot Drawer */
+.copilot-drawer {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  width: 440px;
+  height: 600px;
+  max-height: calc(100vh - 48px);
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: copilot-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.copilot-drawer.expanded {
+  width: 650px;
+}
+
+@keyframes copilot-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.copilot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  background: #0f1724;
+  color: #ffffff;
+  border-bottom: 1px solid #1e2c42;
+}
+
+.copilot-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copilot-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: #274c6b;
+  border: 1px solid #3d6487;
+  display: grid;
+  place-items: center;
+  color: #00d2b4;
+}
+
+.copilot-title {
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilot-pill {
+  font: 700 8.5px "IBM Plex Mono", monospace;
+  background: rgba(0, 210, 180, 0.12);
+  border: 1px solid rgba(0, 210, 180, 0.3);
+  color: #00d2b4;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.copilot-sub {
+  font-size: 10.5px;
+  color: #8292a8;
+  margin-top: 1px;
+}
+
+.copilot-sub b {
+  color: #f1f5f9;
+}
+
+.copilot-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.copilot-tool-btn {
+  background: transparent;
+  border: 0;
+  color: #8292a8;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copilot-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.copilot-tool-btn.close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+/* Suggestions with Clean Native Scroll (No Ugly Gray Track) */
+.copilot-suggestions {
+  padding: 9px 14px 7px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.suggestions-label {
+  font: 700 8.5px "IBM Plex Mono", monospace;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.chips-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.chips-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.suggestion-chip:hover {
+  background: #edf3f7;
+  border-color: #274c6b;
+  color: #1e293b;
+  transform: translateY(-1px);
+}
+
+.chip-icon {
+  color: #274c6b;
+}
+
+/* Copilot Messages Body */
+.copilot-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fdfdfd;
+}
+
+.copilot-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 92%;
+}
+
+.copilot-message.user {
+  align-self: flex-end;
+}
+
+.copilot-message.assistant {
+  align-self: flex-start;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #64748b;
+}
+
+.message-role {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.copilot-message.user .message-bubble {
+  background: #274c6b;
+  color: #ffffff;
+  border-radius: 12px 12px 2px 12px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.copilot-message.assistant .message-bubble {
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #274c6b;
+  border-radius: 12px 12px 12px 2px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.confidence-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 10.5px;
+}
+
+.message-citations {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.citation-title {
+  font: 700 8.5px "IBM Plex Mono", monospace;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.citation-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.citation-tag {
+  font: 600 9.5px "IBM Plex Mono", monospace;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.action-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f4f8fa;
+  border: 1px solid #dce7ee;
+  color: #274c6b;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.action-link-btn:hover {
+  background: #274c6b;
+  color: #ffffff;
+  border-color: #274c6b;
+}
+
+/* Typing Indicator */
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #274c6b;
+  animation: typing-bounce 1.4s infinite ease-in-out both;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.typing-text {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* Footer */
+.copilot-footer {
+  padding: 12px 14px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.copilot-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copilot-input {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.copilot-input:focus {
+  border-color: #274c6b;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(39, 76, 107, 0.15);
+}
+
+.copilot-send-btn {
+  background: #274c6b;
+  color: #ffffff;
+  border: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copilot-send-btn:hover:not(:disabled) {
+  background: #1a344b;
+}
+
+.copilot-send-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.copilot-footnote {
+  font-size: 9.5px;
+  color: #94a3b8;
+  margin-top: 6px;
+  text-align: center;
+}

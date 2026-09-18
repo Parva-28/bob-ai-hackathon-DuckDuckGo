@@ -240,6 +240,22 @@ export default function InvestigationPage() {
   const [feedback, setFeedback] = useState<"confirmed" | "rejected" | null>(null);
   const [showAllLots, setShowAllLots] = useState(false);
   const [comment, setComment] = useState("");
+  const [engineerNotes, setEngineerNotes] = useState([
+    {
+      id: 1,
+      author: "Mei Sato",
+      role: "Yield Engineer",
+      text: "Verified post-PM timing. RF match network calibration drift matches the edge-localized failure signature.",
+      time: "Today · 08:14",
+    },
+    {
+      id: 2,
+      author: "Kenji Tanaka",
+      role: "Lead Process Tech",
+      text: "ETCH-04 placed on engineering hold. Ready for RF match tuning and 3-wafer baseline qualification.",
+      time: "Today · 07:50",
+    },
+  ]);
   const [drawer, setDrawer] = useState<"wafer" | "sensor" | null>(null);
   const [feedbackTarget, setFeedbackTarget] = useState("RF-power instability after PM");
   const [feedbackText, setFeedbackText] = useState("");
@@ -472,11 +488,15 @@ export default function InvestigationPage() {
                 </div>
               </div>
               <TelemetryChart />
+              <div className="timeline-section-title">
+                <Clock3 size={13} /> Chamber Event Sequence (05:30 – 07:30)
+              </div>
               <div className="timeline-strip">
                 {TIMELINE.map(item => (
                   <div className={`timeline-event ${item.type}`} key={item.time}>
-                    <div className="timeline-time">{item.time}</div>
-                    <div className="timeline-marker"><span /></div>
+                    <div className="timeline-time-badge">
+                      <Clock3 size={11} /> {item.time}
+                    </div>
                     <div className="timeline-copy">
                       <b>{item.label}</b>
                       <span>{item.detail}</span>
@@ -508,65 +528,131 @@ export default function InvestigationPage() {
               {activeTab === "Evidence chain" && (
                 <div className="evidence-chain">
                   <div className="chain-node">
-                    <div className="chain-icon cyan-bg"><Crosshair size={15} /></div>
-                    <div>
-                      <span>WAFER PATTERN</span>
-                      <b>Edge-Ring</b>
-                      <small>96% confidence</small>
+                    <div className="chain-icon cyan-bg"><Crosshair size={17} /></div>
+                    <div className="chain-node-content">
+                      <span className="chain-label">WAFER PATTERN</span>
+                      <b className="chain-value">Edge-Ring</b>
+                      <small className="chain-sub">96% confidence (ViT)</small>
                     </div>
                   </div>
-                  <div className="chain-connector"><span /><ChevronRight size={13} /></div>
                   <div className="chain-node">
-                    <div className="chain-icon coral-bg"><Activity size={15} /></div>
-                    <div>
-                      <span>SENSOR ANOMALY</span>
-                      <b>RF power +4.8σ</b>
-                      <small>3 overshoots</small>
+                    <div className="chain-icon coral-bg"><Activity size={17} /></div>
+                    <div className="chain-node-content">
+                      <span className="chain-label">SENSOR ANOMALY</span>
+                      <b className="chain-value">RF power +4.8σ</b>
+                      <small className="chain-sub">3 overshoot events</small>
                     </div>
                   </div>
-                  <div className="chain-connector"><span /><ChevronRight size={13} /></div>
                   <div className="chain-node">
-                    <div className="chain-icon amber-bg"><Cpu size={15} /></div>
-                    <div>
-                      <span>EQUIPMENT</span>
-                      <b>Post-PM drift</b>
-                      <small>13 min post-service</small>
+                    <div className="chain-icon amber-bg"><Cpu size={17} /></div>
+                    <div className="chain-node-content">
+                      <span className="chain-label">EQUIPMENT</span>
+                      <b className="chain-value">Post-PM drift</b>
+                      <small className="chain-sub">13 min post-service</small>
                     </div>
                   </div>
-                  <div className="chain-connector"><span /><ChevronRight size={13} /></div>
                   <div className="chain-node">
-                    <div className="chain-icon violet-bg"><BookOpen size={15} /></div>
-                    <div>
-                      <span>HISTORICAL CASE</span>
-                      <b>CASE-1042</b>
-                      <small>91% similarity</small>
+                    <div className="chain-icon violet-bg"><BookOpen size={17} /></div>
+                    <div className="chain-node-content">
+                      <span className="chain-label">HISTORICAL CASE</span>
+                      <b className="chain-value">CASE-1042</b>
+                      <small className="chain-sub">91% similarity match</small>
                     </div>
                   </div>
                 </div>
               )}
               {activeTab === "Telemetry context" && (
-                <div className="tab-empty">
-                  <LineChart size={20} />
-                  <b>Telemetry context selected</b>
-                  <span>All 42 sensors aligned with wafer lot processing window.</span>
+                <div className="telemetry-context-card">
+                  <div className="telemetry-context-header">
+                    <div className="telemetry-context-icon">
+                      <LineChart size={18} />
+                    </div>
+                    <div className="telemetry-context-meta">
+                      <b className="telemetry-context-title">Telemetry Sensor Alignment</b>
+                      <span className="telemetry-context-sub">42 in-line sensor streams aligned with lot processing window (05:30 – 07:19 UTC)</span>
+                    </div>
+                    <span className="sync-badge">
+                      <CheckCircle2 size={13} /> 100% Synchronized
+                    </span>
+                  </div>
+
+                  <div className="telemetry-mini-grid">
+                    <div className="telemetry-mini-item">
+                      <span className="mini-label">PRIMARY EXCURSION</span>
+                      <strong className="mini-val danger">RF Power (+4.8σ)</strong>
+                      <span className="mini-sub">1,874 W (Baseline: 1,620 W)</span>
+                    </div>
+                    <div className="telemetry-mini-item">
+                      <span className="mini-label">DRIFT ANOMALY</span>
+                      <strong className="mini-val warning">Chamber Pressure (+3.2σ)</strong>
+                      <span className="mini-sub">84.2 mT (Baseline: 78.0 mT)</span>
+                    </div>
+                    <div className="telemetry-mini-item">
+                      <span className="mini-label">THERMAL STABILITY</span>
+                      <strong className="mini-val warning">ESC Temperature (+2.6σ)</strong>
+                      <span className="mini-sub">63.1 °C (Baseline: 60.4 °C)</span>
+                    </div>
+                    <div className="telemetry-mini-item">
+                      <span className="mini-label">GAS INJECTION</span>
+                      <strong className="mini-val nominal">O₂ Gas Flow (+0.7σ)</strong>
+                      <span className="mini-sub">18.4 sccm (Baseline: 18.2 sccm)</span>
+                    </div>
+                  </div>
                 </div>
               )}
               {activeTab === "Engineer notes" && (
-                <div className="notes-wrap">
-                  <textarea
-                    placeholder="Add an observation for the investigation record…"
-                    value={comment}
-                    onChange={e => setComment(e.target.value)}
-                  />
-                  <button
-                    className="button primary small"
-                    onClick={() => {
-                      if (!comment.trim()) return;
-                      setComment("");
-                    }}
-                  >
-                    <Send size={13} /> Add note
-                  </button>
+                <div className="notes-container">
+                  <div className="notes-input-card">
+                    <textarea
+                      className="notes-textarea"
+                      placeholder="Add an observation or hypothesis for the investigation record…"
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="notes-action-row">
+                      <span className="notes-author-tag">
+                        Logging as: <b>Mei Sato (Yield Engineer)</b>
+                      </span>
+                      <button
+                        className="button primary small"
+                        disabled={!comment.trim()}
+                        onClick={() => {
+                          if (!comment.trim()) return;
+                          setEngineerNotes(prev => [
+                            {
+                              id: Date.now(),
+                              author: "Mei Sato",
+                              role: "Yield Engineer",
+                              text: comment.trim(),
+                              time: "Just now",
+                            },
+                            ...prev,
+                          ]);
+                          setComment("");
+                        }}
+                      >
+                        <Send size={13} /> Add note to audit log
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* List of existing notes */}
+                  <div className="notes-feed">
+                    {engineerNotes.map(n => (
+                      <div key={n.id} className="note-item">
+                        <div className="note-header">
+                          <div className="note-author-info">
+                            <span className="note-avatar">{n.author.slice(0, 2).toUpperCase()}</span>
+                            <b>{n.author}</b>
+                            <span className="note-role">{n.role}</span>
+                          </div>
+                          <span className="note-time">{n.time}</span>
+                        </div>
+                        <p className="note-text">{n.text}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

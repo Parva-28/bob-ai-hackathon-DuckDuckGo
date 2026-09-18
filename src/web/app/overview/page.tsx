@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import {
   AlertTriangle,
+  ArrowRight,
   Boxes,
   Cpu,
   FileText,
@@ -74,11 +76,11 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Excursion Banner */}
-        <div className="alert-banner">
+        {/* Excursion Banner with Direct Action */}
+        <div className="alert-banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
           <div className="alert-leading">
             <div className="alert-icon">
-              <AlertTriangle size={17} />
+              <AlertTriangle size={18} />
             </div>
             <div>
               <b>Urgent Excursion: Lot WFR-24-0817</b>
@@ -87,6 +89,13 @@ export default function OverviewPage() {
               </span>
             </div>
           </div>
+          <Link
+            href="/investigation"
+            className="button primary"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}
+          >
+            Investigate Lot WFR-24-0817 <ArrowRight size={14} />
+          </Link>
         </div>
 
         {/* 4 Fleet KPIs */}
@@ -147,13 +156,16 @@ export default function OverviewPage() {
                     <th style={{ padding: "10px 14px" }}>PATTERN</th>
                     <th style={{ padding: "10px 14px" }}>YIELD</th>
                     <th style={{ padding: "10px 14px" }}>STATUS</th>
+                    <th style={{ padding: "10px 14px", textAlign: "right" }}>ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredLots.map(lot => (
                     <tr key={lot.id} style={{ borderBottom: "1px solid #f4f2eb" }}>
                       <td style={{ padding: "11px 14px", font: "600 11px 'IBM Plex Mono', monospace", color: "#274c6b" }}>
-                        {lot.id}
+                        <Link href={lot.status.includes("Planned") ? "/batch-risk" : "/investigation"} style={{ textDecoration: "none", color: "inherit", fontWeight: 700 }}>
+                          {lot.id}
+                        </Link>
                       </td>
                       <td style={{ padding: "11px 14px", color: "#425466" }}>{lot.product}</td>
                       <td style={{ padding: "11px 14px", color: "#425466" }}>{lot.equipment}</td>
@@ -165,6 +177,25 @@ export default function OverviewPage() {
                         <span className={`status-pill pill-${lot.severity}`}>
                           <span className="status-dot" /> {lot.status}
                         </span>
+                      </td>
+                      <td style={{ padding: "11px 14px", textAlign: "right" }}>
+                        <Link
+                          href={lot.status.includes("Planned") ? "/batch-risk" : "/investigation"}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: "#2563eb",
+                            textDecoration: "none",
+                            background: "#eff6ff",
+                            padding: "3px 8px",
+                            borderRadius: "5px",
+                          }}
+                        >
+                          {lot.status.includes("Planned") ? "Triage" : "Diagnose"} <ArrowRight size={11} />
+                        </Link>
                       </td>
                     </tr>
                   ))}
