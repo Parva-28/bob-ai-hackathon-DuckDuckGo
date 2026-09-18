@@ -1,0 +1,232 @@
+{
+  "dataset": "PHM 2016 CMP Data Challenge",
+  "split": "grouped by WAFER_ID, 75/25, random_state=42",
+  "n_train": 1499,
+  "n_test": 503,
+  "n_features": 73,
+  "model": "HistGradientBoostingRegressor",
+  "outliers_removed": 4,
+  "point": {
+    "test": {
+      "mse": 56.36049523859839,
+      "rmse": 7.507362735248536,
+      "mae": 3.7965757493611183,
+      "max_error": 75.37415396756751,
+      "r2": 0.9403262530853039,
+      "mape_pct": 4.194364087658908
+    }
+  },
+  "conformal": {
+    "alpha_0.05": {
+      "test": {
+        "coverage": {
+          "marginal_coverage": 0.9681908548707754,
+          "mean_width": 22.687932810902655,
+          "median_width": 21.733877233546252,
+          "width_over_target_range": 0.21543386542372742,
+          "conditional": [
+            {
+              "stratum": "p0-10 (low tail)",
+              "n": 51,
+              "coverage": 1.0,
+              "mean_width": 21.612890857601048
+            },
+            {
+              "stratum": "p10-25",
+              "n": 75,
+              "coverage": 1.0,
+              "mean_width": 21.675547693997093
+            },
+            {
+              "stratum": "p25-75 (bulk)",
+              "n": 251,
+              "coverage": 0.9840637450199203,
+              "mean_width": 22.167729968172324
+            },
+            {
+              "stratum": "p75-90",
+              "n": 75,
+              "coverage": 0.88,
+              "mean_width": 24.690162499633306
+            },
+            {
+              "stratum": "p90-100 (high tail)",
+              "n": 51,
+              "coverage": 0.9411764705882353,
+              "mean_width": 24.86753497280099
+            }
+          ]
+        },
+        "excursion": {
+          "control_limits": {
+            "lcl": 62.054339999999996,
+            "ucl": 153.57655499999998
+          },
+          "n_excursions": 49,
+          "n": 503,
+          "point_prediction": {
+            "sensitivity": 0.3469387755102041,
+            "specificity": 0.9691629955947136,
+            "precision": 0.5483870967741935,
+            "flagged": 31,
+            "tp": 17,
+            "fn": 32,
+            "fp": 14,
+            "tn": 440
+          },
+          "conformal_interval": {
+            "sensitivity": 0.9591836734693877,
+            "specificity": 0.6541850220264317,
+            "precision": 0.23039215686274508,
+            "flagged": 204,
+            "tp": 47,
+            "fn": 2,
+            "fp": 157,
+            "tn": 297
+          }
+        }
+      }
+    },
+    "alpha_0.10": {
+      "test": {
+        "coverage": {
+          "marginal_coverage": 0.9403578528827038,
+          "mean_width": 17.144734387883375,
+          "median_width": 16.11577215919614,
+          "width_over_target_range": 0.16279827834600627,
+          "conditional": [
+            {
+              "stratum": "p0-10 (low tail)",
+              "n": 51,
+              "coverage": 0.9607843137254902,
+              "mean_width": 16.09030293159279
+            },
+            {
+              "stratum": "p10-25",
+              "n": 75,
+              "coverage": 0.9866666666666667,
+              "mean_width": 16.137089793100095
+            },
+            {
+              "stratum": "p25-75 (bulk)",
+              "n": 251,
+              "coverage": 0.9641434262948207,
+              "mean_width": 16.632514627549302
+            },
+            {
+              "stratum": "p75-90",
+              "n": 75,
+              "coverage": 0.84,
+              "mean_width": 19.153901494153256
+            },
+            {
+              "stratum": "p90-100 (high tail)",
+              "n": 51,
+              "coverage": 0.8823529411764706,
+              "mean_width": 19.247263324220157
+            }
+          ]
+        },
+        "excursion": {
+          "control_limits": {
+            "lcl": 62.054339999999996,
+            "ucl": 153.57655499999998
+          },
+          "n_excursions": 49,
+          "n": 503,
+          "point_prediction": {
+            "sensitivity": 0.3469387755102041,
+            "specificity": 0.9691629955947136,
+            "precision": 0.5483870967741935,
+            "flagged": 31,
+            "tp": 17,
+            "fn": 32,
+            "fp": 14,
+            "tn": 440
+          },
+          "conformal_interval": {
+            "sensitivity": 0.9387755102040817,
+            "specificity": 0.7290748898678414,
+            "precision": 0.27218934911242604,
+            "flagged": 169,
+            "tp": 46,
+            "fn": 3,
+            "fp": 123,
+            "tn": 331
+          }
+        }
+      }
+    },
+    "alpha_0.20": {
+      "test": {
+        "coverage": {
+          "marginal_coverage": 0.8628230616302187,
+          "mean_width": 12.361241173935362,
+          "median_width": 11.342671370134198,
+          "width_over_target_range": 0.11737649215252055,
+          "conditional": [
+            {
+              "stratum": "p0-10 (low tail)",
+              "n": 51,
+              "coverage": 0.9215686274509803,
+              "mean_width": 11.337605075048922
+            },
+            {
+              "stratum": "p10-25",
+              "n": 75,
+              "coverage": 0.9066666666666666,
+              "mean_width": 11.347824249628424
+            },
+            {
+              "stratum": "p25-75 (bulk)",
+              "n": 251,
+              "coverage": 0.900398406374502,
+              "mean_width": 11.833361239665559
+            },
+            {
+              "stratum": "p75-90",
+              "n": 75,
+              "coverage": 0.7066666666666667,
+              "mean_width": 14.379279335883435
+            },
+            {
+              "stratum": "p90-100 (high tail)",
+              "n": 51,
+              "coverage": 0.7843137254901961,
+              "mean_width": 14.50549042338329
+            }
+          ]
+        },
+        "excursion": {
+          "control_limits": {
+            "lcl": 62.054339999999996,
+            "ucl": 153.57655499999998
+          },
+          "n_excursions": 49,
+          "n": 503,
+          "point_prediction": {
+            "sensitivity": 0.3469387755102041,
+            "specificity": 0.9691629955947136,
+            "precision": 0.5483870967741935,
+            "flagged": 31,
+            "tp": 17,
+            "fn": 32,
+            "fp": 14,
+            "tn": 440
+          },
+          "conformal_interval": {
+            "sensitivity": 0.9183673469387755,
+            "specificity": 0.7775330396475771,
+            "precision": 0.3082191780821918,
+            "flagged": 146,
+            "tp": 45,
+            "fn": 4,
+            "fp": 101,
+            "tn": 353
+          }
+        }
+      }
+    }
+  },
+  "caveat": "The competition's val/test labels are masked as '?' and were never released, so these figures are on our own grouped split and are NOT comparable to the PHM 2016 leaderboard."
+}

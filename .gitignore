@@ -102,6 +102,7 @@ src/mcp_server/data/feedback.jsonl
 # Track 1 — WM-811K (2.1 GB raw pickle + derived arrays)
 src/models/vision/data/
 src/models/vision/checkpoints/
+src/models/cmp/checkpoints/
 
 colab/wm811k_64.npz
 
@@ -109,3 +110,6 @@ colab/wm811k_64.npz
 __MACOSX/
 .DS_Store
 .agents/
+
+# PHM 2016 CMP raw traces (~11 MB, 558 CSVs) — data_prep.py re-downloads them
+src/models/cmp/data/raw/
