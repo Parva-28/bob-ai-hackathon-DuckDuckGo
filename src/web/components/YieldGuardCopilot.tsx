@@ -554,7 +554,7 @@ function extractLotIdFromQuery(text: string): string | null {
                     >
                       <CheckCircle2 size={12} />{" "}
                       {msg.confidence != null ? (
-                        <>Confidence (from ranking layer): <b>{msg.confidence}%</b></>
+                        <>Ranking signal: <b>{msg.confidence}%</b> — not calibrated</>
                       ) : (
                         <>No confidence available &mdash; no hypothesis met the evidence gate</>
                       )}

@@ -344,7 +344,23 @@ def rank_root_causes(classification: dict | None = None,
     _SINGLE_EVENT_HINTS = ("one-off", "single occurrence", "single event", "one occurrence",
                            "non-repeating", "isolated incident", "operator-assisted")
 
+    # These ceilings are a POLICY CONTROL, not calibration, and the difference is
+    # the whole argument of this project. docs/v2/00-PLAN.md 3.2 says confidence
+    # should be inherited from a calibrated layer and the keyword caps retired.
+    # Only predict_removal_rate has such a layer — its intervals have measured
+    # coverage (94.0% empirical at a 90% target). Nothing calibrated sits behind
+    # lot reasoning, so deleting these would not yield calibrated confidence, it
+    # would yield ungoverned LLM confidence, which is worse.
+    #
+    # So they stay, and instead every hypothesis is stamped uncalibrated so no
+    # consumer can present it as a probability. Retiring them for real needs a
+    # calibrated ranking layer, which is roadmap, not a deletion.
     for h in hyps:
+        h["confidence_basis"] = "llm_uncalibrated"
+        h["_confidence_note"] = (
+            "Ordinal ranking signal from the reasoning model, NOT a calibrated "
+            "probability. Policy ceilings are applied. Only predict_removal_rate "
+            "reports confidence with measured coverage.")
         desc = str(h.get("description", "")).lower()
         blob = f"{desc} {str(h.get('evidence_summary','')).lower()}"
         # Re-derive the category from what the hypothesis actually SAYS when the model's
@@ -364,6 +380,7 @@ def rank_root_causes(classification: dict | None = None,
         if cap is not None and float(h.get("confidence") or 0) > cap:
             h["_confidence_uncapped"] = h["confidence"]
             h["confidence"] = cap
+            h["_policy_ceiling"] = cap
             h["_capped_because"] = (
                 "a claim that the measurement is wrong is a claim the data is untrustworthy"
                 if h["category"] == "measurement" else
@@ -379,6 +396,7 @@ def rank_root_causes(classification: dict | None = None,
                 if float(h.get("confidence") or 0) > 0.55:
                     h.setdefault("_confidence_uncapped", h["confidence"])
                     h["confidence"] = 0.55
+                    h["_policy_ceiling"] = 0.55
                     h["_capped_because"] = ("a competing hypothesis of a different category "
                                             "is equally well supported")
 

@@ -361,6 +361,35 @@ fabricated-pairing problem, which is the thing a sharp judge will find.
 
 ---
 
+## 9b. What was built, and where it diverged from this plan
+
+Written after the fact. The plan is left as written above; this section records what
+actually shipped, because a plan silently edited to match the outcome is worth nothing.
+
+| Track | Status | Divergence |
+|---|---|---|
+| **A · Real data** | done | `lots.json` was **not** retired. Kept alongside CMP and labelled `constructed` per `provenance.py`, because CMP has no wafer maps and so cannot carry the vision classifier (macro-F1 0.9232) or the root-cause demo. Deleting it would have cost the strongest measured result in the project. |
+| **B · Abstention** | done | GSI does not fire on this data — ROC-AUC 0.450 separating a held-out stage, below chance. Stage A and B differ in their input→outcome mapping, not their input distribution: concept drift, which GSI does not measure. RI carries the gate (1.76× error ratio). Recorded as a negative result rather than tuned away. |
+| **C · UI** | done differently | **Next.js, not Vite + Carbon** — a working 11-screen console already existed and rebuilding it would have cost the two days for no gain. Carbon's real value was the AI-label contract, implemented directly instead. **No ECharts**: the wafer map is still SVG. Canvas only pays off at die-level resolution (10k–100k dies) and we have no die-level data. Screens went to 11 live rather than 3, but every one reads the API — the plan's concern was depth over breadth, and the depth is in the data wiring. |
+| **D · Integration** | partial | Tools re-pointed, confidence inherited in the Copilot, eval harness now reports the §4 metric set. **The keyword caps were not deleted.** |
+
+### Why the keyword caps are still there
+
+§3.2 says confidence is inherited from the calibrated layer, "which also retires the
+keyword-matching caps." Only `predict_removal_rate` has a calibrated layer — conformal
+intervals with 94.0% measured coverage. Nothing calibrated sits behind lot reasoning, so
+deleting the ceilings would not produce calibrated confidence; it would produce
+ungoverned LLM confidence, which is strictly worse.
+
+They stay, relabelled as what they are: a **policy control**, not calibration. Every
+hypothesis now carries `confidence_basis: "llm_uncalibrated"` so no consumer can present
+it as a probability, and every applied ceiling records `_policy_ceiling` and
+`_capped_because`. Retiring them for real needs a calibrated ranking layer. That is
+roadmap, and saying so is more honest than deleting the guardrail and claiming the
+milestone.
+
+---
+
 ## 10. Gaps in this research, stated plainly
 
 The session hit its rate limit before three streams finished. Not yet verified, and therefore **not

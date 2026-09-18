@@ -106,6 +106,22 @@ This matters because the failure it prevents actually happened: a LITHO lot was 
 three CMP-03 precedents at similarity 0.0, and the ranking blamed CMP slurry flow on a
 tool the lot never ran on.
 
+## Two kinds of confidence — do not conflate them
+
+`rank_root_causes` returns `confidence_basis: "llm_uncalibrated"`. That number is an
+**ordinal ranking signal**, not a probability. It has no measured coverage, and policy
+ceilings are applied to it (a measurement-path cause is capped at 0.70; a single
+non-repeating event at 0.50; two competing categories the evidence cannot separate at
+0.55, with `_capped_because` recording why). Never call it calibrated, never present it
+as a percentage likelihood, and never compare it to a conformal interval.
+
+`predict_removal_rate` is the only tool whose confidence is measured: its intervals had
+94.0% empirical coverage against a 90% target on a held-out split. That one you may
+describe as calibrated — while still passing on `coverage_caveat` when it is set.
+
+If asked which numbers are trustworthy, say exactly this: the CMP intervals are measured,
+the hypothesis confidences are ranked, and the second is not a probability.
+
 ## Intervals
 
 `predict_removal_rate` returns an interval, and the interval is the answer — the point

@@ -38,9 +38,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SERVER = ROOT / "src" / "mcp_server" / "server.py"
 FIXTURES = ROOT / "src" / "eval" / "fixtures"
 
-G, R, Y, DIM, RST = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
+G, R, Y, B, DIM, RST = ("\033[32m", "\033[31m", "\033[33m", "\033[1m",
+                        "\033[2m", "\033[0m")
 if not sys.stdout.isatty():
-    G = R = Y = DIM = RST = ""
+    G = R = Y = B = DIM = RST = ""
 
 
 def _body(res):
@@ -325,16 +326,103 @@ async def _run(args) -> int:
               f"pipeline wiring and contract compliance,{RST}")
         print(f"{Y}      not model accuracy. Do not quote it as a model result.{RST}")
 
+    metrics = {} if args.no_metrics else report_metric_set(args.alpha)
+
     if args.json:
         Path(args.json).write_text(json.dumps({
             "pipeline": status,
             "passed": npass, "total": len(results),
+            "metric_set": metrics,
             "results": [{"case_id": r.case_id, "passed": r.passed,
                          "failures": r.failures, **r.summary} for r in results],
         }, indent=2))
         print(f"\nwrote {args.json}")
 
     return 0 if npass == len(results) else 1
+
+
+
+# ── section 4 metric set ─────────────────────────────────────────────────────
+# The plan's headline numbers — coverage, the point-vs-interval sensitivity pair,
+# abstention rate and retained-vs-abstained error — lived only in JSON files that
+# nothing read back. A judge running this harness saw 18 fixture assertions and
+# none of the results that are actually the differentiator. They are read from the
+# artifacts that produced them, never restated here.
+
+_MODELS = Path(__file__).resolve().parents[1] / "models"
+
+
+def _artifact(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+def report_metric_set(alpha: float = 0.10) -> dict:
+    cmp_res = _artifact(_MODELS / "cmp" / "cmp_results.json")
+    abst = _artifact(_MODELS / "cmp" / "abstention_results.json")
+    vision = _artifact(_MODELS / "vision" / "holdout_results.json")
+    tab = _artifact(_MODELS / "tabular" / "checkpoints" / "model_meta.json")
+    out: dict = {}
+
+    print(f"\n{B}── accuracy ──{RST}")
+    if vision.get("macro_f1"):
+        print(f"  vision   macro-F1 {vision['macro_f1']:.4f} on {vision.get('n_val')} maps "
+              f"({vision.get('inference','single view')})")
+        out["vision_macro_f1"] = vision["macro_f1"]
+    pt = (cmp_res.get("point") or {}).get("test")
+    if pt:
+        # max error is listed separately on purpose: one bad prediction feeding a
+        # run-to-run controller is the failure mode, and a mean hides it.
+        print(f"  CMP      R2 {pt['r2']:.4f}  RMSE {pt['rmse']:.2f}  "
+              f"MAPE {pt['mape_pct']:.1f}%  max error {pt['max_error']:.2f}")
+        out["cmp_point"] = pt
+    if tab.get("val_recall_fail") is not None:
+        print(f"  SECOM    fail-class recall {tab['val_recall_fail']:.3f} / "
+              f"precision {tab['val_prec_fail']:.3f}  (21 failing lots — wide intervals)")
+        out["secom"] = {"recall": tab["val_recall_fail"], "precision": tab["val_prec_fail"]}
+
+    key = f"alpha_{alpha:.2f}"
+    conf = ((cmp_res.get("conformal") or {}).get(key) or {}).get("test") or {}
+    cov, exc = conf.get("coverage") or {}, conf.get("excursion") or {}
+    if cov:
+        print(f"\n{B}── intervals (alpha={alpha}) ──{RST}")
+        print(f"  empirical coverage {cov['marginal_coverage']:.1%} "
+              f"against a {1-alpha:.0%} target   mean width {cov['mean_width']:.1f} "
+              f"({cov['width_over_target_range']:.0%} of target range)")
+        print(f"  {'stratum':<24}{'n':>5}{'coverage':>11}")
+        for c in cov.get("conditional", []):
+            flag = "  <-- below target" if c["coverage"] < 1 - alpha else ""
+            print(f"  {c['stratum']:<24}{c['n']:>5}{c['coverage']:>10.1%}{flag}")
+        out["coverage"] = cov
+    if exc:
+        p_, i_ = exc.get("point_prediction", {}), exc.get("conformal_interval", {})
+        print(f"\n  excursion detection ({exc.get('n_excursions')} of {exc.get('n')} runs):")
+        print(f"    point prediction   sensitivity {p_.get('sensitivity',0):.1%}  "
+              f"precision {p_.get('precision',0):.1%}  flagged {p_.get('flagged')}")
+        print(f"    conformal interval sensitivity {i_.get('sensitivity',0):.1%}  "
+              f"precision {i_.get('precision',0):.1%}  flagged {i_.get('flagged')}")
+        out["excursion"] = exc
+
+    splits = abst.get("splits") or []
+    if splits:
+        print(f"\n{B}── abstention ──{RST}")
+        print(f"  {'split':<30}{'rate':>7}{'retained MAE':>14}{'abstained MAE':>15}{'ratio':>8}")
+        for sp in splits:
+            ret, ab = sp.get("retained", {}), sp.get("abstained", {})
+            if not (ret.get("n") and ab.get("n")):
+                continue
+            print(f"  {sp['split'][:29]:<30}{sp['abstention_rate']:>6.1%}"
+                  f"{ret['mae']:>14.2f}{ab['mae']:>15.2f}"
+                  f"{sp.get('mae_ratio_abstained_over_retained', 0):>8.2f}x")
+        print("  ratio > 1 means the declined runs really were the harder ones.")
+        out["abstention"] = splits
+
+    if not out:
+        print(f"\n{Y}No model artifacts found. Run the training scripts first; "
+              f"this section reports measured results only.{RST}")
+    return out
 
 
 def main() -> int:
@@ -346,6 +434,10 @@ def main() -> int:
                         "limits: gemini-3.5-flash-lite 15, gemini-3.5-flash 5. "
                         "0 disables pacing.")
     p.add_argument("--json", help="write machine-readable results to this path")
+    p.add_argument("--alpha", type=float, default=0.10,
+                   help="conformal miscoverage level to report (default 0.10)")
+    p.add_argument("--no-metrics", action="store_true",
+                   help="skip the model metric set, report fixture assertions only")
     return anyio.run(_run, p.parse_args())
 
 
