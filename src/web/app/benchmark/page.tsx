@@ -104,7 +104,7 @@ export default function BenchmarkPage() {
           <div className="metric-card">
             <div className="metric-top"><span>Vision Model Accuracy</span><Gauge size={16} /></div>
             <div className="metric-value">0.9232 F1</div>
-            <div className="metric-detail">WaferCNN + TTA-8 on WM-811K benchmark</div>
+            <div className="metric-detail">WaferCNN macro-F1, 9,357 held-out WM-811K maps</div>
           </div>
         </div>
 

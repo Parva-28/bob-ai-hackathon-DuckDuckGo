@@ -50,23 +50,23 @@ export default function GovernancePage() {
   const models = [
     {
       role: "Vision Defect Classification",
-      name: "WaferCNN (with TTA-8)",
-      dataset: "WM-811K (LSWMD)",
-      metrics: "Plain Macro-F1: 0.9157 (Acc: 0.9568) → TTA-8: 0.9232 (Acc: 0.9617)",
-      description: "Processes 64×64 spatial geometric die arrays into 9 standard defect patterns (Center, Donut, Edge-Ring, Loc, Scratch, Random, Near-full, None) with 8-fold test-time augmentation."
+      name: "WaferCNN (615,801 params, TTA-8)",
+      dataset: "WM-811K (LSWMD) — 9,357 held-out maps",
+      metrics: "Plain Macro-F1: 0.9157 (Acc 0.9568) → TTA-8: 0.9232 (Acc 0.9617)",
+      description: "Processes 64×64 die arrays into 9 defect patterns (Center, Donut, Edge-Loc, Edge-Ring, Local, Random, Scratch, Near-full, None) with 8-fold test-time augmentation. A ViT-Tiny was trained on the same split and rejected at macro-F1 0.6981."
     },
     {
       role: "In-line Telemetry Anomaly",
-      name: "IsolationForest + LightGBM",
-      dataset: "SECOM Manufacturing Feeds",
-      metrics: "Recall: 0.52 · False-Positive: < 4%",
-      description: "590 sensory channels standardized into z-score deviations with multivariate isolation trees."
+      name: "Variance-filtered IsolationForest",
+      dataset: "SECOM (UCI id=179) — 21 failing lots in validation",
+      metrics: "Fail-class recall 0.286 (6/21) · precision 0.194 — wide intervals, small sample",
+      description: "590 anonymised sensor channels standardised into z-scores, variance-filtered, scored by isolation trees calibrated on training pass rows. A supervised IF + gradient-boosting hybrid was built and rejected for scoring worse."
     },
     {
       role: "Root-Cause Reasoning Engine",
       name: "IBM Bob Agent / CoT Reasoning",
       dataset: "Fab Ground Truth & MCP Tools",
-      metrics: "18/18 Benchmark Passed (100%)",
+      metrics: "See /api/eval — pass rate is read from the last recorded live run",
       description: "Structured Chain-of-Thought with negative evidence cross-validation and hypothesis ranking."
     },
   ];

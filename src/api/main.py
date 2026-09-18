@@ -197,18 +197,56 @@ def api_eval():
         except Exception:
             pass
 
+    # Metrics are READ from the artifacts that produced them, never restated here.
+    # A literal in this file is a number that silently goes stale the next time a
+    # model is retrained -- which is exactly how "ViT-Tiny: 0.942" and
+    # "pass_rate: 100.0" ended up being served while the real figures were
+    # 0.6981 and 10/18.
+    def _load(path: Path) -> dict:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    vision = _load(HERE.parent / "models" / "vision" / "holdout_results.json")
+    tabular = _load(HERE.parent / "models" / "tabular" / "checkpoints" / "model_meta.json")
+
+    passed = live_results.get("passed")
+    total  = live_results.get("total", len(fixtures))
+    pass_rate = round(passed / total * 100, 1) if passed is not None and total else None
+
+    def _vision_summary() -> str:
+        if not vision.get("macro_f1"):
+            return "WaferCNN — not yet evaluated (run src/models/vision/colab/train_simple.ipynb)"
+        return (f"WaferCNN, WM-811K macro-F1 {vision['macro_f1']:.4f} "
+                f"on {vision.get('n_val', '?')} held-out maps "
+                f"({vision.get('inference', 'single-view inference')})")
+
+    def _tabular_summary() -> str:
+        if not tabular.get("val_recall_fail"):
+            return "IsolationForest — metrics unavailable"
+        return (f"Variance-filtered IsolationForest, SECOM fail-class recall "
+                f"{tabular['val_recall_fail']:.3f} / precision {tabular['val_prec_fail']:.3f} "
+                f"on 21 failing lots — small-sample, see NOTES.md")
+
     return {
         "summary": {
             "total_cases": len(fixtures),
-            "passed": 18,
-            "failed": 0,
-            "pass_rate": 100.0,
-            "reasoning_provider": "IBM Bob MCP Orchestrator",
+            "passed": passed,
+            "failed": (total - passed) if passed is not None else None,
+            "pass_rate": pass_rate,
+            "source": "src/eval/live-results.json" if live_results else "no live run recorded",
+            "reasoning_provider": live_results.get("pipeline", {}).get("reasoning_mode", "unknown"),
             "models": {
-                "vision": "WaferCNN with TTA-8 (WM-811K Plain Macro-F1: 0.9157 -> TTA-8: 0.9232, Accuracy: 0.9617)",
-                "tabular": "IsolationForest + LightGBM Hybrid (SECOM Recall: 0.52)",
-                "reasoning": "IBM Bob MCP Agent Orchestrator with Structured CoT & Negative Evidence Grounding"
-            }
+                "vision": _vision_summary(),
+                "tabular": _tabular_summary(),
+                "reasoning": "IBM Bob MCP orchestration with evidence-citation enforcement",
+            },
+            "caveat": (
+                "Vision and tabular results are not comparable evidence: the classifier is "
+                "measured on 9,357 wafer maps, the detector on 21 failing lots."
+            ),
         },
         "fixtures": fixtures,
         "live_results": live_results
@@ -225,16 +263,18 @@ def api_transparency():
             {
                 "name": "WM-811K (LSWMD)",
                 "domain": "Spatial Wafer Defect Patterns",
-                "samples": "811,472 wafers",
-                "classes": ["Center", "Donut", "Edge-Loc", "Edge-Ring", "Loc", "Random", "Scratch", "Near-full"],
-                "role": "Real-time wafer defect pattern classification via 64x64 geometric sensor arrays"
+                "samples": "811,457 wafer maps total; 172,950 labelled, of which 25,519 carry a defect pattern",
+                "classes": ["Center", "Donut", "Edge-Loc", "Edge-Ring", "Local", "Random", "Scratch", "Near-full", "None"],
+                "role": "Wafer defect pattern classification on 64x64 resized bin maps"
             },
             {
-                "name": "SECOM (Semiconductor Manufacturing)",
+                "name": "SECOM (UCI id=179)",
                 "domain": "In-line Fab Process Telemetry",
-                "samples": "1,567 production lots across 590 sensory channels",
-                "attributes": "Deposition rates, RF match, chamber pressures, platen vibrations",
-                "role": "High-dimensional multivariate anomaly detection"
+                "samples": "1,567 lots across 590 sensor channels; 104 failures (6.6%)",
+                "attributes": "Anonymised. The published dataset does not name its sensors, so we do "
+                              "not claim to know which physical parameters they represent.",
+                "role": "High-dimensional imbalanced anomaly detection. No fault labels, so it "
+                        "cannot validate root-cause attribution -- only detection."
             }
         ],
         "contracts": [
@@ -252,7 +292,11 @@ def api_transparency():
             },
             {
                 "rule": "Zero Fabricated Data",
-                "description": "Mock mode is explicitly declared in all headers and API payloads. Pre-run lots without wafers do not generate synthetic maps."
+                "description": "Mock mode is explicitly declared in all headers and API payloads. "
+                               "Pre-run lots without wafers do not generate synthetic maps. Reported "
+                               "metrics are read from the artifacts that produced them "
+                               "(holdout_results.json, model_meta.json, live-results.json), never "
+                               "restated as literals in serving code."
             }
         ]
     }
