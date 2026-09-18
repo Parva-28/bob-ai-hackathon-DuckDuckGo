@@ -638,6 +638,138 @@ class ChatRequest(BaseModel):
     lot_id: str | None = "WFR-24-0817"
 
 
+
+# ── Real MCP evidence for the Copilot ────────────────────────────────────────
+
+def _real_evidence(lot_id: str) -> dict | None:
+    """
+    Run the actual MCP tool chain and return what it produced.
+
+    Everything the Copilot shows -- the tool trace, the confidence, the citations --
+    comes from here. Previously the trace was a list of f-strings printing
+    "Invoking MCP Tool: ..." for calls that never happened, with confidence assigned
+    by keyword match on the user's question (95 for "contain", 91 for "history").
+    That is the anti-pattern the whole project argues against: a number that looks
+    calibrated and is not. See docs/v2/00-PLAN.md section 3.2, Tier 3 -- confidence is
+    inherited from the analysis layer, never generated.
+    """
+    try:
+        res = analyse(lot_id)
+    except Exception as e:
+        print(f"[copilot] analyse({lot_id}) failed: {e}")
+        return None
+    if res.get("error"):
+        return None
+
+    cls    = res.get("classification") or {}
+    an     = res.get("anomaly") or {}
+    cases  = (res.get("cases") or {}).get("cases") or []
+    ranked = (res.get("ranked") or {}).get("hypotheses") or []
+    risk   = res.get("risk") or {}
+    top    = ranked[0] if ranked else None
+
+    # One line per tool the chain actually ran, annotated with what it returned.
+    detail = {
+        "get_lot_data": f"status={res['lot'].get('status')}, yield={res['lot'].get('final_yield_pct')}",
+        "classify_wafer_map": (f"{cls.get('predicted_class')} ({cls.get('confidence')})"
+                               if cls else "no wafer map on this lot"),
+        "score_sensor_anomaly": f"anomaly_score={an.get('anomaly_score')}" if an else "-",
+        "retrieve_similar_cases": f"{len(cases)} case(s)"
+                                  + (f", top {cases[0].get('case_id')}" if cases else ""),
+        "query_telemetry": f"{len((res.get('telemetry') or {}).get('telemetry') or [])} trace(s)",
+        "rank_root_causes": (f"{len(ranked)} hypothesis(es), top={top.get('category')}"
+                             if top else "no hypothesis met the evidence gate"),
+        "flag_at_risk_batch": f"risk={risk.get('risk_score')}" if risk else "-",
+        "get_corrective_action_playbook": f"{len(res.get('actions', {}).get('actions', []))} action(s)",
+    }
+    steps = [f"{st['tool']}({st['arg']}) -> {detail.get(st['tool'], 'ok')}"
+             for st in res.get("steps", [])]
+
+    # Confidence is the top hypothesis's, produced by the ranking layer under its
+    # guardrails. No hypothesis -> no confidence. Abstention is a valid answer.
+    confidence = round(float(top["confidence"]) * 100) if top and top.get("confidence") else None
+
+    citations = []
+    if cls.get("predicted_class"):
+        citations.append(f"WaferCNN: {cls['predicted_class']} ({cls.get('confidence')})")
+    if an.get("anomaly_score") is not None:
+        citations.append(f"Anomaly score {an['anomaly_score']}")
+    citations += [c["case_id"] for c in cases[:2] if c.get("case_id")]
+    if top and top.get("evidence_summary"):
+        citations.append(top["evidence_summary"][:80])
+
+    return {"result": res, "steps": steps, "confidence": confidence,
+            "citations": citations or ["MCP tool chain (no evidence returned)"],
+            "top": top, "classification": cls, "anomaly": an, "cases": cases}
+
+
+def _evidence_brief(ev: dict) -> str:
+    """Plain-text evidence block for the LLM prompt. Only what the tools returned."""
+    lines = []
+    if ev["classification"].get("predicted_class"):
+        lines.append(f"- Wafer map classified as {ev['classification']['predicted_class']} "
+                     f"at {ev['classification'].get('confidence')} confidence (WaferCNN + TTA-8)")
+    if ev["anomaly"].get("anomaly_score") is not None:
+        lines.append(f"- Sensor anomaly score: {ev['anomaly']['anomaly_score']}")
+        top_sensors = ev["anomaly"].get("top_deviating_sensors") or []
+        if top_sensors:
+            lines.append(f"  most deviant sensors: {', '.join(top_sensors[:5])}")
+    for c in ev["cases"][:3]:
+        lines.append(f"- Precedent {c.get('case_id')}: {str(c.get('summary', ''))[:110]} "
+                     f"(similarity {c.get('similarity')})")
+    if ev["top"]:
+        lines.append(f"- Top ranked cause: {ev['top'].get('description')} "
+                     f"[{ev['top'].get('category')}] at confidence {ev['top'].get('confidence')}")
+        lines.append(f"  evidence: {ev['top'].get('evidence_summary')}")
+    else:
+        lines.append("- The ranking layer returned NO hypothesis that met the evidence gate.")
+    return "\n".join(lines) or "- No evidence returned by the tool chain."
+
+
+
+_GENAI = None   # reused; a per-call client gets closed and the next call fails
+
+
+def _narrate(query: str, history: list[dict], lot_id: str, brief: str) -> str | None:
+    """
+    Narrate real tool output. The evidence block is passed in, never invented here,
+    and the model is told explicitly not to add findings of its own.
+    """
+    try:
+        from google import genai
+        key = os.environ.get("GEMINI_API_KEY")
+        if not key:
+            return None
+        hist = ""
+        if history:
+            hist = "Recent conversation:\n" + "\n".join(
+                f"{'User' if h.get('role') == 'user' else 'YieldGuard'}: {h.get('content')}"
+                for h in history[-4:]) + "\n\n"
+        prompt = (
+            "You are YieldGuard Copilot, assisting a semiconductor yield engineer.\n\n"
+            f"Lot under discussion: {lot_id}\n"
+            f"Evidence returned by the MCP tool chain for this lot:\n{brief}\n\n"
+            f"{hist}User question: {query}\n\n"
+            "Rules you must follow:\n"
+            "- Use ONLY the evidence above. Do not introduce sensor values, case IDs, "
+            "equipment names, timestamps or costs that do not appear in it.\n"
+            "- If the evidence does not answer the question, say so plainly and name what "
+            "would be needed. An honest 'the tool chain did not establish that' is correct.\n"
+            "- Do not state a confidence percentage; the interface reports the calibrated "
+            "value separately.\n"
+            "- Be concise and technical. Markdown formatting is fine."
+        )
+        global _GENAI
+        if _GENAI is None:
+            _GENAI = genai.Client(api_key=key)
+        resp = _GENAI.models.generate_content(
+            model="gemini-3.5-flash-lite", contents=prompt)
+        return resp.text.strip() if resp and resp.text else None
+    except Exception as e:
+        print(f"[copilot] narration failed: {e}")
+        return None
+
+
 @app.post("/api/chat")
 def api_chat(req: ChatRequest):
     """
@@ -692,6 +824,32 @@ def api_chat(req: ChatRequest):
         }
 
     lot_id = target_lot_id
+
+    # ── Primary path: run the real MCP chain and answer from what it returned ──
+    ev = _real_evidence(lot_id)
+    if ev is not None:
+        brief = _evidence_brief(ev)
+        reply = _narrate(query, req.history, lot_id, brief)
+        if reply is None:
+            # No LLM available. Report the evidence rather than a scripted answer.
+            reply = (f"### Evidence for `{lot_id}`\n\n{brief}\n\n"
+                     + ("_No reasoning provider is configured, so this is the raw tool "
+                        "output without narration._"))
+        return {
+            "reply": reply,
+            "steps": ev["steps"],
+            "citations": ev["citations"],
+            # None when the ranking layer produced no hypothesis. The UI must render
+            # that as "no confidence available", not substitute a default.
+            "confidence": ev["confidence"],
+            "abstained": ev["top"] is None,
+            "actions": [{"label": "Examine Evidence in Workspace", "href": "/investigation"},
+                        {"label": "Review Playbook", "href": "/playbook"}],
+            "history_turns": len(req.history),
+            "provider": "IBM Bob MCP tool chain (live)",
+        }
+
+    # ── Fallback: the tool chain could not run. Say so; do not simulate it. ──
     stage = lot_prof.get("stage", "post_mortem_excursion")
     primary_eq = lot_prof.get("equipment", "ETCH-04")
     product_id = lot_prof.get("product_id", "P-LOGIC-3N")

@@ -33,7 +33,7 @@ interface Message {
   steps?: string[];
   thoughtSeconds?: number;
   citations?: string[];
-  confidence?: number;
+  confidence?: number | null;
   actions?: { label: string; href: string }[];
 }
 
@@ -287,131 +287,11 @@ function extractLotIdFromQuery(text: string): string | null {
         ];
     setActiveSteps(initialSteps);
 
-    const stepTimers: NodeJS.Timeout[] = isUnregistered
-      ? [
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP Tool: get_lot_data('${extractedLot}') -> ERROR: unknown lot_id '${extractedLot}'`,
-            ]);
-          }, 350),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP Tool: flag_at_risk_batch('${extractedLot}') -> ABORTED: Lot not in MES dispatch queue`,
-            ]);
-          }, 750),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Integrity Guard: Enforced Zero-Fabricated-Data policy (Cleanroom Safety)`,
-            ]);
-          }, 1150),
-        ]
-      : targetLotId === "L-6002"
-      ? [
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: get_lot_data('L-6002') -> Status: PLANNED (LITHO-07)`,
-            ]);
-          }, 450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: flag_at_risk_batch('L-6002') -> Triage Score: 18/100 (NOMINAL)`,
-            ]);
-          }, 950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: query_telemetry(['LITHO-07']) -> Optical align 1.2nm (<2.0nm nominal)`,
-            ]);
-          }, 1450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: retrieve_similar_cases() -> 0 low-yield matches`,
-            ]);
-          }, 1950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: get_corrective_action_playbook('standard_release') -> Authorized for production release`,
-            ]);
-          }, 2450),
-        ]
-      : targetLotId === "L-6001"
-      ? [
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: get_lot_data('L-6001') -> Status: PLANNED (CMP-03)`,
-            ]);
-          }, 450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: flag_at_risk_batch('L-6001') -> Triage Score: 42/100 (MODERATE)`,
-            ]);
-          }, 950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: query_telemetry(['CMP-03']) -> Slurry flow -2.7%, Pad life 84%`,
-            ]);
-          }, 1450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: retrieve_similar_cases() -> Matched HC-018`,
-            ]);
-          }, 1950),
-        ]
-      : [
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: get_lot_data('${targetLotId}') -> EXCURSION`,
-            ]);
-          }, 450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: classify_wafer_map() -> Edge-Ring (WaferCNN: 98.4% F1)`,
-            ]);
-          }, 950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: score_sensor_anomaly() -> +4.8σ RF Spike`,
-            ]);
-          }, 1450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: query_telemetry(['ETCH-04']) -> +3.2σ drift`,
-            ]);
-          }, 1950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: retrieve_similar_cases() -> CASE-1042 (0.91 match)`,
-            ]);
-          }, 2450),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: rank_root_causes() -> Primary: RF PM drift`,
-            ]);
-          }, 2950),
-          setTimeout(() => {
-            setActiveSteps((prev) => [
-              ...prev,
-              `Invoking MCP: get_corrective_action_playbook() -> Lock ETCH-04`,
-            ]);
-          }, 3400),
-        ];
+    // No simulated tool trace. Previously this fired setTimeout at 350/950/1450/...ms
+    // printing "Invoking MCP Tool: ..." for calls that were never made, with values
+    // (+4.8 sigma, Edge-Ring 96.4%, CASE-1042) baked into the string. The real trace now
+    // arrives in data.steps from /api/chat, built from what the tool chain returned.
+    const stepTimers: NodeJS.Timeout[] = [];
 
     const historyPayload = updatedMessages.map((m) => ({
       role: m.role,
@@ -443,10 +323,12 @@ function extractLotIdFromQuery(text: string): string | null {
             role: "assistant",
             content: data.reply,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            steps: data.steps && data.steps.length > 0 ? data.steps : activeSteps,
+            steps: data.steps ?? [],
             thoughtSeconds: elapsedSec,
-            citations: data.citations || ["ETCH-04 Sensor Signature", "WM-811K WaferCNN", "IBM Bob MCP Server"],
-            confidence: data.confidence !== undefined ? data.confidence : 88,
+            citations: data.citations ?? [],
+            // null when the ranking layer produced no hypothesis: render as
+            // "no confidence available", never a default.
+            confidence: data.confidence ?? null,
             actions: data.actions || [{ label: "View Investigation", href: "/investigation" }],
           };
           setMessages((prev) => [...prev, aiMsg]);
@@ -502,7 +384,7 @@ function extractLotIdFromQuery(text: string): string | null {
         role: "assistant",
         content: `### Batch Risk Triage Assessment: Lot L-6002\n\n**STATUS: NOMINAL (Composite Triage Score: 18 / 100)**\n\nLot **L-6002** is scheduled for **LITHO-07** (Product \`P-MEM-1A\`, Line \`FAB1-B\`) and is **NOT classified as high risk**.\n\n#### Why Lot L-6002 is Evaluated as Nominal (Low Risk):\n1. **Zero Recipe Parameter Deviations:** All planned setpoints match engineering baselines perfectly:\n   - **Exposure Dose Target:** 24.5 mJ/cm² (Baseline: 24.5 mJ/cm², **0.0% delta**)\n   - **Focus Offset:** 0.0 nm (Baseline: 0.0 nm, **0.0% delta**)\n   - **Overlay Alignment:** 1.2 nm (Baseline: < 2.0 nm, **Nominal**)\n2. **Healthy Scanner State:** LITHO-07 has zero active drift alarms and an overall health index of 99.1%.\n3. **Zero Precedent Correlations:** 0 matches in the Fab 07 historical low-yield vector archive.\n4. **Pre-Run State:** This lot is planned and has not yet started fabrication, so no physical wafer defects or sensor transients exist.\n\n#### Recommended Action:\n- **Proceed with standard production release:** No machine holds or interlocks required.`,
         timestamp,
-        confidence: 98,
+        confidence: null,
         citations: ["LITHO-07 Optical Metrology", "Parameter Baseline Audit (0.0% delta)", "Zero Low-Yield Matches", "IBM Bob MCP: flag_at_risk_batch"],
         actions: [
           { label: "View Batch Risk Dashboard", href: "/batch-risk" },
@@ -517,7 +399,7 @@ function extractLotIdFromQuery(text: string): string | null {
         role: "assistant",
         content: `### Batch Risk Triage Assessment: Lot L-6001\n\n**STATUS: MODERATE RISK (Composite Triage Score: 42 / 100)**\n\nLot **L-6001** is scheduled on **CMP-03** (Product \`P-LOGIC-3N\`).\n\n- **Slurry Flow Target:** Planned 180 mL/min vs 185 mL/min baseline (**-2.7% deficit**).\n- **Pad Life Consumed:** Currently at **84%** (exceeds recommended 75% threshold).\n- **Matched Case:** Correlates with historical case **HC-018** (pad wear slurry starvation).\n\n**Recommended Pre-Run Action:** Inspect CMP-03 delivery line pressure and schedule pad conditioning before running multi-die logic lot.`,
         timestamp,
-        confidence: 90,
+        confidence: null,
         citations: ["CMP-03 Sensor Feed", "Pad Life Monitor (84%)", "Matched Precedent: HC-018", "IBM Bob MCP: flag_at_risk_batch"],
         actions: [
           { label: "Inspect CMP-03 Line", href: "/equipment" },
@@ -532,7 +414,7 @@ function extractLotIdFromQuery(text: string): string | null {
         role: "assistant",
         content: `### Immediate Cleanroom Containment Protocol for ${effectiveLot}\n\n1. **Lock Machine ETCH-04 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.\n2. **Quarantine Downstream Lot WFR-24-0818 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
         timestamp,
-        confidence: 95,
+        confidence: null,
         citations: ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"],
         actions: [
           { label: "Open Action Playbook", href: "/playbook" },
@@ -546,7 +428,7 @@ function extractLotIdFromQuery(text: string): string | null {
       role: "assistant",
       content: `Yes. Similar RF spikes on **ETCH-04** have occurred 3 times in the past 6 months, most recently on lot **WFR-24-0623**. In all cases, the excursions were associated with chamber pressure instability and resulted in thickness non-uniformity (TU > spec).\n\n**Correlating Precedent:**\n- **CASE-1042:** RF match network vacuum variable capacitor slippage post-PM on FAB2-A (91% cosine match).\n- **Action Taken:** Re-torqued stepper coupler and recalibrated match-box impedance.`,
       timestamp,
-      confidence: 91,
+      confidence: null,
       citations: ["Historical Lot Analysis", "ETCH-04 Event Log", "CASE-1042 Archive", "IBM Bob MCP: retrieve_similar_cases"],
       actions: [
         { label: "View Historical Cases", href: "/cases" },
@@ -726,7 +608,7 @@ function extractLotIdFromQuery(text: string): string | null {
                     }}
                   />
 
-                  {msg.confidence !== undefined && (
+                  {msg.role === "assistant" && (
                     <div
                       style={{
                         display: "inline-flex",
@@ -735,13 +617,18 @@ function extractLotIdFromQuery(text: string): string | null {
                         marginTop: "10px",
                         padding: "3px 8px",
                         borderRadius: "12px",
-                        background: "#defbe6",
-                        color: "#0e6027",
+                        background: msg.confidence != null ? "#defbe6" : "#f2f4f8",
+                        color: msg.confidence != null ? "#0e6027" : "#525252",
                         fontSize: "11px",
                         fontWeight: 600,
                       }}
                     >
-                      <CheckCircle2 size={12} /> Calibrated Confidence: <b>{msg.confidence}%</b>
+                      <CheckCircle2 size={12} />{" "}
+                      {msg.confidence != null ? (
+                        <>Confidence (from ranking layer): <b>{msg.confidence}%</b></>
+                      ) : (
+                        <>No confidence available &mdash; no hypothesis met the evidence gate</>
+                      )}
                     </div>
                   )}
 
