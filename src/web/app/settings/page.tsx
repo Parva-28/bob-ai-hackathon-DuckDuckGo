@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const [anomalyThreshold, setAnomalyThreshold] = useState("2.0");
   const [yieldTarget, setYieldTarget] = useState("92.0");
   const [edgeExclusion, setEdgeExclusion] = useState("4");
-  const [reasoningProvider, setReasoningProvider] = useState("gemini-2.0-flash");
+  const [reasoningProvider, setReasoningProvider] = useState("ibm-bob-mcp");
   const [autoTriage, setAutoTriage] = useState(true);
   const [saved, setSaved] = useState(false);
 
@@ -143,7 +143,7 @@ export default function SettingsPage() {
                     onChange={e => setReasoningProvider(e.target.value)}
                     style={{ height: "34px", width: "100%", maxWidth: "340px", padding: "0 10px", borderRadius: "6px", border: "1px solid #dce4e8", fontSize: "11.5px", outline: "none", background: "#ffffff" }}
                   >
-                    <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Recommended)</option>
+                    <option value="ibm-bob-mcp">IBM Bob Multi-LLM Orchestrator (Recommended)</option>
                     <option value="structured-cot-offline">Structured CoT Offline Reasoning Engine</option>
                   </select>
                 </div>

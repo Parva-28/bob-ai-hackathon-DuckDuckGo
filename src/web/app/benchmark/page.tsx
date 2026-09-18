@@ -98,7 +98,7 @@ export default function BenchmarkPage() {
           </div>
           <div className="metric-card">
             <div className="metric-top"><span>Reasoning Provider</span><Sparkles size={16} /></div>
-            <div className="metric-value">Gemini 2.0</div>
+            <div className="metric-value">IBM Bob MCP</div>
             <div className="metric-detail">Structured Chain-of-Thought with Negative Grounding</div>
           </div>
           <div className="metric-card">

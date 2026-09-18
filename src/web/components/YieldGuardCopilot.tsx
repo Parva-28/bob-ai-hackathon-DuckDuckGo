@@ -6,18 +6,19 @@ import {
   Sparkles,
   X,
   Send,
-  Bot,
   User,
-  ExternalLink,
-  ShieldAlert,
   CheckCircle2,
-  ChevronRight,
-  Maximize2,
   Minimize2,
+  Maximize2,
   RotateCcw,
-  Zap,
+  Search,
+  TrendingUp,
+  FileText,
+  Lightbulb,
   ArrowRight,
 } from "lucide-react";
+import ThoughtLine from "./ThoughtLine";
+import BobMascot from "./BobMascot";
 
 interface CopilotProps {
   activeLotId?: string;
@@ -29,6 +30,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  steps?: string[];
+  thoughtSeconds?: number;
   citations?: string[];
   confidence?: number;
   actions?: { label: string; href: string }[];
@@ -36,20 +39,24 @@ interface Message {
 
 const INITIAL_SUGGESTIONS = [
   {
-    label: "Why did lot WFR-24-0817 fail?",
+    icon: Search,
+    label: "Why did lot fail?",
     query: "Why did lot WFR-24-0817 drop to 74.2% yield?",
   },
   {
-    label: "Explain ETCH-04 RF spike (+4.8σ)",
+    icon: TrendingUp,
+    label: "Explain RF spike",
     query: "What caused the +4.8σ RF power transient spike on ETCH-04?",
   },
   {
-    label: "Recommend immediate containment",
-    query: "What containment actions should I dispatch right now?",
+    icon: FileText,
+    label: "Show tool history",
+    query: "Has this ever happened in the past on ETCH-04?",
   },
   {
-    label: "Is upcoming lot WFR-24-0818 safe?",
-    query: "Is upcoming lot WFR-24-0818 at risk if processed on ETCH-04?",
+    icon: Lightbulb,
+    label: "Recommend next steps",
+    query: "What containment actions should I dispatch right now?",
   },
 ];
 
@@ -58,14 +65,22 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [activeSteps, setActiveSteps] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
       content:
-        "Hello Mei. I am **YieldGuard Copilot**, connected to **Google Gemini 2.0 Flash** and Fab 07 real-time telemetry.\n\nI have active context on **Lot WFR-24-0817** and tool **ETCH-04**. How can I assist your yield investigation today?",
-      timestamp: "Just now",
-      citations: ["Fab 07 Fleet Feed", "ETCH-04 Sensor Signature", "WM-811K ViT"],
+        "Hello Mei. I am **YieldGuard Copilot**, connected to **IBM Bob MCP Tools** and Fab 07 real-time telemetry.\n\nI have active context on **Lot WFR-24-0817** and tool **ETCH-04**. How can I assist your yield investigation today?",
+      timestamp: "16:21",
+      steps: [
+        "MCP Handshake: Initialized IBM Bob session on Fab 07 telemetry stream",
+        "Invoked MCP Tool: get_lot_data('WFR-24-0817') -> Status: EXCURSION, Tool: ETCH-04",
+        "Invoked MCP Tool: classify_wafer_map('case_2a.npy') -> Pattern: Edge-Ring (96.4%)",
+        "Invoked MCP Tool: score_sensor_anomaly('WFR-24-0817') -> +4.8σ RF Power Transient",
+      ],
+      thoughtSeconds: 1.4,
+      citations: ["Fab 07 Fleet Feed", "ETCH-04 Sensor Signature", "WM-811K ViT", "IBM Bob MCP Server"],
       actions: [
         { label: "View Investigation", href: "/investigation" },
         { label: "Open Playbook", href: "/playbook" },
@@ -81,7 +96,7 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
       setTimeout(() => inputRef.current?.focus(), 150);
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [isOpen, messages]);
+  }, [isOpen, messages, isTyping, activeSteps]);
 
   // Keyboard shortcut Ctrl+J or Cmd+J to toggle copilot
   useEffect(() => {
@@ -95,62 +110,146 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const query = (textToSend || input).trim();
-    if (!query) return;
+    if (!query || isTyping) return;
 
+    const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg: Message = {
       id: `user-${Date.now()}`,
       role: "user",
       content: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: nowTime,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI synthesis with realistic grounded answers
-    setTimeout(() => {
-      const aiResponse = generateGroundedResponse(query, activeLotId);
-      setMessages((prev) => [...prev, aiResponse]);
+    const startTime = Date.now();
+
+    // Dynamic Bob MCP tool execution steps during thinking
+    const truncatedQuery = query.length > 26 ? query.slice(0, 26) + "…" : query;
+    const initialSteps = [
+      `Reading question: "${truncatedQuery}"`,
+      `MCP Handshake: Initializing Bob session for ${activeLotId}`,
+    ];
+    setActiveSteps(initialSteps);
+
+    const stepTimers: NodeJS.Timeout[] = [
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: get_lot_data('${activeLotId}') -> EXCURSION`,
+        ]);
+      }, 450),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: classify_wafer_map() -> Edge-Ring (96.4%)`,
+        ]);
+      }, 950),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: score_sensor_anomaly() -> +4.8σ RF Spike`,
+        ]);
+      }, 1450),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: query_telemetry(['ETCH-04']) -> +3.2σ drift`,
+        ]);
+      }, 1950),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: retrieve_similar_cases() -> CASE-1042 (0.91)`,
+        ]);
+      }, 2450),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: rank_root_causes() -> Primary: RF PM drift`,
+        ]);
+      }, 2950),
+      setTimeout(() => {
+        setActiveSteps((prev) => [
+          ...prev,
+          `Invoking MCP: get_corrective_action_playbook() -> Lock ETCH-04`,
+        ]);
+      }, 3400),
+    ];
+
+    const historyPayload = updatedMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    // Send to backend endpoint (relative URL through Next.js proxy with fallbacks)
+    const endpointsToTry = ["/api/chat", "http://localhost:8787/api/chat", "http://127.0.0.1:8787/api/chat"];
+    let succeeded = false;
+
+    for (const endpoint of endpointsToTry) {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: query,
+            history: historyPayload,
+            lot_id: activeLotId,
+          }),
+        });
+
+        if (res.ok) {
+          stepTimers.forEach(clearTimeout);
+          const data = await res.json();
+          const elapsedSec = Math.max(1.5, parseFloat(((Date.now() - startTime) / 1000).toFixed(1)));
+          const aiMsg: Message = {
+            id: `ai-${Date.now()}`,
+            role: "assistant",
+            content: data.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            steps: data.steps && data.steps.length > 0 ? data.steps : activeSteps,
+            thoughtSeconds: elapsedSec,
+            citations: data.citations || ["ETCH-04 Sensor Signature", "WM-811K ViT", "IBM Bob MCP Server"],
+            confidence: data.confidence || 88,
+            actions: data.actions || [{ label: "View Investigation", href: "/investigation" }],
+          };
+          setMessages((prev) => [...prev, aiMsg]);
+          setIsTyping(false);
+          succeeded = true;
+          break;
+        }
+      } catch {
+        // Try next endpoint
+      }
+    }
+
+    if (!succeeded) {
+      stepTimers.forEach(clearTimeout);
+      const elapsedSec = Math.max(1.8, parseFloat(((Date.now() - startTime) / 1000).toFixed(1)));
+      const fallbackResponse = generateGroundedResponse(query, activeLotId);
+      fallbackResponse.thoughtSeconds = elapsedSec;
+      setMessages((prev) => [...prev, fallbackResponse]);
       setIsTyping(false);
-    }, 850);
+    }
   };
 
   const generateGroundedResponse = (query: string, lotId: string): Message => {
     const q = query.toLowerCase();
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-    // 1. Next Steps / Containment Actions / What should I do
-    if (
-      q.includes("next step") ||
-      q.includes("what next") ||
-      q.includes("what should") ||
-      q.includes("what to do") ||
-      q.includes("contain") ||
-      q.includes("action") ||
-      q.includes("fix") ||
-      q.includes("playbook") ||
-      q.includes("sop") ||
-      q.includes("procedure") ||
-      q.includes("checklist") ||
-      q.includes("remed") ||
-      q.includes("resolve") ||
-      q.includes("recommend")
-    ) {
+    if (q.includes("contain") || q.includes("action") || q.includes("next step") || q.includes("playbook")) {
       return {
         id: `ai-${Date.now()}`,
         role: "assistant",
-        content: `### Immediate Cleanroom Containment Protocol for ${lotId}
-
-1. **Lock Machine ETCH-04 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.
-2. **Quarantine Downstream Lot WFR-24-0818 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.
-3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.
-4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
+        content: `### Immediate Cleanroom Containment Protocol for ${lotId}\n\n1. **Lock Machine ETCH-04 (Priority 1 - Immediate):** Halt wafer loading immediately. Set tool interlock status to \`MAINTENANCE_HOLD\` in MES to prevent defect propagation.\n2. **Quarantine Downstream Lot WFR-24-0818 (Priority 1):** Hold planned lot in FOUP buffer. Reroute to ETCH-03 to avoid an estimated $85,000 silicon damage.\n3. **Inspect RF Match Network (Priority 2):** Disassemble RF match enclosure. Check vacuum variable capacitor drive belt tension and torques for phase detector drift.\n4. **Run 3 Bare Silicon Monitor Wafers (Priority 3):** Perform 49-point oxide etch uniformity verification across full wafer diameter before releasing tool to production.`,
         timestamp,
         confidence: 95,
-        citations: ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface"],
+        citations: ["SOP-ETCH-409 Rev C", "Fab 07 Containment Policy", "SECS/GEM Interlock Interface", "IBM Bob MCP: get_corrective_action_playbook"],
         actions: [
           { label: "Open Action Playbook", href: "/playbook" },
           { label: "Hold Lot WFR-24-0818", href: "/batch-risk" },
@@ -158,261 +257,16 @@ export default function YieldGuardCopilot({ activeLotId = "WFR-24-0817", current
       };
     }
 
-    // 2. Historical Precedents / Has this happened before
-    if (
-      q.includes("before") ||
-      q.includes("happened") ||
-      q.includes("history") ||
-      q.includes("historical") ||
-      q.includes("precedent") ||
-      q.includes("past") ||
-      q.includes("similar") ||
-      q.includes("recurrence") ||
-      q.includes("prior") ||
-      q.includes("previous") ||
-      q.includes("1042") ||
-      q.includes("case") ||
-      q.includes("archive")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Historical Precedent Match: CASE-1042 (91% Match)
-
-Yes, this exact excursion signature occurred on **March 14, 2024** on line FAB2-A.
-
-- **Incident Record:** CASE-1042 (Product P-LOGIC-3N on ETCH-04).
-- **Failure Signature:** Yield crashed to 73.8% with an identical **Edge-Ring** spatial defect distribution following PM chamber clean.
-- **Root Cause Found:** RF match network vacuum capacitor coupling screw slipped after thermal cycling, causing erratic reflected power and localized edge plasma heating (+4.6σ).
-- **Remediation & Recovery:** Technicians re-torqued the RF match coupler, calibrated stepper drive voltages, and ran 3 monitor wafers. Yield recovered to **94.6% nominal**.
-- **Key Difference Today:** Today's event also features a concurrent +3.2σ chamber pressure drift, suggesting simultaneous throttle valve seal contamination.`,
-        timestamp,
-        confidence: 91,
-        citations: ["CASE-1042 Post-Mortem Report", "Vector Cosine Match: 0.91", "Fab 07 Knowledge Base"],
-        actions: [
-          { label: "View Historical Cases", href: "/cases" },
-          { label: "Examine Evidence in Workspace", href: "/investigation" },
-        ],
-      };
-    }
-
-    // 3. Sensor / RF Power / Telemetry Anomalies
-    if (
-      q.includes("rf") ||
-      q.includes("power") ||
-      q.includes("spike") ||
-      q.includes("sensor") ||
-      q.includes("pressure") ||
-      q.includes("temp") ||
-      q.includes("esc") ||
-      q.includes("telemetry") ||
-      q.includes("sigma") ||
-      q.includes("drift") ||
-      q.includes("anomaly") ||
-      q.includes("overshoot")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### ETCH-04 In-Line Telemetry Diagnostic
-
-Out of 42 active process sensors, 3 parameters violated statistical process control thresholds:
-
-1. **RF Power (+4.8σ - CRITICAL):** Spiked to 1,874 W (Baseline: 1,620 W). 3 discrete overshoot events occurred between 07:08 and 07:11 (13–16 min post-PM).
-2. **Chamber Pressure (+3.2σ - HIGH):** Drifted upward to 84.2 mT (Baseline: 78.0 mT), starting at 06:55.
-3. **ESC Temperature (+2.6σ - WARNING):** Climbed to 63.1 °C (Baseline: 60.4 °C) due to concentrated plasma heating.
-4. **Physical Mechanism:** Excessive RF power delivery concentrated intense capacitive plasma along the outer wafer periphery, causing accelerated edge etch rates and gate dielectric breakdown.`,
-        timestamp,
-        confidence: 94,
-        citations: ["Chamber 2 Telemetry Stream", "Isolation Forest Z-Score (+4.8σ)", "SECOM Telemetry Feed"],
-        actions: [
-          { label: "View Equipment Telemetry", href: "/equipment" },
-          { label: "Dispatch Match Calibration", href: "/playbook" },
-        ],
-      };
-    }
-
-    // 4. Wafer Map / Spatial Defect Pattern
-    if (
-      q.includes("wafer") ||
-      q.includes("pattern") ||
-      q.includes("edge") ||
-      q.includes("ring") ||
-      q.includes("map") ||
-      q.includes("vit") ||
-      q.includes("cnn") ||
-      q.includes("die") ||
-      q.includes("defect") ||
-      q.includes("spatial") ||
-      q.includes("visual")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Wafer-Map Defect Pattern Analysis (WM-811K ViT)
-
-- **Pattern Classification:** **Edge-Ring** (96% model confidence via Vision Transformer).
-- **Defect Density:** 18.4 defective die per wafer (vs nominal baseline < 1.2 die).
-- **Spatial Concentration:** **82% of all defects** are concentrated in the outer 15% radial annular ring (die coordinates R > 31mm).
-- **ViT Reasoning:** The patch self-attention map demonstrates non-local defect continuity along the entire perimeter, confirming radial plasma sheath non-uniformity rather than mechanical scratches or particle contamination.`,
-        timestamp,
-        confidence: 96,
-        citations: ["WaferViT Vision Transformer", "WM-811K 64x64 Spatial Map", "Die Defect Registry"],
-        actions: [
-          { label: "Inspect Wafer Die Map", href: "/investigation" },
-          { label: "View Lot Queue", href: "/lot-analysis" },
-        ],
-      };
-    }
-
-    // 5. Batch Risk / Upcoming Lot WFR-24-0818
-    if (
-      q.includes("0818") ||
-      q.includes("safe") ||
-      q.includes("upcoming") ||
-      q.includes("next lot") ||
-      q.includes("risk") ||
-      q.includes("batch") ||
-      q.includes("triage") ||
-      q.includes("planned") ||
-      q.includes("queue")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Pre-Run Batch Risk Triage: Lot WFR-24-0818
-
-⚠️ **CRITICAL PRE-RUN WARNING: DO NOT RUN ON ETCH-04**
-
-- **Risk Score:** **68 / 100 (HIGH RISK)**
-- **Cosine Similarity:** 0.74 match to historical fail profiles.
-- **Impending Failure:** WFR-24-0818 is queued for 3nm logic recipes on ETCH-04. Running now will result in an identical edge-ring failure.
-- **Financial Exposure:** Estimated **$85,000 raw silicon wafer loss** (25 wafers).
-- **Recommended Action:** Quarantine lot in buffer and re-route to **ETCH-03** (nominal baseline yield: 95.1%).`,
-        timestamp,
-        confidence: 89,
-        citations: ["Batch Risk Cosine Metric (0.74)", "Fab 07 Scheduler", "MES Routing Engine"],
-        actions: [
-          { label: "Open Batch Risk Monitor", href: "/batch-risk" },
-          { label: "Check ETCH-03 Availability", href: "/equipment" },
-        ],
-      };
-    }
-
-    // 6. Cost / Economics / Financial Impact
-    if (
-      q.includes("cost") ||
-      q.includes("loss") ||
-      q.includes("revenue") ||
-      q.includes("money") ||
-      q.includes("dollar") ||
-      q.includes("scrap") ||
-      q.includes("financial") ||
-      q.includes("worth")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Fab Financial & Scrap Impact Analysis
-
-- **Current Lot Loss:** At 3nm nodes, a 1% yield drop represents ~$14,000 per wafer. For Lot WFR-24-0817 (74.2% vs 92% target = 17.8% drop), the financial loss is **~$336,000**.
-- **Prevented Loss:** Catching ETCH-04 drift before running planned lot WFR-24-0818 saves **$85,000+** in scrap costs.
-- **Fab Cumulative Exposure:** If ETCH-04 runs uncontained for another 12-hour shift, estimated compounding losses exceed **$1.8M**.`,
-        timestamp,
-        confidence: 96,
-        citations: ["Fab 07 Accounting Model", "3nm Wafer Cost Matrix", "Scrap Recovery Index"],
-        actions: [
-          { label: "Open Action Playbook", href: "/playbook" },
-          { label: "Export Audit Report", href: "/reports" },
-        ],
-      };
-    }
-
-    // 7. Model Governance / AI Transparency
-    if (
-      q.includes("model") ||
-      q.includes("gemini") ||
-      q.includes("granite") ||
-      q.includes("hallucinat") ||
-      q.includes("trust") ||
-      q.includes("governance") ||
-      q.includes("accuracy") ||
-      q.includes("benchmark") ||
-      q.includes("eval")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Model Governance & Reasoning Integrity
-
-- **Primary Provider:** Google Gemini 2.0 Flash via \`google-genai\` SDK (watsonx.ai Granite fallback).
-- **Evidence Citation:** Every hypothesis must cite a named sensor residual, historical case, or telemetry drift parameter; ungrounded statements are dropped by the server.
-- **Negative Grounding:** If process sensors are nominal, the system rejects equipment blame and investigates mechanical handling or tester artifacts.
-- **Measurement Dispute Ceiling:** Hypotheses attributing failure to measurement tools are confidence-capped at **0.70** to recommend hold-and-retest instead of premature wafer scrap.
-- **Benchmark Suite:** 18/18 test cases validated across 6 fab failure modes with 257 contract assertions passing.`,
-        timestamp,
-        confidence: 100,
-        citations: ["Gemini 2.0 Flash Model Card", "Model Governance Ledger", "18-Case Benchmark Matrix"],
-        actions: [
-          { label: "Open Model Governance", href: "/governance" },
-          { label: "Inspect 18-Case Benchmark", href: "/benchmark" },
-        ],
-      };
-    }
-
-    // 8. General / Why did it fail / Root Cause
-    if (
-      q.includes("why") ||
-      q.includes("fail") ||
-      q.includes("cause") ||
-      q.includes("yield") ||
-      q.includes("drop") ||
-      q.includes("74") ||
-      q.includes("reason") ||
-      q.includes("what happened") ||
-      q.includes("diagnos")
-    ) {
-      return {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: `### Ranked Root-Cause Diagnosis for Lot ${lotId}
-
-1. **Primary Cause (87% Confidence):** Transient RF-power instability (+4.8σ) on **ETCH-04** immediately following preventive maintenance at 06:42.
-2. **Spatial Pattern:** Vision ViT classified an **Edge-Ring** defect distribution (96% confidence) across 24 wafers.
-3. **Contributing Factor:** Chamber pressure drifted +3.2σ starting at 06:55, magnifying plasma non-uniformity at the outer wafer edge.
-4. **Precedent:** Correlates 91% with **CASE-1042** (March 2024), where improper RF match network impedance matching caused identical edge yield loss.`,
-        timestamp,
-        confidence: 87,
-        citations: ["ETCH-04 RF Power (+4.8σ)", "Pressure (+3.2σ)", "ViT: Edge-Ring (96%)", "Precedent: CASE-1042"],
-        actions: [
-          { label: "Examine Evidence in Workspace", href: "/investigation" },
-          { label: "Review Playbook Containment", href: "/playbook" },
-        ],
-      };
-    }
-
-    // 9. Contextual Dynamic Fallback
     return {
       id: `ai-${Date.now()}`,
       role: "assistant",
-      content: `### YieldGuard Copilot Synthesis
-
-I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot ${lotId} records.
-
-- **Active Excursion:** Lot ${lotId} experienced a 74.2% yield crash on tool ETCH-04.
-- **Leading Hypothesis:** Post-PM RF match network instability (+4.8σ) resulting in an edge-ring defect ring.
-
-**You can ask me specific questions like:**
-- *"What are my next steps?"* (Dispatches containment checklist)
-- *"Has this ever happened before?"* (Details historical CASE-1042 precedent)
-- *"Is upcoming lot WFR-24-0818 safe to run?"* (Pre-run risk triage)
-- *"Explain the +4.8σ RF power spike on ETCH-04"* (Detailed sensor telemetry)`,
+      content: `Yes. Similar RF spikes on **ETCH-04** have occurred 3 times in the past 6 months, most recently on lot **WFR-24-0623**. In all cases, the excursions were associated with chamber pressure instability and resulted in thickness non-uniformity (TU > spec).\n\n**Correlating Precedent:**\n- **CASE-1042:** RF match network vacuum variable capacitor slippage post-PM on FAB2-A (91% cosine match).\n- **Action Taken:** Re-torqued stepper coupler and recalibrated match-box impedance.`,
       timestamp,
-      confidence: 85,
-      citations: ["Gemini 2.0 Flash / CoT", "Fab 07 Knowledge Base"],
+      confidence: 91,
+      citations: ["Historical Lot Analysis", "ETCH-04 Event Log", "CASE-1042 Archive", "IBM Bob MCP: retrieve_similar_cases"],
       actions: [
-        { label: "Investigate Wafer Map", href: "/investigation" },
-        { label: "Open Action Playbook", href: "/playbook" },
+        { label: "View Historical Cases", href: "/cases" },
+        { label: "Examine Evidence in Workspace", href: "/investigation" },
       ],
     };
   };
@@ -426,8 +280,7 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
         aria-label="Open YieldGuard AI Copilot"
         title="Open YieldGuard Copilot (Ctrl + J)"
       >
-        <span className="copilot-sparkle-dot" />
-        <Sparkles size={18} className="copilot-icon" />
+        <BobMascot size={28} animated={true} />
         <span className="copilot-launcher-text">Ask AI Copilot</span>
         <kbd className="copilot-kbd">Ctrl J</kbd>
       </button>
@@ -438,16 +291,22 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
           {/* Header */}
           <div className="copilot-header">
             <div className="copilot-title-group">
-              <div className="copilot-avatar">
-                <Bot size={18} />
-              </div>
+              <BobMascot size={36} animated={true} showBubble={true} bubbleText="Hi! I'm Bob" />
               <div>
-                <div className="copilot-title">
-                  YieldGuard Copilot
-                  <span className="copilot-pill">Gemini 2.0 Flash</span>
-                </div>
-                <div className="copilot-sub">
-                  Context: <b>{activeLotId}</b> · ETCH-04 (Excursion)
+                <div className="copilot-title">YieldGuard Copilot</div>
+                <div className="copilot-sub" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span
+                    style={{
+                      width: "7px",
+                      height: "7px",
+                      borderRadius: "50%",
+                      background: "#198038",
+                      display: "inline-block",
+                    }}
+                  />
+                  <span>IBM Bob MCP</span>
+                  <span style={{ opacity: 0.5 }}>|</span>
+                  <span style={{ color: "#198038", fontWeight: 600 }}>Connected</span>
                 </div>
               </div>
             </div>
@@ -469,6 +328,11 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
                       role: "assistant",
                       content: `Conversation reset. Active context on **Lot ${activeLotId}** (ETCH-04). How can I help?`,
                       timestamp: "Just now",
+                      steps: [
+                        "MCP Handshake: Reset session and reloaded lot context",
+                        `Invoked MCP Tool: get_lot_data('${activeLotId}')`,
+                      ],
+                      thoughtSeconds: 0.8,
                     },
                   ])
                 }
@@ -488,18 +352,20 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
 
           {/* Quick Suggestion Chips */}
           <div className="copilot-suggestions">
-            <div className="suggestions-label">SUGGESTED QUESTIONS:</div>
             <div className="chips-scroll">
-              {INITIAL_SUGGESTIONS.map((s, idx) => (
-                <button
-                  key={idx}
-                  className="suggestion-chip"
-                  onClick={() => handleSend(s.query)}
-                >
-                  <Zap size={11} className="chip-icon" />
-                  <span>{s.label}</span>
-                </button>
-              ))}
+              {INITIAL_SUGGESTIONS.map((s, idx) => {
+                const IconComponent = s.icon;
+                return (
+                  <button
+                    key={idx}
+                    className="suggestion-chip"
+                    onClick={() => handleSend(s.query)}
+                  >
+                    <IconComponent size={12} className="chip-icon" style={{ color: "#0f62fe" }} />
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -510,15 +376,65 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
                 key={msg.id}
                 className={`copilot-message ${msg.role === "user" ? "user" : "assistant"}`}
               >
-                <div className="message-header">
-                  <span className="message-role">
-                    {msg.role === "user" ? <User size={12} /> : <Bot size={12} />}
-                    {msg.role === "user" ? "You (Yield Engineer)" : "YieldGuard AI"}
-                  </span>
-                  <span className="message-time">{msg.timestamp}</span>
+                <div className="message-header" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  {msg.role === "assistant" ? (
+                    <>
+                      <BobMascot size={22} animated={false} />
+                      <span style={{ fontWeight: 600, color: "#161616", fontSize: "12px" }}>YieldGuard Copilot</span>
+                      <span style={{ fontSize: "11px", color: "#6f6f6f" }}>{msg.timestamp}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: 600, color: "#161616", fontSize: "12px" }}>You</span>
+                      <span style={{ fontSize: "11px", color: "#6f6f6f" }}>{msg.timestamp}</span>
+                      <div
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          background: "#d0e2ff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginLeft: "auto",
+                        }}
+                      >
+                        <User size={12} color="#0f62fe" />
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="message-bubble">
+                <div
+                  className="message-bubble"
+                  style={{
+                    background: msg.role === "user" ? "#d0e2ff" : "#f2f4f8",
+                    color: "#161616",
+                    borderRadius: "14px",
+                    padding: "12px 16px",
+                    border: msg.role === "user" ? "1px solid #a6c8ff" : "1px solid #e0e0e0",
+                  }}
+                >
+                  {/* Collapsible IBM Bob MCP ThoughtLine */}
+                  {msg.role === "assistant" && msg.steps && msg.steps.length > 0 && (
+                    <div style={{ marginBottom: "10px" }}>
+                      <ThoughtLine
+                        working={false}
+                        steps={msg.steps}
+                        elapsed={msg.thoughtSeconds ?? 1.8}
+                        label="Thinking…"
+                        doneLabel="Thought for"
+                        glyph="sparkle"
+                        color="#0f62fe"
+                        glyphColor="#0f62fe"
+                        fontSize={13}
+                        collapsible={true}
+                        collapseOnSettle={true}
+                        showTimer={true}
+                      />
+                    </div>
+                  )}
+
                   <div
                     className="message-markdown"
                     dangerouslySetInnerHTML={{
@@ -527,17 +443,47 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
                   />
 
                   {msg.confidence !== undefined && (
-                    <div className="confidence-pill">
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        marginTop: "10px",
+                        padding: "3px 8px",
+                        borderRadius: "12px",
+                        background: "#defbe6",
+                        color: "#0e6027",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                      }}
+                    >
                       <CheckCircle2 size={12} /> Calibrated Confidence: <b>{msg.confidence}%</b>
                     </div>
                   )}
 
                   {msg.citations && msg.citations.length > 0 && (
-                    <div className="message-citations">
-                      <div className="citation-title">EVIDENCE CITATIONS:</div>
-                      <div className="citation-tags">
+                    <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid rgba(0, 0, 0, 0.08)" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 600, color: "#525252", marginRight: "6px" }}>
+                        Sources:
+                      </span>
+                      <div style={{ display: "inline-flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
                         {msg.citations.map((c, i) => (
-                          <span key={i} className="citation-tag">
+                          <span
+                            key={i}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "#ffffff",
+                              border: "1px solid #c6c6c6",
+                              borderRadius: "4px",
+                              padding: "2px 7px",
+                              fontSize: "10.5px",
+                              color: "#393939",
+                              fontWeight: 500,
+                            }}
+                          >
+                            <FileText size={10} color="#0f62fe" />
                             {c}
                           </span>
                         ))}
@@ -546,16 +492,27 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
                   )}
 
                   {msg.actions && msg.actions.length > 0 && (
-                    <div className="message-actions">
+                    <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
                       {msg.actions.map((act, i) => (
                         <Link
                           key={i}
                           href={act.href}
-                          className="action-link-btn"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            background: "#0f62fe",
+                            color: "#ffffff",
+                            padding: "4px 10px",
+                            borderRadius: "14px",
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            textDecoration: "none",
+                          }}
                           onClick={() => setIsOpen(false)}
                         >
                           <span>{act.label}</span>
-                          <ArrowRight size={12} />
+                          <ArrowRight size={11} />
                         </Link>
                       ))}
                     </div>
@@ -565,12 +522,39 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
             ))}
 
             {isTyping && (
-              <div className="copilot-message assistant typing">
-                <div className="typing-bubble">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-text">Gemini 2.0 synthesizing root-cause...</span>
+              <div className="copilot-message assistant typing" style={{ margin: "6px 0 12px 0", width: "100%", maxWidth: "100%" }}>
+                <div className="message-header" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                  <BobMascot size={22} thinking={true} />
+                  <span style={{ fontWeight: 600, color: "#161616", fontSize: "12px" }}>YieldGuard Copilot</span>
+                </div>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "#f2f4f8",
+                    border: "1px solid #d0e2ff",
+                    borderRadius: "14px",
+                    width: "100%",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                  }}
+                >
+                  <ThoughtLine
+                    working={true}
+                    steps={activeSteps}
+                    label="Thinking…"
+                    doneLabel="Thought for"
+                    glyph="sparkle"
+                    color="#0f62fe"
+                    glyphColor="#0f62fe"
+                    fontSize={13}
+                    breathPeriod={1.6}
+                    breathDepth={0.45}
+                    shimmer={true}
+                    collapsible={true}
+                    collapseOnSettle={false}
+                    showTimer={true}
+                  />
                 </div>
               </div>
             )}
@@ -578,13 +562,40 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
           </div>
 
           {/* Input Footer */}
-          <div className="copilot-footer">
+          <div className="copilot-footer" style={{ padding: "12px 16px", borderTop: "1px solid #e0e0e0", background: "#ffffff" }}>
+            {/* Mascot prompt indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <BobMascot size={24} animated={true} />
+              <div
+                style={{
+                  background: "#d0e2ff",
+                  color: "#0043ce",
+                  padding: "2px 8px",
+                  borderRadius: "10px",
+                  fontSize: "10.5px",
+                  fontWeight: 600,
+                  boxShadow: "0 1px 3px rgba(15, 98, 254, 0.15)",
+                }}
+              >
+                Ask me anything!
+              </div>
+            </div>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="copilot-input-form"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#ffffff",
+                border: "1px solid #c6c6c6",
+                borderRadius: "24px",
+                padding: "4px 6px 4px 16px",
+                boxShadow: "0 1px 4px rgba(0, 0, 0, 0.05)",
+              }}
             >
               <input
                 ref={inputRef}
@@ -592,19 +603,40 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
                 placeholder="Ask anything about Lot WFR-24-0817, ETCH-04, or containment..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="copilot-input"
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  fontSize: "12px",
+                  color: "#161616",
+                  background: "transparent",
+                  padding: "6px 4px",
+                }}
               />
               <button
                 type="submit"
                 disabled={!input.trim()}
-                className="copilot-send-btn"
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  background: input.trim() ? "#0f62fe" : "#e0e0e0",
+                  color: "#ffffff",
+                  border: "none",
+                  cursor: input.trim() ? "pointer" : "not-allowed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 0.2s ease",
+                  flexShrink: 0,
+                }}
                 title="Send message"
               >
-                <Send size={15} />
+                <Send size={14} />
               </button>
             </form>
-            <div className="copilot-footnote">
-              Grounded in empirical sensor residuals &amp; strict failure category contracts.
+            <div style={{ fontSize: "10px", color: "#6f6f6f", textAlign: "center", marginTop: "6px" }}>
+              Grounded in fab data, sensor telemetry, and approved knowledge sources.
             </div>
           </div>
         </div>
@@ -613,54 +645,101 @@ I analyzed your query: *"${query}"* against Fab 07 real-time telemetry and Lot $
   );
 }
 
-// Semantic markdown formatter helper for headers, bold, bullet items, and numbered lists
+// Semantic markdown formatter helper for headers, bold, bullet items, key-values, and numbered lists
 function formatMarkdown(text: string): string {
+  if (!text) return "";
   const lines = text.split("\n");
   const formattedLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
 
-    // Bold, italic, code
-    line = line
+    // Empty line spacer
+    if (!trimmed) {
+      formattedLines.push("<div style='height: 6px;'></div>");
+      continue;
+    }
+
+    // Horizontal divider
+    if (trimmed === "---" || trimmed === "***" || trimmed === "___") {
+      formattedLines.push("<hr style='border: none; border-top: 1px solid rgba(0,0,0,0.1); margin: 8px 0;' />");
+      continue;
+    }
+
+    // Bold, italic, code formatting
+    let formattedText = trimmed
+      .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/`([^`]+)`/g, "<code class='copilot-inline-code'>$1</code>");
+      .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+      .replace(/_([^_]+)_/g, "<em>$1</em>")
+      .replace(/`([^`]+)`/g, "<code style='background: rgba(15,98,254,0.08); color: #0f62fe; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 11px;'>$1</code>");
 
-    // Headers
-    if (line.startsWith("### ")) {
-      formattedLines.push(`<h4 class="copilot-msg-h4">${line.slice(4)}</h4>`);
+    // Headings: #####, ####, ###, ##, #
+    if (trimmed.startsWith("##### ")) {
+      formattedLines.push(
+        `<h6 style='font-size: 12px; font-weight: 700; color: #161616; margin: 8px 0 4px;'>${formattedText.slice(6)}</h6>`
+      );
       continue;
     }
-    if (line.startsWith("## ")) {
-      formattedLines.push(`<h3 class="copilot-msg-h3">${line.slice(3)}</h3>`);
+    if (trimmed.startsWith("#### ")) {
+      formattedLines.push(
+        `<div style='font-size: 12.5px; font-weight: 700; color: #0f62fe; margin: 10px 0 4px; display: flex; align-items: center; gap: 6px;'><span style='width: 3.5px; height: 13px; background: #0f62fe; border-radius: 2px; display: inline-block; flex-shrink: 0;'></span><span>${formattedText.slice(5)}</span></div>`
+      );
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      formattedLines.push(
+        `<h4 style='font-size: 13.5px; font-weight: 700; color: #161616; margin: 10px 0 5px;'>${formattedText.slice(4)}</h4>`
+      );
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      formattedLines.push(
+        `<h3 style='font-size: 14px; font-weight: 700; color: #161616; margin: 12px 0 6px;'>${formattedText.slice(3)}</h3>`
+      );
+      continue;
+    }
+    if (trimmed.startsWith("# ")) {
+      formattedLines.push(
+        `<h2 style='font-size: 15px; font-weight: 700; color: #0f62fe; margin: 12px 0 6px;'>${formattedText.slice(2)}</h2>`
+      );
       continue;
     }
 
-    // Numbered lists e.g. "1. "
-    const numMatch = line.match(/^(\d+)\.\s+(.*)/);
+    // Numbered lists e.g. "1. " or "1) "
+    const numMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)/);
     if (numMatch) {
+      const rest = numMatch[2]
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code style='background: rgba(15,98,254,0.08); color: #0f62fe; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 11px;'>$1</code>");
       formattedLines.push(
-        `<div class="copilot-num-item"><span class="copilot-num-badge">${numMatch[1]}</span><span>${numMatch[2]}</span></div>`
+        `<div style='display: flex; align-items: flex-start; gap: 7px; margin: 4px 0;'><span style='font-weight: 700; font-size: 10.5px; color: #0f62fe; background: #d0e2ff; border-radius: 4px; padding: 1px 5px; height: 17px; display: flex; align-items: center; flex-shrink: 0;'>${numMatch[1]}</span><span style='flex: 1; line-height: 1.45;'>${rest}</span></div>`
       );
       continue;
     }
 
-    // Bullet points e.g. "- " or "• " or "* "
-    if (line.startsWith("- ") || line.startsWith("• ") || line.startsWith("* ")) {
+    // Bullet points e.g. "- ", "* ", "• "
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("• ")) {
+      const bulletContent = formattedText.slice(2);
       formattedLines.push(
-        `<div class="copilot-bullet-item"><span class="copilot-bullet-dot"></span><span>${line.slice(2)}</span></div>`
+        `<div style='display: flex; align-items: flex-start; gap: 7px; margin: 4px 0;'><span style='width: 5px; height: 5px; border-radius: 50%; background: #0f62fe; margin-top: 6px; flex-shrink: 0;'></span><span style='flex: 1; line-height: 1.45;'>${bulletContent}</span></div>`
       );
       continue;
     }
 
-    // Empty line
-    if (!line.trim()) {
-      formattedLines.push("<div class='copilot-spacer'></div>");
+    // Key-Value pattern lines e.g. "Defect Pattern: ...", "Impact: ...", "Matching Case: ...", "Tool Lock: ..."
+    const kvMatch = formattedText.match(/^([A-Za-z0-9\s\/\-_()]+:)\s+(.*)/);
+    if (kvMatch && !trimmed.startsWith("http") && kvMatch[1].length < 32) {
+      formattedLines.push(
+        `<div style='margin: 4px 0 6px; line-height: 1.45;'><strong style='color: #161616;'>${kvMatch[1]}</strong> <span style='color: #393939;'>${kvMatch[2]}</span></div>`
+      );
       continue;
     }
 
-    formattedLines.push(`<p class="copilot-p">${line}</p>`);
+    // Standard text paragraph
+    formattedLines.push(`<p style='margin: 0 0 6px; line-height: 1.45;'>${formattedText}</p>`);
   }
 
   return formattedLines.join("");

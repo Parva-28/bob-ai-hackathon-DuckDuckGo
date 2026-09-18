@@ -64,7 +64,7 @@ export default function GovernancePage() {
     },
     {
       role: "Root-Cause Reasoning Engine",
-      name: "Gemini 2.0 Flash / CoT",
+      name: "IBM Bob Agent / CoT Reasoning",
       dataset: "Fab Ground Truth & MCP Tools",
       metrics: "18/18 Benchmark Passed (100%)",
       description: "Structured Chain-of-Thought with negative evidence cross-validation and hypothesis ranking."

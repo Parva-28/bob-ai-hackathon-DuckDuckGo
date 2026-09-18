@@ -1,11 +1,11 @@
 {
   "mcpServers": {
     "yieldguard": {
-      "command": "C:/Users/Akshat Patel/AppData/Local/Programs/Python/Python313/python.exe",
+      "command": "C:/Users/heet1/AppData/Local/Programs/Python/Python312/python.exe",
       "args": [
-        "D:/IBM/src/mcp_server/server.py"
+        "c:/Users/heet1/OneDrive/Desktop/College/IBM_DDG/src/mcp_server/server.py"
       ],
-      "cwd": "D:/IBM",
+      "cwd": "c:/Users/heet1/OneDrive/Desktop/College/IBM_DDG",
       "env": {},
       "alwaysAllow": [],
       "disabled": false
