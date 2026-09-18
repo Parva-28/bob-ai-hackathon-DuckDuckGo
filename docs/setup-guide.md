@@ -85,21 +85,18 @@ which are the fixtures designed to be at-risk. See Known Limitations. Useful fla
 
 ## Connect it to IBM Bob
 
-`.bob/mcp.json` is committed, but **Bob requires absolute paths**, so the committed copy
-points at the original author's checkout. Regenerate it for your machine:
+`.bob/mcp.json` is committed so the Bob wiring is visible, but **Bob requires absolute
+paths**, so the committed copy only works on the machine that generated it. Regenerate it
+for yours:
 
 ```bash
-python3 - <<'PY'
-import json, os, sys
-repo = os.getcwd()
-json.dump({"mcpServers": {"yieldguard": {
-    "command": f"{repo}/.venv/bin/python",
-    "args": [f"{repo}/src/mcp_server/server.py"],
-    "cwd": repo, "env": {}, "alwaysAllow": [], "disabled": False}}},
-    open(".bob/mcp.json", "w"), indent=2)
-print("wrote .bob/mcp.json for", repo)
-PY
+python3 scripts/setup-bob-mcp.py
 ```
+
+This is not optional and it fails silently if skipped: the file was committed pointing at
+a Windows checkout (`C:/Users/heet1/...`), and on any other machine Bob simply never
+starts the server. The script picks up `.venv` when present and falls back to the current
+interpreter otherwise.
 
 Verify the registration before opening Bob — this launches the server exactly as
 `.bob/mcp.json` specifies and checks every tool is present and described:
@@ -259,7 +256,7 @@ exhaust that quickly.
   table in `src/mcp_server/param_map.py` targets features that genuinely separate SECOM's
   fail class from its pass class, but it is not a claim that `sensor_103` is a slurry flow
   meter — it is the same category of construction as the wafer-map/sensor pairings.
-- **The vision classifier is trained: macro-F1 0.8576** on a held-out 9,357-map split,
+- **The vision classifier is trained: macro-F1 0.9232** on a held-out 9,357-map split,
   40 epochs on a Colab T4. Weakest class is **Scratch at F1 0.695 (precision 0.572)**, which
   is also Case Study 3's beat — it classifies the case-study map at 0.987 confidence but is
   not generally reliable on that class. Near-full's F1 of 0.917 rests on only 22 validation

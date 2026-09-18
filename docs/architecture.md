@@ -52,7 +52,7 @@ graph TD
         M2["Hybrid IF + LightGBM<br/>Cost-Sensitive Anomaly (SECOM)"]
         M3[(Case store<br/>shared case_id space)]
         M4[Simulated SECS/GEM]
-        M5[["Google Gemini 2.0 Flash<br/>(Few-Shot CoT + Negative Grounding)"]]
+        M5[["Google Gemini 3.5 Flash-Lite<br/>(Few-Shot CoT + Negative Grounding)"]]
         M6[[watsonx.ai Granite<br/>Fallback Provider]]
     end
 
@@ -78,13 +78,13 @@ graph TD
 | Industrial HMI Console | **Next.js 16 + React 19 + Tailwind CSS** (ISA-101) | Fleet overview, interactive 64x64 wafer canvas, cleanroom dispatch playbook |
 | API Layer | **FastAPI + Uvicorn** (`src/api/main.py`) | Proxies MCP tool functions with typed OpenAPI schemas and CORS |
 | Tool server | Python + `mcp` SDK 2.x (`MCPServer`, stdio) | Exposes 8 contract tools + `pipeline_status` |
-| Defect classifier | PyTorch `WaferViT` (ViT-Tiny) & `WaferCNN`, WM-811K | `classify_wafer_map` (Macro-F1: 0.858 → 0.942) |
+| Defect classifier | PyTorch `WaferCNN` (615,801 params), WM-811K, TTA-8 | `classify_wafer_map` (macro-F1 0.9232; a ViT-Tiny was trained on the same split and rejected at 0.6981) |
 | Anomaly detector | Hybrid Isolation Forest + HistGradientBoosting, SECOM | `score_sensor_anomaly` (Cost-sensitive 14:1 weighting) |
 | Batch risk | Cosine similarity vs low-yield parameter profiles | `flag_at_risk_batch` |
 | Case store | JSON + pure-Python cosine similarity | `retrieve_similar_cases`, feedback write-back |
 | Telemetry | Simulated SECS/GEM lookup | `query_telemetry` |
-| Reasoning | **Google Gemini 2.0 Flash** (Primary) & **watsonx.ai** (Fallback) | `rank_root_causes`, `get_corrective_action_playbook` |
-| Eval harness | `mcp` client over stdio | 18 sub-cases, 257 contract assertions (100% pass) |
+| Reasoning | **Google Gemini 3.5 Flash-Lite** (Primary) & **watsonx.ai** (Fallback) | `rank_root_causes`, `get_corrective_action_playbook` |
+| Eval harness | `mcp` client over stdio | 18 sub-cases, 277 assertions; 18/18 mocked, 16/18 live. Also reports coverage, excursion sensitivity and abstention |
 
 **Bob does not use watsonx.ai as its own backend** — Bob routes across its own models.
 watsonx.ai is called *by our server*: `Bob → MCP → YieldGuard server → ibm-watsonx-ai SDK →

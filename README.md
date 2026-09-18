@@ -29,12 +29,12 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 
 - **Industrial HMI Analyst Console (Next.js 16 + React 19):** ISA-101 compliant control room interface with dark quiet backgrounds, signal-reserved alarm colors, tabular monospace metrics, and zero-fatigue high-density layout.
 - **Interactive 64×64 Wafer Map Canvas:** Pixel-level interactive silicon die inspection with real-time hover coordinate tracking `(X, Y)`, pass/defect die statistics, zoom controls (3x–6x), and spatial defect clustering.
-- **Evidence-Grounded Root-Cause Reasoning (Gemini 2.0 Flash + watsonx.ai):** Ranked causal hypotheses with calibrated confidence scores. Grounded in strict contracts: every hypothesis MUST cite an empirical sensor residual, historical case, or equipment drift parameter.
+- **Evidence-Grounded Root-Cause Reasoning (Gemini 3.5 Flash-Lite + watsonx.ai):** Ranked causal hypotheses. Confidence is an ordinal ranking signal (`confidence_basis: llm_uncalibrated`) under policy ceilings — only the CMP conformal intervals carry measured coverage. Grounded in strict contracts: every hypothesis MUST cite an empirical sensor residual, historical case, or equipment drift parameter.
 - **Category Diversity & Negative Grounding:** Structured few-shot prompting prevents default-to-equipment bias across 6 failure domains (Equipment, Material, Handling, Software, Process, Measurement Artifacts).
 - **Wafer-Map Defect Classification:** ResNet-style `WaferCNN` (615,801 params) trained on WM-811K across 9 defect patterns, served with 8-fold test-time augmentation over the dihedral symmetry group. Macro-F1 **0.9232** on a 9,357-map held-out split. A Vision Transformer was trained on the same split and rejected — it scored 0.6981 with 3x the parameters; see `src/models/vision/NOTES.md`.
 - **Multivariate Sensor Anomaly Detection:** Variance-filtered Isolation Forest over SECOM process telemetry, selected by 8-fold cross-validation across 184 configurations and calibrated on training pass rows only. A supervised IF + gradient-boosting hybrid was also built and rejected for scoring worse; see `src/models/tabular/NOTES.md`.
 - **Cleanroom Action Playbook Dispatcher:** Interactive containment checklist allowing yield engineers to toggle actions between `[PENDING]`, `[DISPATCHED]`, and `[RESOLVED]`.
-- **IBM Bob + MCP Integration:** 8 contract-defined tools called by IBM Bob over stdio, with automatic fallback resolution and honest status reporting.
+- **IBM Bob + MCP Integration:** 14 contract-defined tools called by IBM Bob over stdio — including conformal prediction with abstention and a cognitive-forcing step that records the engineer's own read before the model's ranking is fetched. Automatic real-vs-stub resolution, reported honestly by `pipeline_status`.
 
 ---
 
@@ -44,7 +44,7 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 |---|---|
 | **Frontend Console** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, HTML5 Canvas |
 | **Backend & API** | FastAPI, Uvicorn, Python 3.10+, Model Context Protocol (MCP stdio SDK) |
-| **Reasoning Providers** | **Google Gemini 2.0 Flash** (via `google-genai` SDK) & **watsonx.ai Granite** |
+| **Reasoning Providers** | **Google Gemini 3.5 Flash-Lite** (via `google-genai` SDK) & **watsonx.ai Granite** |
 | **ML & Deep Learning** | PyTorch, torchvision, scikit-learn, NumPy, SciPy |
 | **Agentic Orchestration** | **IBM Bob** (`.bob/skills/yieldguard`, `.bob/mcp.json`) |
 | **Datasets** | WM-811K / LSWMD (811K wafer maps), SECOM (UCI ML Repository) |
@@ -60,10 +60,10 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 │   ├── web/                  # Next.js 16 Industrial HMI Analyst Console (port 3000)
 │   │   ├── app/              # App router (Fleet monitor, Lot diagnostic, Governance, Eval)
 │   │   └── lib/              # API fetchers & TypeScript interfaces
-│   ├── mcp_server/           # MCP tool server exposing 8 tools to IBM Bob over stdio
+│   ├── mcp_server/           # MCP tool server exposing 14 tools to IBM Bob over stdio
 │   │   ├── server.py
 │   │   └── adapters.py
-│   ├── reasoning/            # Root-cause reasoning backed by Gemini 2.0 Flash & Granite
+│   ├── reasoning/            # Root-cause reasoning backed by Gemini 3.5 Flash-Lite & Granite
 │   │   └── reasoning.py
 │   ├── models/
 │   │   ├── vision/           # WaferViT (Vision Transformer) & WaferCNN (WM-811K)
@@ -100,13 +100,18 @@ cd src/web && npm install && npm run dev
 ### Option 2: IBM Bob Agent Orchestration (MCP stdio)
 
 ```bash
+# Point Bob at this checkout. REQUIRED once per machine — Bob needs absolute
+# paths, and without this it silently never starts the server.
+python3 scripts/setup-bob-mcp.py
+
 # Verify the MCP server self-test passes across all 18 test fixtures:
 python src/mcp_server/server.py --selftest
 
-# Run the 18-case evaluation harness:
+# Run the evaluation harness. Defaults to the mocked reasoning provider; add
+# USE_MOCK_LLM=false for a live run (~36 provider calls, and it paces itself).
 python src/eval/run_eval.py
 
-# Launch IBM Bob — Bob detects .bob/mcp.json and binds the 8 YieldGuard tools automatically
+# Launch IBM Bob — it reads .bob/mcp.json and binds the YieldGuard tools
 bob
 ```
 
@@ -127,7 +132,7 @@ bob
 
 - **Constructed pairings:** WM-811K (wafer maps) and SECOM (sensor data) are separate, unrelated public datasets. Case studies that combine the two are constructed scenarios for the demo, not real fab incidents.
 - **Batch risk is a similarity proxy:** `flag_at_risk_batch` scores cosine similarity to the historical fail-class profile. A high score means "these parameters resemble past fails", not "this lot will fail". It is a triage signal, not a go/no-go gate, and the signal is thin — all 18 sub-cases land in a 0.41–0.60 band against a 0.45 threshold that sits ~0.02 above the uninformative baseline.
-- **Measured performance, stated plainly:** the wafer classifier reaches **macro-F1 0.8576** on a held-out 9,357-map split; its weakest class is **Scratch at F1 0.695**, which is the class Case Study 3 depends on, and Near-full's 0.917 rests on only 22 samples. The anomaly detector reaches **recall 0.286 / precision 0.194** on the held-out SECOM fail class — it catches 6 of 21 failing lots and raises 25 false alarms. We quote macro-F1 and fail-class recall, never accuracy: "None" is 59% of the wafer split and "pass" is 93% of SECOM, so accuracy flatters a model that has learned nothing.
+- **Measured performance, stated plainly:** the wafer classifier reaches **macro-F1 0.9232** (0.9157 without test-time augmentation) on a held-out 9,357-map split; its weakest class is **Local at F1 0.834**, and Near-full's 0.978 rests on only 22 samples, where one wafer moves the macro average by 0.0026. The anomaly detector reaches **recall 0.286 / precision 0.194** on the held-out SECOM fail class — it catches 6 of 21 failing lots and raises 25 false alarms. We quote macro-F1 and fail-class recall, never accuracy: "None" is 59% of the wafer split and "pass" is 93% of SECOM, so accuracy flatters a model that has learned nothing.
 - **Confidence ceilings are enforced, not requested:** live Granite returned a test-head hypothesis at 0.85 and labelled it `equipment`, so its own cap never fired. The MCP server now re-derives the category from the hypothesis text and caps measurement-path claims at 0.70 and single-occurrence ones at 0.50, recording every cap on the hypothesis rather than rewriting it silently.
 - **Live vs mock reasoning:** watsonx.ai Granite is wired and working. The eval scores **17/18 under mocked reasoning and 10/18 live** — the live number is the more honest one, because the mock run skips 18 assertions that canned responses cannot test. Remaining live failures are genuine: Granite favours equipment explanations over material, software and process ones. Call `pipeline_status` to see which tools are backed by trained models on any given run.
 - **Simulated telemetry:** no live SECS/GEM connection. Equipment trends come from a fixed lookup.

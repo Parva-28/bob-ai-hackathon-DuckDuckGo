@@ -40,25 +40,25 @@ submission:
     9,357-map held-out split), detects sensor anomalies with a cross-validated, calibrated
     Isolation Forest over SECOM process telemetry, retrieves
     precedents and equipment telemetry, and produces evidence-grounded root-cause rankings
-    using Google Gemini 2.0 Flash (with watsonx.ai Granite fallback). Every single hypothesis
+    using Google Gemini 3.5 Flash-Lite (with watsonx.ai Granite fallback). Every single hypothesis
     must cite a named sensor, case ID, or telemetry drift parameter.
 
   key_features:                        # REQUIRED
     - "Dedicated ISA-101 Industrial HMI Analyst Console (Next.js 16 + React 19) with interactive 64x64 wafer canvas and cleanroom dispatch playbooks"
     - "Dual interaction surfaces: Autonomous IBM Bob agent orchestration over stdio + Real-time Web Diagnostic Console over FastAPI"
-    - "Evidence-grounded root-cause ranking backed by Google Gemini 2.0 Flash with few-shot category diversity and negative evidence grounding"
+    - "Evidence-grounded root-cause ranking backed by Google Gemini 3.5 Flash-Lite with few-shot category diversity and negative evidence grounding"
     - "Every ranked root cause cites a specific sensor, case_id or telemetry parameter — enforced in the server, which drops uncited hypotheses"
     - "Negative evidence is treated as a finding: clean process sensors on a scratch pattern push the ranking toward mechanical handling instead of forcing a process explanation"
     - "Honest uncertainty by construction — measurement-artifact hypotheses are confidence-capped at 0.70 to recommend hold-and-retest instead of scrapping good wafers"
     - "Pre-run batch risk flagging before any wafer map or test result exists, as a triage signal for engineer review rather than an automated go/no-go gate"
-    - "18/18 sub-cases verified across 6 fab failure modes with 257 contract assertions passing"
+    - "18 sub-cases across 6 fab failure modes; 18/18 with mocked reasoning, 16/18 (275/277 assertions) on the last live run"
 
   tech_stack:
     languages: ["Python", "TypeScript", "JavaScript"]              # REQUIRED
     frameworks: ["Next.js 16", "React 19", "FastAPI", "Tailwind CSS v4", "PyTorch", "scikit-learn", "MCP SDK 2.x"]
     ibm_technologies: ["IBM Bob", "watsonx.ai", "IBM Granite"]
     databases: ["Local Vector Cosine Store"]
-    other: ["Google Gemini 2.0 Flash (google-genai)", "WM-811K (LSWMD)", "SECOM (UCI)", "Mermaid", "GitHub Actions"]
+    other: ["Google Gemini 3.5 Flash-Lite (google-genai)", "WM-811K (LSWMD)", "SECOM (UCI)", "Mermaid", "GitHub Actions"]
 
   what_we_are_most_proud_of: >
     Case 6c. Nearly every die on the wafer failed, so the obvious answer is a catastrophic
