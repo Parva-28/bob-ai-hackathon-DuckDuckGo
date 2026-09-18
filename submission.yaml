@@ -36,8 +36,9 @@ submission:
   solution_summary: >                  # REQUIRED
     YieldGuard is an industrial-grade root-cause and yield integrity engine that process
     engineers can access through IBM Bob or a dedicated ISA-101 Next.js HMI console.
-    It classifies wafer-map defect patterns with Vision Transformers and CNNs, detects sensor
-    anomalies with a cost-sensitive hybrid Isolation Forest + LightGBM pipeline, retrieves
+    It classifies wafer-map defect patterns with a ResNet-style CNN (macro-F1 0.9232 on a
+    9,357-map held-out split), detects sensor anomalies with a cross-validated, calibrated
+    Isolation Forest over SECOM process telemetry, retrieves
     precedents and equipment telemetry, and produces evidence-grounded root-cause rankings
     using Google Gemini 2.0 Flash (with watsonx.ai Granite fallback). Every single hypothesis
     must cite a named sensor, case ID, or telemetry drift parameter.

@@ -31,8 +31,8 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 - **Interactive 64×64 Wafer Map Canvas:** Pixel-level interactive silicon die inspection with real-time hover coordinate tracking `(X, Y)`, pass/defect die statistics, zoom controls (3x–6x), and spatial defect clustering.
 - **Evidence-Grounded Root-Cause Reasoning (Gemini 2.0 Flash + watsonx.ai):** Ranked causal hypotheses with calibrated confidence scores. Grounded in strict contracts: every hypothesis MUST cite an empirical sensor residual, historical case, or equipment drift parameter.
 - **Category Diversity & Negative Grounding:** Structured few-shot prompting prevents default-to-equipment bias across 6 failure domains (Equipment, Material, Handling, Software, Process, Measurement Artifacts).
-- **Wafer-Map Defect Classification:** ResNet-style `WaferCNN` and Vision Transformer `WaferViT` trained on WM-811K (9 defect patterns) with self-attention across 64 spatial patches for non-local defect continuity.
-- **Multivariate Sensor Anomaly Detection:** Isolation Forest + Cost-Sensitive Gradient Boosting hybrid trained on SECOM with 14:1 class-imbalance weighting over 582 process telemetry features.
+- **Wafer-Map Defect Classification:** ResNet-style `WaferCNN` (615,801 params) trained on WM-811K across 9 defect patterns, served with 8-fold test-time augmentation over the dihedral symmetry group. Macro-F1 **0.9232** on a 9,357-map held-out split. A Vision Transformer was trained on the same split and rejected — it scored 0.6981 with 3x the parameters; see `src/models/vision/NOTES.md`.
+- **Multivariate Sensor Anomaly Detection:** Variance-filtered Isolation Forest over SECOM process telemetry, selected by 8-fold cross-validation across 184 configurations and calibrated on training pass rows only. A supervised IF + gradient-boosting hybrid was also built and rejected for scoring worse; see `src/models/tabular/NOTES.md`.
 - **Cleanroom Action Playbook Dispatcher:** Interactive containment checklist allowing yield engineers to toggle actions between `[PENDING]`, `[DISPATCHED]`, and `[RESOLVED]`.
 - **IBM Bob + MCP Integration:** 8 contract-defined tools called by IBM Bob over stdio, with automatic fallback resolution and honest status reporting.
 
@@ -45,7 +45,7 @@ YieldGuard is an IBM Bob–driven assistant that exposes a set of MCP tools an e
 | **Frontend Console** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, HTML5 Canvas |
 | **Backend & API** | FastAPI, Uvicorn, Python 3.10+, Model Context Protocol (MCP stdio SDK) |
 | **Reasoning Providers** | **Google Gemini 2.0 Flash** (via `google-genai` SDK) & **watsonx.ai Granite** |
-| **ML & Deep Learning** | PyTorch, torchvision, scikit-learn, LightGBM, NumPy, SciPy |
+| **ML & Deep Learning** | PyTorch, torchvision, scikit-learn, NumPy, SciPy |
 | **Agentic Orchestration** | **IBM Bob** (`.bob/skills/yieldguard`, `.bob/mcp.json`) |
 | **Datasets** | WM-811K / LSWMD (811K wafer maps), SECOM (UCI ML Repository) |
 

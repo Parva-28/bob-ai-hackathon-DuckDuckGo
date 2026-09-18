@@ -1,21 +1,29 @@
 """
 hybrid_train.py — Two-stage Hybrid Tabular Anomaly Detection for SECOM.
 
-Architecture & Strategy (Based on semiconductor fab literature):
-  Stage 1: Isolation Forest trained on pass-class rows to learn the unsupervised
-           normality manifold and output normalized anomaly residual scores.
-  Stage 2: Supervised Gradient Boosting / LightGBM trained with cost-sensitive
-           weighting (scale_pos_weight ~ 14.0) to directly address SECOM's 1:14
-           fail:pass class imbalance.
+STATUS: NEGATIVE RESULT. Retained as a recorded experiment, NOT part of the
+serving path. `anomaly.py:50` hardcodes `checkpoints/isolation_forest.pkl`;
+nothing in the repo loads `hybrid_detector.pkl` or `hybrid_meta.json`.
 
-Features used by Stage 2:
-  - Raw Isolation Forest anomaly score
-  - Top informative sensor residuals (highest variance across lots)
-  - First 10 Principal Components capturing 85%+ global covariance
+This script stages an IsolationForest score into a class-weighted
+HistGradientBoostingClassifier (14:1). On the fail class it scores WORSE than the
+plain variance-filtered Isolation Forest it was meant to improve on:
 
-Outputs:
-  checkpoints/hybrid_detector.pkl
-  checkpoints/hybrid_meta.json
+    metric      IsolationForest (shipped)    Hybrid IF + HGB
+    recall                        0.2857             0.1905
+    precision                     0.1935             0.1600
+    F1                            0.2308             0.1739
+
+SECOM has 104 failures in 1,567 lots, so a 20% validation split holds ~21 positives.
+That is not enough signal for a gradient booster to learn a boundary that generalises;
+it fits the training failures and does not transfer. Adding supervision was the obvious
+next thing to try, it did not work, and that is worth recording rather than deleting.
+
+Note the implementation is scikit-learn's HistGradientBoostingClassifier, NOT LightGBM.
+Earlier drafts of README.md and submission.yaml said LightGBM and described this as the
+shipped pipeline; both were wrong and have been corrected.
+
+See src/models/tabular/NOTES.md for the full comparison and its caveats.
 """
 
 import json

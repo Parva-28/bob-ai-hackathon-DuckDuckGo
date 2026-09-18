@@ -100,6 +100,61 @@ Rationale for Isolation Forest over autoencoder:
 
 ---
 
+## What is actually served
+
+`anomaly.py` loads **`checkpoints/isolation_forest.pkl`** with `checkpoints/model_meta.json`.
+The path is hardcoded at `anomaly.py:50` — there is no fallback and no env override. That is
+the variance-filtered Isolation Forest described above, and it is the only tabular model in
+the serving path.
+
+## Negative result: the supervised hybrid is worse
+
+`hybrid_train.py` builds a two-stage detector — Isolation Forest for scoring, then a
+class-weighted `HistGradientBoostingClassifier` (14:1) over the top features. It writes
+`checkpoints/hybrid_detector.pkl` and `hybrid_meta.json`, and **nothing loads them.** It is
+retained deliberately as a recorded experiment, not as dead code awaiting wiring.
+
+| Metric (fail class) | IsolationForest (shipped) | Hybrid IF + HGB | delta |
+|---|---|---|---|
+| recall | **0.2857** | 0.1905 | −0.095 |
+| precision | **0.1935** | 0.1600 | −0.034 |
+| F1 | **0.2308** | 0.1739 | −0.057 |
+
+Worse on all three. Adding supervision did not help, which is consistent with what SECOM is:
+104 failures across 1,567 lots, of which roughly 21 land in any 20% validation split. There is
+not enough positive signal for a gradient-booster to learn a decision boundary that
+generalises, so it fits the training failures and does not transfer.
+
+Two caveats on the comparison, stated so nobody over-reads the table: the two models use
+different thresholds (0.40 vs 0.3733) and different feature counts (31 vs post-variance-filter),
+so this is a comparison of two configured systems, not a controlled ablation of one variable.
+And with 21 positives, all six numbers carry very wide intervals — see below.
+
+**If you quote this anywhere, note the implementation:** the hybrid uses scikit-learn's
+`HistGradientBoostingClassifier`, not LightGBM. Earlier drafts of `README.md` and
+`submission.yaml` described it as "Isolation Forest + LightGBM" and presented it as the
+shipped pipeline. Both were wrong on both counts and have been corrected.
+
+## Sample size — read before quoting any number above
+
+Validation contains **21 failing lots**. Recall 0.2857 is `6 / 21`; one lot either way moves
+it by 0.048. Precision 0.1935 is `6 / 31`. The 8-fold CV figures say the same thing more
+directly: `cv_8fold_recall_mean 0.2596` with `std 0.2499` — a standard deviation almost as
+large as the mean.
+
+`colab/eval_secom.ipynb` computes bootstrap 95% confidence intervals and compares against
+trivial baselines (random scores, max |z|, count of |z| > 3) plus a supervised reference.
+Run it before presenting any figure from this file. If the ROC-AUC interval includes 0.5,
+the honest statement is that we cannot demonstrate the detector beats random ranking on
+SECOM — which is a defensible thing to say, and far better than a point estimate that a
+judge can dismantle with one question about sample size.
+
+This is the opposite situation to the vision model, and the demo should not present the two
+as comparable evidence. The classifier is measured on 9,357 maps. This is measured on 21
+failures.
+
+---
+
 ## Scoring Calibration — score_samples() normalization
 
 **Change applied after optimization:** replaced `decision_function + symmetric clip` with
