@@ -3199,6 +3199,79 @@ h1 span {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
+.copilot-msg-h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 10px 0 6px;
+  line-height: 1.3;
+}
+
+.copilot-msg-h4 {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 8px 0 4px;
+  line-height: 1.3;
+}
+
+.copilot-p {
+  margin: 0 0 6px;
+  line-height: 1.5;
+}
+
+.copilot-spacer {
+  height: 6px;
+}
+
+.copilot-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+  line-height: 1.45;
+}
+
+.copilot-bullet-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #274c6b;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.copilot-num-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 5px 0;
+  line-height: 1.45;
+}
+
+.copilot-num-badge {
+  font: 700 9.5px "IBM Plex Mono", monospace;
+  background: #edf3f7;
+  color: #274c6b;
+  border: 1px solid #cbd5e1;
+  width: 17px;
+  height: 17px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.copilot-inline-code {
+  font: 600 11px "IBM Plex Mono", monospace;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
 .confidence-pill {
   display: inline-flex;
   align-items: center;
