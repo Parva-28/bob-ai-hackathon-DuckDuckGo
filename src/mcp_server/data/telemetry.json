@@ -1,0 +1,27 @@
+{
+  "_comment": "Simulated SECS/GEM equipment telemetry. Hackathon scope: a static lookup keyed by equipment_id (per AGENT_3 brief). direction + magnitude_sigma are machine-assertable; recent_trend is the human-readable form kept for backward compatibility - see PLAN_REVIEW P1-8.",
+  "equipment": {
+    "CMP-03":     {"tool_type":"CMP","chamber_id":"C1","is_shared_tool":false,"is_metrology":false,"days_since_pm":18,
+      "parameters":[{"parameter":"slurry_flow_rate","direction":"decreasing","magnitude_sigma":-2.4,"recent_trend":"declining steadily over the last 6 lots"},
+                    {"parameter":"pad_life_pct","direction":"increasing","magnitude_sigma":1.1,"recent_trend":"approaching qualified life limit"},
+                    {"parameter":"head_pressure_psi","direction":"stable","magnitude_sigma":0.1,"recent_trend":"nominal"}]},
+    "ETCH-07":    {"tool_type":"Etch","chamber_id":"B2","is_shared_tool":true,"is_metrology":false,"days_since_pm":2,
+      "parameters":[{"parameter":"rf_power_w","direction":"oscillating","magnitude_sigma":2.8,"recent_trend":"edge ringing since the PM 2 days ago"},
+                    {"parameter":"gas_flow_sccm","direction":"decreasing","magnitude_sigma":-2.1,"recent_trend":"edge zone below setpoint"},
+                    {"parameter":"chamber_seasoning_idx","direction":"increasing","magnitude_sigma":1.9,"recent_trend":"drifting since a shared-tool recipe change"}]},
+    "LITHO-02":   {"tool_type":"Litho","chamber_id":"A1","is_shared_tool":false,"is_metrology":false,"days_since_pm":31,
+      "parameters":[{"parameter":"lens_temp_c","direction":"increasing","magnitude_sigma":2.0,"recent_trend":"tracking ambient fab temperature swings"},
+                    {"parameter":"overlay_nm","direction":"increasing","magnitude_sigma":1.8,"recent_trend":"radial trend growing at mid-radius"},
+                    {"parameter":"firmware_version","direction":"stable","magnitude_sigma":0.0,"recent_trend":"updated 4 days ago, unchanged since"}]},
+    "HANDLER-01": {"tool_type":"Handler","chamber_id":"-","is_shared_tool":false,"is_metrology":false,"days_since_pm":96,
+      "parameters":[{"parameter":"end_effector_cycles","direction":"increasing","magnitude_sigma":2.2,"recent_trend":"48k cycles, past the 40k wear guideline"},
+                    {"parameter":"process_sensor_correlation","direction":"stable","magnitude_sigma":0.0,"recent_trend":"NO correlation with any process sensor - absence of signal is itself diagnostic"}]},
+    "TESTER-04":  {"tool_type":"Tester","chamber_id":"-","is_shared_tool":false,"is_metrology":true,"days_since_pm":42,
+      "parameters":[{"parameter":"test_head_calibration_drift","direction":"increasing","magnitude_sigma":3.1,"recent_trend":"drifting since last calibration 42 days ago"},
+                    {"parameter":"contact_resistance_ohm","direction":"increasing","magnitude_sigma":2.3,"recent_trend":"rising across all probe channels"},
+                    {"parameter":"process_sensor_correlation","direction":"stable","magnitude_sigma":0.1,"recent_trend":"process sensors quiet - deviation is confined to the measurement path"}]},
+    "FILTER-B12": {"tool_type":"Facility","chamber_id":"-","is_shared_tool":true,"is_metrology":false,"days_since_pm":210,
+      "parameters":[{"parameter":"particle_count_per_m3","direction":"increasing","magnitude_sigma":2.3,"recent_trend":"rising 3 days AHEAD of the wafer defect trend - leading indicator"},
+                    {"parameter":"hepa_runtime_hours","direction":"increasing","magnitude_sigma":2.0,"recent_trend":"31k hours, past the 28k replacement guideline"}]}
+  }
+}

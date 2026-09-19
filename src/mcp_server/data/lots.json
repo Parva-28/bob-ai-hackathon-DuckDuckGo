@@ -1,0 +1,18 @@
+{
+  "_comment": "Lot registry. Maps a lot_id an engineer would actually say to its evidence, so Bob can start from 'lot L-4471' instead of inventing a wafer-map path and an empty sensor dict. Each entry points at an eval fixture rather than duplicating its data, so the fixtures stay the single source of truth.",
+  "lots": {
+    "L-4471": {"case_id": "case_2a", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": 61.0, "status": "tested", "equipment_ids": ["ETCH-07", "CMP-03"]},
+    "L-4402": {"case_id": "case_1a", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": 68.4, "status": "tested", "equipment_ids": ["CMP-03"]},
+    "L-4418": {"case_id": "case_1c", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": 72.1, "status": "tested", "equipment_ids": ["CMP-03"]},
+    "L-3310": {"case_id": "case_3a", "product_id": "P-MEM-5N",   "fab_line": "FAB1-C", "final_yield_pct": 79.6, "status": "tested", "equipment_ids": ["HANDLER-01"]},
+    "L-4815": {"case_id": "case_4a", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-B", "final_yield_pct": 70.2, "status": "tested", "equipment_ids": ["LITHO-02"]},
+    "L-5120": {"case_id": "case_5a", "product_id": "P-MEM-5N",   "fab_line": "FAB1-C", "final_yield_pct": 74.8, "status": "tested", "equipment_ids": ["FILTER-B12", "ETCH-07"]},
+    "L-5502": {"case_id": "case_6c", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": 8.2,  "status": "tested", "equipment_ids": ["TESTER-04", "CMP-03"]},
+    "L-5540": {"case_id": "case_6b", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": 11.5, "status": "tested", "equipment_ids": ["HANDLER-01"]},
+
+    "L-4502": {"case_id": "case_1a", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": null, "status": "planned", "scheduled_start": "2026-09-16T06:00:00Z", "equipment_ids": ["CMP-03"]},
+    "L-4507": {"case_id": "case_5a", "product_id": "P-MEM-5N",   "fab_line": "FAB1-C", "final_yield_pct": null, "status": "planned", "scheduled_start": "2026-09-16T08:00:00Z", "equipment_ids": ["FILTER-B12"]},
+    "L-4511": {"case_id": "case_2b", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-A", "final_yield_pct": null, "status": "planned", "scheduled_start": "2026-09-16T10:00:00Z", "equipment_ids": ["ETCH-07"]},
+    "L-4515": {"case_id": "case_4b", "product_id": "P-LOGIC-3N", "fab_line": "FAB2-B", "final_yield_pct": null, "status": "planned", "scheduled_start": "2026-09-16T12:00:00Z", "equipment_ids": ["LITHO-02"]}
+  }
+}
