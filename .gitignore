@@ -114,3 +114,26 @@ __MACOSX/
 # PHM 2016 CMP raw traces (~11 MB, 558 CSVs) — data_prep.py re-downloads them
 src/models/cmp/data/raw/
 src/mcp_server/data/prior_reads.jsonl
+
+# ── runtime artifacts teammates need ──────────────────────────────────────────
+# The blanket `data/` and `checkpoints/` rules above hid the trained models AND
+# the preprocessing artifacts that go with them, so a fresh clone silently fell
+# back to stubs — the tabular checkpoint was committed but its scaler and medians
+# were not, and _load_artifacts() cannot run without both.
+#
+# These paths are FORCE-TRACKED (`git add -f`) rather than un-ignored with `!`:
+# a negation cannot rescue a file whose parent directory is excluded, because git
+# never descends into an excluded directory. Once tracked, these rules no longer
+# apply to them.
+#
+#   src/models/vision/checkpoints/best_model.pt      3.1 MB
+#   src/models/vision/data/class_map.json
+#   src/models/tabular/data/{scaler,medians}.pkl
+#   src/models/tabular/data/{feature_names.json,fail_profile.npy}
+#   src/models/cmp/checkpoints/cmp_model.pkl         1.4 MB
+#   src/models/cmp/data/{cmp_train.csv,feature_names.json}   1.9 MB
+#   src/mcp_server/data/wafer_maps/*.npy             144 KB
+#
+# ~6.6 MB total. Training INPUTS stay ignored: X_train.npy is 868 MB,
+# LSWMD.pkl 2.1 GB, and the raw CMP traces 189 MB. Regenerate those with
+# data_prep.py.
