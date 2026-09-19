@@ -83,7 +83,11 @@ demo/*.avi
 demo/*.mkv
 
 # ── Docker volumes / local data ───────────────────────────────────────────────
-data/
+# NOT a bare `data/`: that matches every directory named data at any depth, which
+# is what silently hid the trained models, the SECOM preprocessing artifacts and
+# the MCP server's cases/lots/telemetry files. A fresh clone could not even
+# import the server. Large inputs are excluded by path below instead.
+/data/
 logs/
 *.log
 
@@ -99,10 +103,27 @@ logs/
 .venv/
 src/mcp_server/data/feedback.jsonl
 
-# Track 1 — WM-811K (2.1 GB raw pickle + derived arrays)
-src/models/vision/data/
-src/models/vision/checkpoints/
-src/models/cmp/checkpoints/
+# Track 1 — WM-811K. Exclude the bulk INPUTS, keep the trained model.
+# LSWMD.pkl is 2.1 GB and X_train.npy 829 MB; data_prep.py regenerates both.
+src/models/vision/data/*.pkl
+src/models/vision/data/*.npy
+# Superseded and rejected checkpoints — the shipped one is best_model.pt
+src/models/vision/checkpoints/best_model_vit.pt
+src/models/vision/checkpoints/best_model_v1_*.pt
+
+# Track 2 — SECOM. X_train/y_train ARE tracked: lot_sensors.build_vector picks a
+# class medoid from them and score_sensor_anomaly returns 0.00 without it.
+src/models/tabular/data/secom*.data
+src/models/tabular/data/X_val.npy
+src/models/tabular/data/y_val.npy
+# redundant with medians.pkl, which is what anomaly.py actually loads
+src/models/tabular/data/medians.npy
+
+# Track A — PHM 2016. Only cmp_train.csv is tracked. The competition's val and
+# test splits ship with AVG_REMOVAL_RATE masked as "?", so they carry no labels
+# and nothing at runtime reads them.
+src/models/cmp/data/cmp_val.csv
+src/models/cmp/data/cmp_test.csv
 
 colab/wm811k_64.npz
 
@@ -115,33 +136,21 @@ __MACOSX/
 src/models/cmp/data/raw/
 src/mcp_server/data/prior_reads.jsonl
 
-# ── runtime artifacts teammates need ──────────────────────────────────────────
-# The blanket `data/` and `checkpoints/` rules above hid the trained models AND
-# the preprocessing artifacts that go with them, so a fresh clone silently fell
-# back to stubs — the tabular checkpoint was committed but its scaler and medians
-# were not, and _load_artifacts() cannot run without both.
+# ── why models are tracked ────────────────────────────────────────────────────
+# Trained models and their preprocessing artifacts are COMMITTED, deliberately.
+# They total ~12 MB and without them a fresh clone is not merely degraded, it is
+# broken in three separate ways we found by actually cloning it:
 #
-# These paths are FORCE-TRACKED (`git add -f`) rather than un-ignored with `!`:
-# a negation cannot rescue a file whose parent directory is excluded, because git
-# never descends into an excluded directory. Once tracked, these rules no longer
-# apply to them.
+#   1. the MCP server could not import at all — cases.json was ignored
+#   2. the tabular checkpoint was committed but its scaler and medians were not,
+#      so _load_artifacts() failed and every tool fell back to a stub
+#   3. score_sensor_anomaly returned 0.00 for every lot without X_train.npy,
+#      flipping case_6a to the wrong category
 #
-#   src/models/vision/checkpoints/best_model.pt      3.1 MB
-#   src/models/vision/data/class_map.json
-#   src/models/tabular/data/{scaler,medians}.pkl
-#   src/models/tabular/data/{feature_names.json,fail_profile.npy}
-#   src/models/cmp/checkpoints/cmp_model.pkl         1.4 MB
-#   src/models/cmp/data/{cmp_train.csv,feature_names.json}   1.9 MB
-#   src/mcp_server/data/wafer_maps/*.npy             144 KB
-#   src/mcp_server/data/{cases,lots,telemetry}.json  the server cannot even
-#                                                    IMPORT without these
-#   src/models/tabular/data/{X,y}_train.npy          5.6 MB — SECOM training
-#     rows. lot_sensors.build_vector picks a class MEDOID from these to build the
-#     full 582-feature vector; without them score_sensor_anomaly degrades to 0.00
-#     and case_6a flips to the wrong category. Only two vectors are actually
-#     needed — precomputing them into a ~5 KB artifact would drop this to nothing,
-#     but that is a code change and this was shipped on demo day.
+# Rules above exclude bulk INPUTS by path, never by directory name, so a
+# retrained checkpoint is picked up automatically instead of needing `git add -f`.
+# Regenerate the excluded inputs with:
 #
-# ~6.6 MB total. Training INPUTS stay ignored: X_train.npy is 868 MB,
-# LSWMD.pkl 2.1 GB, and the raw CMP traces 189 MB. Regenerate those with
-# data_prep.py.
+#   python3 src/models/vision/data_prep.py     # needs LSWMD.pkl from Kaggle
+#   python3 src/models/tabular/data_prep.py
+#   python3 src/models/cmp/data_prep.py
