@@ -27,6 +27,8 @@ from pydantic import BaseModel
 import os
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE.parent / "mcp_server"))
+# this package's own dir, so `uvicorn src.api.main:app` can import validate
+sys.path.insert(0, str(HERE))
 
 # Auto-load .env into os.environ if present.
 # src/.env FIRST, matching src/reasoning/reasoning.py. These two loaders used
@@ -46,6 +48,8 @@ for _env_candidate in [HERE.parent / ".env", HERE.parent.parent / ".env"]:
             pass
 
 import adapters                                   # noqa: E402
+from validate import (validate_wafer_map, validate_sensors,   # noqa: E402
+                      secom_feature_names)
 import server as tools                            # noqa: E402
 
 fn = lambda t: getattr(t, "fn", t)                # MCPServer wraps each tool  # noqa: E731
@@ -858,9 +862,35 @@ async def api_analyze_upload(
         arr = np.load(tmp, allow_pickle=False)
     except Exception as e:
         return JSONResponse({"error": f"not a readable .npy array: {e}"}, status_code=400)
-    if arr.ndim != 2:
-        return JSONResponse(
-            {"error": f"expected a 2-D wafer map, got shape {arr.shape}"}, status_code=400)
+    # Validate BEFORE the models see anything. A softmax always returns a class,
+    # and on inputs outside its training distribution it returns one confidently:
+    # an all-zero array classified as Scratch at confidence 1.0. Confidence cannot
+    # be the guard because confidence is what fails. So the guard is on the input,
+    # and a failure REFUSES rather than answering with a caveat — the caveat is the
+    # first thing lost when someone screenshots the result.
+    ok_map, map_problems, map_stats = validate_wafer_map(arr)
+    ok_sig, sig_problems, sig_stats = validate_sensors(sensor_sig, secom_feature_names())
+    if not (ok_map and ok_sig):
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return JSONResponse({
+            "error": "input rejected — no classification was performed",
+            "wafer_map_problems": map_problems,
+            "sensor_problems": sig_problems,
+            "wafer_map_stats": map_stats,
+            "sensor_stats": sig_stats,
+            "why": ("The models would have returned a confident answer for this input. "
+                    "Measured on the shipped classifier: an empty map scores Scratch at "
+                    "1.0 and uniform noise scores Edge-Ring at 0.57. Refusing is the "
+                    "only honest response to input we cannot vouch for."),
+            "expected": {
+                "wafer_map": "2-D .npy, 16-512 per side, values 0=not-tested 1=pass "
+                             "2=fail, round wafer geometry (corners untested)",
+                "sensors": "JSON object of known SECOM channel names to z-scores, |z| <= 25",
+            },
+        }, status_code=422)
 
     eq = [e.strip() for e in equipment_ids.split(",") if e.strip()]
     trace: list[dict] = []
@@ -909,6 +939,8 @@ async def api_analyze_upload(
 
     return {
         "sample_id": sample_id,
+        "input_validation": {"wafer_map": "passed", "sensors": "passed",
+                             "wafer_map_stats": map_stats, "sensor_stats": sig_stats},
         "wafer_shape": list(arr.shape),
         "dies": {"tested": int((arr > 0).sum()), "fail": int((arr == 2).sum())},
         "trace": trace,
