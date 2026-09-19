@@ -10,7 +10,7 @@
 
 - **Source:** SECOM Manufacturing Dataset (UCI ML Repository, ID 179)
 - **Size:** 1,567 observations × 590 sensor features
-- **Labels:** 104 fails (class −1), 1,463 passes (class +1)
+- **Labels:** 104 fails (class +1), 1,463 passes (class −1) — UCI SECOM convention, verified against `secom_labels.data`
 - **Imbalance:** ~1:14 fail:pass ratio (~6.6% fail rate)
 - **Missing values:** ~4.5% of values missing, spread across ~28 sensors;
   some sensors have >80% missing values and are dropped entirely
