@@ -1,6 +1,6 @@
 {
   "sample_id": "SAMPLE-DEFECT-001",
-  "description": "Etch lot with an edge-ring defect signature. RF power sensors deviating after a chamber PM; process channels corroborate.",
+  "description": "Real WM-811K wafer with an Edge-Ring defect, paired with a real SECOM FAILING lot's sensor vector (class medoid, row 108).",
   "wafer_map": "wafer_defect.npy",
   "equipment_ids": [
     "ETCH-07"
@@ -8,10 +8,19 @@
   "product_id": "P-LOGIC-3N",
   "fab_line": "FAB2-A",
   "sensor_signature": {
-    "sensor_23": 2.8,
-    "sensor_24": 2.2,
-    "sensor_45": 0.1
+    "sensor_571": -1.93,
+    "sensor_480": 1.84,
+    "sensor_61": -1.82,
+    "sensor_301": -1.81,
+    "sensor_303": 1.8
   },
   "sensor_units": "sigma",
-  "expected_story": "Edge-Ring pattern + RF deviation -> equipment root cause"
+  "sensor_provenance": {
+    "source": "SECOM (UCI id=179), standardised training split",
+    "row_index": 108,
+    "true_label": "fail",
+    "selection": "class medoid \u2014 the most typical row of its class, not the most extreme. The loudest failing row peaks at 21.8 sigma and would flatter the detector.",
+    "peak_abs_z": 1.93
+  },
+  "pairing": "CONSTRUCTED. The wafer map and the sensor vector are both real measurements, but from different datasets and different wafers. No causal claim survives the join."
 }

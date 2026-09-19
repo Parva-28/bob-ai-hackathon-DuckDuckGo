@@ -1,17 +1,24 @@
 {
   "sample_id": "SAMPLE-CLEAN-001",
-  "description": "Nominal lot. No defect pattern, all sensor channels quiet. Included so the system can be seen NOT raising an alarm.",
+  "description": "Real WM-811K wafer with no defect pattern, paired with a real SECOM PASSING lot's sensor vector (class medoid, row 500).",
   "wafer_map": "wafer_clean.npy",
-  "equipment_ids": [
-    "CMP-03"
-  ],
+  "equipment_ids": [],
   "product_id": "P-MEM-5N",
   "fab_line": "FAB1-C",
   "sensor_signature": {
-    "sensor_23": 0.1,
-    "sensor_24": -0.2,
-    "sensor_45": 0.0
+    "sensor_183": 2.02,
+    "sensor_455": 1.99,
+    "sensor_48": 1.92,
+    "sensor_31": 1.83,
+    "sensor_29": 1.81
   },
   "sensor_units": "sigma",
-  "expected_story": "No pattern + quiet sensors -> no excursion, low confidence"
+  "sensor_provenance": {
+    "source": "SECOM (UCI id=179), standardised training split",
+    "row_index": 500,
+    "true_label": "pass",
+    "selection": "class medoid \u2014 the most typical row of its class, not the most extreme. The loudest failing row peaks at 21.8 sigma and would flatter the detector.",
+    "peak_abs_z": 2.02
+  },
+  "pairing": "CONSTRUCTED. The wafer map and the sensor vector are both real measurements, but from different datasets and different wafers. No causal claim survives the join."
 }

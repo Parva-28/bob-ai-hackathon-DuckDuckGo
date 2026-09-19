@@ -8,10 +8,33 @@ supplied at request time rather than replayed from a fixture.
 | `wafer_defect.npy` + `sensors_defect.json` | Edge-Ring defect, RF sensors deviating |
 | `wafer_clean.npy` + `sensors_clean.json` | nominal wafer, every channel quiet |
 
-Both maps are **real WM-811K wafers**, taken as the class medoid — the most
-typical member of the class, not a flattering outlier. They are not drawings. A
-hand-drawn ring would be a picture of a defect rather than a defect, and the
-point of the demo is that the classifier is reading real silicon.
+**Both halves of both samples are real measurements.** The wafer maps are real
+WM-811K wafers; the sensor vectors are real SECOM rows with their true labels.
+Each is the **class medoid** — the most typical member of its class, not a
+flattering outlier. Nothing here is drawn or invented.
+
+The pairing between them is ours, and that is declared in every file
+(`"pairing": "CONSTRUCTED"`). SECOM and WM-811K are different fabs and different
+wafers, so no pairing makes a sensor *explain* a defect. We show the join because
+it demonstrates the workflow, not because it establishes cause.
+
+### Why the sensors look unremarkable — and why that is the point
+
+The defect sample's sensors peak at **1.93 sigma**. The clean sample's peak at
+**2.02 sigma**. The *passing* lot deviates more than the *failing* one.
+
+That is not a mistake in the sample, it is what SECOM is. The typical failing lot
+is not distinguishable from a passing lot by sensor magnitude, which is exactly
+why the detector reaches ROC-AUC 0.583 and fail-class recall 0.286 and no amount
+of model tuning fixed it.
+
+We could have used the loudest failing row instead — it peaks at **21.8 sigma**
+and would make the detector look decisive. Choosing the medoid rather than that
+outlier is the difference between demonstrating a system and flattering one.
+
+This is also the honest answer to "why PHM 2016 CMP?": it is the one dataset
+where the process measurements and the outcome are recorded on the same wafer, so
+the link is measured rather than asserted. See the `/prediction` screen.
 
 ## Run it
 
