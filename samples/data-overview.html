@@ -35,6 +35,11 @@ table{border-collapse:collapse;width:100%}
 .note{margin:14px 0 0;padding:10px 12px;background:#fff8e6;border-left:3px solid #d9a441;
  border-radius:4px;font-size:12px;color:#6b5418}
 .foot{color:var(--dim);font-size:12px;max-width:80ch}
+.proc{margin:6px 0 4px;font-size:12px}
+.proc th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+ color:var(--dim);border-bottom:1px solid var(--line);padding:5px 10px 5px 0}
+.proc td{padding:5px 10px 5px 0;border-bottom:1px solid #f2f5f7;vertical-align:top}
+.proc .num{text-align:right} .dim{color:var(--dim)}
 code{background:#eef2f5;padding:1px 5px;border-radius:3px;font-size:11.5px}
 </style>
 <h1>What the data actually looks like</h1>
@@ -126,6 +131,43 @@ member of the class, never the most extreme.</p>
     </div>
   </div>
   <p class=note><b>Pairing:</b> CONSTRUCTED. The wafer map and the sensor vector are both real measurements, but from different datasets and different wafers. No causal claim survives the join.</p>
+</section>
+
+<section class=card>
+  <h2>Where this sits in the manufacturing flow</h2>
+  <p class=foot>A logic wafer takes <b>600&ndash;1,000+ steps across 40&ndash;80 mask
+  layers</b>, but they are repetitions of a small set. Below is the fleet this system
+  actually reasons over, and the steps it does not.</p>
+
+  <h3 style="margin-top:16px">Tools in the fleet</h3>
+  <table class=proc><thead><tr><th>tool</th><th>process step</th><th>what it does</th>
+    <th class=num>lots</th><th>transforms wafer?</th></tr></thead>
+    <tbody><tr><td class=mono>CMP-03</td><td>Chemical-mechanical planarization</td><td class=dim>polish the surface flat before the next layer</td><td class='mono num'>5</td><td>transforms</td></tr><tr><td class=mono>ETCH-07</td><td>Etch</td><td class=dim>remove material through the patterned resist</td><td class='mono num'>3</td><td>transforms</td></tr><tr><td class=mono>FILTER-B12</td><td>Cleanroom facility</td><td class=dim>air filtration — not a process step</td><td class='mono num'>2</td><td><span class=dim>no</span></td></tr><tr><td class=mono>HANDLER-01</td><td>Wafer transfer</td><td class=dim>move wafers between tools — not a process step</td><td class='mono num'>2</td><td><span class=dim>no</span></td></tr><tr><td class=mono>LITHO-02</td><td>Photolithography</td><td class=dim>coat, expose through a reticle, develop — patterning</td><td class='mono num'>2</td><td>transforms</td></tr><tr><td class=mono>TESTER-04</td><td>Wafer test / probe</td><td class=dim>measure the finished wafer — does not transform it</td><td class='mono num'>1</td><td><span class=dim>no</span></td></tr></tbody></table>
+  <p class=foot><b>Two of the six are not process steps.</b> A handler moves wafers and
+  a filter cleans air, yet both are real sources of yield loss &mdash; which is the
+  point. Not every excursion comes from a process tool.</p>
+
+  <h3 style="margin-top:20px">Steps we do <em>not</em> cover</h3>
+  <table class=proc><tbody><tr><td>Deposition</td><td class=dim>CVD / PVD / ALD, epitaxy — grow and add thin films</td></tr><tr><td>Ion implantation</td><td class=dim>introduce dopants into the silicon</td></tr><tr><td>Clean &amp; thermal</td><td class=dim>inter-step cleans, oxidation, anneal</td></tr></tbody></table>
+  <p class=foot>The public data gives us no labelled examples of these. The
+  architecture is step-agnostic &mdash; it reasons over sensors, patterns and
+  precedents &mdash; but we do not claim coverage we have not evaluated.
+  <b>Deposition is the largest gap</b>, and it is where most published virtual-metrology
+  work concentrates.</p>
+
+  <h3 style="margin-top:20px">Defect pattern &rarr; likely step</h3>
+  <p class=foot>Wafer maps come from the <b>end</b> of the line, at wafer test: one
+  pass/fail bin per die, after all processing. The pattern is a symptom observed last;
+  inferring which of hundreds of upstream steps caused it is the actual problem.</p>
+  <table class=proc><thead><tr><th>pattern</th><th>usually points at</th>
+    <th>mechanism</th></tr></thead><tbody><tr><td class=mono>Center</td><td>CMP</td><td class=dim>over-polish at the wafer centre</td></tr><tr><td class=mono>Edge-Ring</td><td>Etch</td><td class=dim>edge effects — RF or gas non-uniformity</td></tr><tr><td class=mono>Edge-Loc</td><td>Etch</td><td class=dim>localised edge deviation</td></tr><tr><td class=mono>Donut</td><td>Litho</td><td class=dim>lens thermal drift, focus error</td></tr><tr><td class=mono>Scratch</td><td>Handling</td><td class=dim>end-effector or cassette contact</td></tr><tr><td class=mono>Random</td><td>Facility</td><td class=dim>particle contamination</td></tr><tr><td class=mono>Local</td><td>mixed</td><td class=dim>clustered defects with no named geometry</td></tr><tr><td class=mono>Near-full</td><td>either</td><td class=dim>catastrophic excursion — <b>or the tester itself</b></td></tr><tr><td class=mono>None</td><td>—</td><td class=dim>no pattern detected</td></tr></tbody></table>
+  <p class=foot><b>Near-full is the interesting one.</b> Near-total failure can be a
+  genuine power-supply cascade, or a test-head calibration drift where the wafers are
+  perfectly fine. That distinction decides whether you scrap a lot or recalibrate an
+  instrument, and it is Case Study 6.</p>
+
+  <h3 style="margin-top:20px">The six case studies</h3>
+  <table class=proc><tbody><tr><td class=mono>CS1</td><td>equipment</td><td class=dim>Slurry pump degrading gradually over ~2 weeks. Sensor_12 trending outside 2 sigma across the las</td></tr><tr><td class=mono>CS2</td><td>equipment</td><td class=dim>RF power showing edge ringing immediately after a tool PM.</td></tr><tr><td class=mono>CS3</td><td>handling</td><td class=dim>Linear scratch trail. NO process sensor correlation - all sensors nominal. The absence of signal</td></tr><tr><td class=mono>CS4</td><td>equipment</td><td class=dim>Stepper lens thermal drift correlating with ambient fab temperature swings.</td></tr><tr><td class=mono>CS5</td><td>equipment</td><td class=dim>Defect density elevated vs the None-class baseline. Cleanroom particle counter trended up BEFORE</td></tr><tr><td class=mono>CS6</td><td>equipment</td><td class=dim>Genuine catastrophic process excursion - a power supply fault cascading through a process step. </td></tr></tbody></table>
 </section>
 <section class=card>
   <h2>Read the sensor values against each other</h2>
