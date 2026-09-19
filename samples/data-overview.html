@@ -41,6 +41,10 @@ table{border-collapse:collapse;width:100%}
 .proc td{padding:5px 10px 5px 0;border-bottom:1px solid #f2f5f7;vertical-align:top}
 .proc .num{text-align:right} .dim{color:var(--dim)}
 code{background:#eef2f5;padding:1px 5px;border-radius:3px;font-size:11.5px}
+.barwrap{display:block;width:110px;height:7px;background:#eef2f5;border-radius:4px;overflow:hidden}
+.bar{display:block;height:100%;background:#7aa5c7;border-radius:4px}
+.bar.ok{background:#8fbfa4} .bar.hotbar{background:#d98a87}
+.proc .num{white-space:nowrap}
 </style>
 <h1>What the data actually looks like</h1>
 <p class=sub>Two samples fed to the live tool chain. Every value below is a real
@@ -133,6 +137,111 @@ member of the class, never the most extreme.</p>
   <p class=note><b>Pairing:</b> CONSTRUCTED. The wafer map and the sensor vector are both real measurements, but from different datasets and different wafers. No causal claim survives the join.</p>
 </section>
 
+
+<section class=card>
+  <h2>What the classes actually are</h2>
+  <p class=foot>The two samples above are one class each out of nine. The full label
+  space, and how unevenly it is populated, is the thing that shapes every number we
+  report.</p>
+
+  <h3 style="margin-top:18px">Vision &mdash; WM-811K, 9 classes, 9,357 held-out maps</h3>
+  <p class=foot style="margin:0 0 10px"><b>One class is non-defective.</b> <code>None</code>
+  means no recognisable spatial pattern &mdash; not a perfect wafer. Scattered failures
+  below the pattern threshold are still labelled <code>None</code>. That is WM-811K&rsquo;s
+  convention, not ours. The other eight are defect patterns.</p>
+  <table class=proc>
+    <tr><th>Class</th><th></th><th class=num>Maps</th><th class=num>Share</th>
+        <th class=num>F1</th><th>What it looks like</th></tr>
+    <tr><td><b>None</b></td>
+        <td><span class=barwrap><i class="bar ok" style="width:100%"></i></span></td>
+        <td class=num>5,529</td><td class=num>59.1%</td><td class=num>0.983</td>
+        <td class=dim>no pattern detected &mdash; <b>the only non-defective class</b></td></tr>
+    <tr><td>Edge-Ring</td>
+        <td><span class=barwrap><i class=bar style="width:26.3%"></i></span></td>
+        <td class=num>1,452</td><td class=num>15.5%</td><td class=num>0.984</td>
+        <td class=dim>failures in a ring at the wafer rim</td></tr>
+    <tr><td>Edge-Loc</td>
+        <td><span class=barwrap><i class=bar style="width:14.1%"></i></span></td>
+        <td class=num>779</td><td class=num>8.3%</td><td class=num>0.903</td>
+        <td class=dim>localised cluster on the edge</td></tr>
+    <tr><td>Center</td>
+        <td><span class=barwrap><i class=bar style="width:11.6%"></i></span></td>
+        <td class=num>644</td><td class=num>6.9%</td><td class=num>0.959</td>
+        <td class=dim>failures concentrated mid-wafer</td></tr>
+    <tr><td>Local</td>
+        <td><span class=barwrap><i class=bar style="width:9.7%"></i></span></td>
+        <td class=num>539</td><td class=num>5.8%</td><td class="num hot">0.834</td>
+        <td class=dim>a cluster anywhere &mdash; <b>weakest class</b></td></tr>
+    <tr><td>Scratch</td>
+        <td><span class=barwrap><i class=bar style="width:3.2%"></i></span></td>
+        <td class=num>179</td><td class=num>1.9%</td><td class=num>0.861</td>
+        <td class=dim>a thin line across dies &mdash; handling damage</td></tr>
+    <tr><td>Random</td>
+        <td><span class=barwrap><i class=bar style="width:2.4%"></i></span></td>
+        <td class=num>130</td><td class=num>1.4%</td><td class=num>0.902</td>
+        <td class=dim>scattered, no structure</td></tr>
+    <tr><td>Donut</td>
+        <td><span class=barwrap><i class=bar style="width:1.5%"></i></span></td>
+        <td class=num>83</td><td class=num>0.9%</td><td class=num>0.906</td>
+        <td class=dim>ring with a passing centre</td></tr>
+    <tr><td>Near-full</td>
+        <td><span class=barwrap><i class=bar style="min-width:2px;width:0.4%"></i></span></td>
+        <td class=num>22</td><td class=num>0.2%</td><td class=num>0.978</td>
+        <td class=dim>almost the whole wafer failed</td></tr>
+    <tr><td colspan=2><b>Defective (8 classes)</b></td>
+        <td class=num><b>3,828</b></td><td class=num><b>40.9%</b></td>
+        <td class=num>&mdash;</td>
+        <td class=dim>vs 5,529 non-defective</td></tr>
+  </table>
+
+  <p class=note><b>Why we report macro-F1, not accuracy.</b> <code>None</code> is 59.1% of
+  the split, so &ldquo;call every wafer clean&rdquo; already scores <b>0.591 accuracy</b>
+  while catching nothing. Macro-F1 weights Near-full&rsquo;s 22 maps the same as
+  None&rsquo;s 5,529, so a class the model abandons cannot hide in the average.
+  Our number is <b>0.9232</b>.<br><br>
+  That 59.1% is <em>already</em> after subsampling &mdash; <code>None</code> was cut to 25%
+  of available records during data prep. In raw WM-811K the non-defective class dominates so
+  heavily the model simply learns to say <code>None</code>.</p>
+
+  <p class=foot style="margin-top:14px"><b>There is no binary head.</b> The model predicts
+  one of nine classes; anything that is not <code>None</code> is treated as defective
+  downstream. A faint <code>Local</code> read as <code>None</code> is a miss that macro-F1
+  exposes and a pass/fail number would hide.</p>
+
+  <h3 style="margin-top:26px">SECOM &mdash; binary, and far more skewed</h3>
+  <p class=foot style="margin:0 0 10px">No defect <em>patterns</em> here. SECOM records
+  1,567 production lots against 590 anonymised sensors, with one bit of outcome per lot.</p>
+  <table class=proc>
+    <tr><th>Label</th><th></th><th class=num>Lots</th><th class=num>Share</th><th>Meaning</th></tr>
+    <tr><td><b>Pass</b> <span class=dim>(+1)</span></td>
+        <td><span class=barwrap><i class="bar ok" style="width:100%"></i></span></td>
+        <td class=num>1,463</td><td class=num>93.4%</td>
+        <td class=dim>lot cleared in-line test</td></tr>
+    <tr><td><b>Fail</b> <span class=dim>(&minus;1)</span></td>
+        <td><span class=barwrap><i class="bar hotbar" style="width:7.1%"></i></span></td>
+        <td class=num>104</td><td class=num>6.6%</td>
+        <td class=dim>lot failed &mdash; a <b>1:14</b> ratio</td></tr>
+  </table>
+  <p class=foot style="margin:10px 0 0">A 20% stratified validation split leaves
+  <b>293 passing and 21 failing lots</b>. Twenty-one positives is the entire budget the
+  detector is scored on.</p>
+
+  <table class=proc style="margin-top:12px;max-width:520px">
+    <tr><th>Validation, n=314</th><th class=num>Predicted pass</th><th class=num>Predicted fail</th></tr>
+    <tr><td>Actual pass (293)</td><td class=num>268</td><td class=num>25 <span class=dim>false alarms</span></td></tr>
+    <tr><td>Actual fail (21)</td><td class="num hot">15 <span class=dim>missed</span></td><td class=num>6 <span class=dim>caught</span></td></tr>
+  </table>
+  <p class=foot style="margin:10px 0 0"><b>Fail-class recall 0.286, precision 0.194,
+  ROC-AUC 0.583.</b> We do not report accuracy &mdash; it is ~87% and means nothing at
+  1:14. Predicting &ldquo;all pass&rdquo; scores 0% recall, so 28.6% is a real gain over
+  the do-nothing baseline, and still a weak detector.</p>
+
+  <p class=note>Eight sweeps over 184 configurations did not move this, and a supervised
+  hybrid made it <em>worse</em> (recall 0.190). The ceiling is the data: the typical failing
+  lot is not distinguishable from a passing one by sensor magnitude &mdash; which is exactly
+  what the 1.93&sigma; vs 2.02&sigma; comparison above shows. This is the measured reason
+  Track A moved to PHM 2016 CMP.</p>
+</section>
 <section class=card>
   <h2>Where this sits in the manufacturing flow</h2>
   <p class=foot>A logic wafer takes <b>600&ndash;1,000+ steps across 40&ndash;80 mask
