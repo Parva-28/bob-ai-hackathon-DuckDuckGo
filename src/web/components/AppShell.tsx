@@ -95,6 +95,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   const workspaceNav: [string, string, LucideIcon, number?][] = [
     ["Command center", "/overview", LayoutDashboard],
     ["Investigation", "/investigation", Crosshair],
+    ["Pipeline studio", "/pipeline", Sparkles],
     ["Lot queue", "/lot-analysis", Boxes, 8],
     ["Equipment", "/equipment", Cpu],
     ["Historical cases", "/cases", BookOpen],
@@ -115,6 +116,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   const getBreadcrumbContext = () => {
     if (pathname === "/" || pathname.startsWith("/overview")) return "Command Center";
     if (pathname.startsWith("/investigation")) return "Investigation Workspace";
+    if (pathname.startsWith("/pipeline")) return "Pipeline Studio";
     if (pathname.startsWith("/lot-analysis")) return "Lot Queue";
     if (pathname.startsWith("/equipment")) return "Equipment Telemetry";
     if (pathname.startsWith("/cases")) return "Historical Cases";
