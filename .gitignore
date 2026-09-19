@@ -135,6 +135,12 @@ src/mcp_server/data/prior_reads.jsonl
 #   src/mcp_server/data/wafer_maps/*.npy             144 KB
 #   src/mcp_server/data/{cases,lots,telemetry}.json  the server cannot even
 #                                                    IMPORT without these
+#   src/models/tabular/data/{X,y}_train.npy          5.6 MB — SECOM training
+#     rows. lot_sensors.build_vector picks a class MEDOID from these to build the
+#     full 582-feature vector; without them score_sensor_anomaly degrades to 0.00
+#     and case_6a flips to the wrong category. Only two vectors are actually
+#     needed — precomputing them into a ~5 KB artifact would drop this to nothing,
+#     but that is a code change and this was shipped on demo day.
 #
 # ~6.6 MB total. Training INPUTS stay ignored: X_train.npy is 868 MB,
 # LSWMD.pkl 2.1 GB, and the raw CMP traces 189 MB. Regenerate those with
