@@ -36,7 +36,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _load_env_file() -> None:
-    """Load key-value pairs from src/.env and .env if present."""
+    """
+    Load key-value pairs from src/.env, falling back to a repo-root .env.
+
+    src/.env is the canonical file. A second copy at the repo root used to exist
+    and caused a real bug: this loader reads src first, src/api/main.py read root
+    first, so the same key resolved differently depending on which module imported
+    first. The root fallback is kept for anyone who already has one, but do not
+    create a second copy — put values in src/.env.
+    """
     here = Path(__file__).resolve().parent
     candidates = [
         here.parent / ".env",          # src/.env
@@ -321,7 +329,7 @@ def _call_gemini(prompt: str) -> str:
 
     if not api_key:
         raise ValueError(
-            "GEMINI_API_KEY is not set! Please add your key to `src/.env` or `.env`:\n"
+            "GEMINI_API_KEY is not set! Please add your key to `src/.env`:\n"
             "    GEMINI_API_KEY=your_key_here\n"
             "    USE_MOCK_LLM=false\n"
             "Get a key at https://aistudio.google.com/apikey"

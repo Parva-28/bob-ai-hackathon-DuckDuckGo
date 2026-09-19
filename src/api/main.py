@@ -28,8 +28,13 @@ import os
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE.parent / "mcp_server"))
 
-# Auto-load .env into os.environ if present
-for _env_candidate in [HERE.parent.parent / ".env", HERE.parent / ".env"]:
+# Auto-load .env into os.environ if present.
+# src/.env FIRST, matching src/reasoning/reasoning.py. These two loaders used
+# opposite precedence, so with a .env at both the repo root and src/, the same
+# key resolved differently depending on which module imported first —
+# GEMINI_MODEL_ID silently stayed on gemini-3.5-flash here while reasoning.py
+# read flash-lite. One order, one source of truth: src/.env is canonical.
+for _env_candidate in [HERE.parent / ".env", HERE.parent.parent / ".env"]:
     if _env_candidate.exists():
         try:
             for _ln in _env_candidate.read_text(encoding="utf-8").splitlines():
