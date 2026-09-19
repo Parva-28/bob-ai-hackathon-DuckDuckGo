@@ -64,9 +64,11 @@ system, not a footnote.</p>
 <!-- ============ 1. the chain ============ -->
 <section class=card>
   <h2>1 &middot; The tool chain</h2>
-  <p class=lede>Bob calls each tool separately, then passes the first five results
-  <em>into</em> the sixth. The agent does not invent evidence &mdash; it routes it.
-  A hypothesis that cites no tool output is rejected at the MCP boundary.</p>
+  <p class=lede>Bob calls each tool separately, then passes the four evidence results
+  <em>into</em> <code>rank_root_causes</code> as arguments. The agent does not invent
+  evidence &mdash; it routes it. A hypothesis that cites no tool output is rejected at the
+  MCP boundary. <b>Section 2 is how that sequencing is decided</b> &mdash; the server
+  itself has no notion of an investigation.</p>
 
   <h3>Step 1 &mdash; get the lot</h3>
   <div class=flow>
@@ -97,9 +99,71 @@ system, not a footnote.</p>
   the conflict rather than smoothing it.</div>
 </section>
 
-<!-- ============ 2. entry paths ============ -->
+<!-- ============ 2. the orchestrator ============ -->
 <section class=card>
-  <h2>2 &middot; Three ways in</h2>
+  <h2>2 &middot; Who actually drives the chain &mdash; IBM Bob</h2>
+  <p class=lede>The server has no idea what an investigation is. It exposes fourteen independent tools and answers one call at a time. <b>Bob is the thing that decides which
+  tool to call, in what order, and what to carry forward.</b> Take Bob out and there is no
+  pipeline &mdash; only a toolbox.</p>
+
+  <div class=flow>
+    <div class="box tint-k"><b>SKILL.md</b>
+      <span>.bob/skills/yieldguard &mdash; the order, the two workflows, the honesty rules</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-c"><b>Bob</b>
+      <span>reads the skill, plans the call sequence, carries results between tools,
+      writes the final narrative</span></div>
+    <div class=arr>&harr;</div>
+    <div class="box tint-k"><b>MCP over stdio</b>
+      <span>.bob/mcp.json spawns the server as a subprocess &mdash; one call, one reply</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-m"><b>14 tools</b>
+      <span>models, stores, telemetry &mdash; none of them call each other</span></div>
+  </div>
+
+  <h3>What the skill actually encodes</h3>
+  <table>
+    <tr><td><b>Ordering</b></td>
+        <td><code>get_lot_data</code> <em>always</em> first when a lot is named &mdash; it
+            returns the <code>wafer_map_ref</code> and <code>sensor_signature</code> every
+            later tool needs. &ldquo;Never invent an image path or a sensor dict.&rdquo;</td></tr>
+    <tr><td><b>Branching</b></td>
+        <td>Post-mortem vs pre-run. On a lot that has not run, steps 1 and 2 <em>do not
+            apply</em> &mdash; there is no wafer and no sensor data, so the agent must not
+            call them and then report <code>0.0</code> as if it were a clean result.</td></tr>
+    <tr><td><b>Carrying</b></td>
+        <td><code>rank_root_causes</code> takes the results of tools 1&ndash;4 <b>as
+            arguments</b>. The agent does the fusing; the server cannot, because it never
+            saw the earlier calls.</td></tr>
+    <tr><td><b>Honesty</b></td>
+        <td>&ldquo;Never claim more confidence than <code>rank_root_causes</code>
+            returned.&rdquo; &middot; &ldquo;An empty input is a data gap, not a
+            finding.&rdquo; &middot; &ldquo;Do not flatten a distributed ranking into one
+            answer.&rdquo; &middot; &ldquo;Confidence values are relative rankings, not
+            calibrated probabilities.&rdquo;</td></tr>
+    <tr><td><b>Self-report</b></td>
+        <td><code>pipeline_status</code> exists so that when a judge asks &ldquo;what here
+            is real?&rdquo;, the agent reports which tools are backed by trained models
+            rather than guessing.</td></tr>
+  </table>
+
+  <div class="note ok"><b>The rules are enforced twice, on purpose.</b> A prompt rule is a
+  request &mdash; an LLM can ignore it. So the same constraint also lives in the server:
+  a hypothesis with no cited evidence is <b>stripped by the MCP boundary</b> before Bob
+  ever sees it, and a <code>warning</code> is returned in its place. The skill tells the
+  agent to be honest; the server makes dishonesty structurally unavailable. Neither layer
+  is trusted alone.</div>
+
+  <p class=foot style="margin-top:14px"><b>And it is measured.</b> The orchestration is
+  scored end-to-end on 18 fixtures &mdash; correct tool sequence, evidence actually cited,
+  no confidence inflation, gaps reported as gaps. Live, with real model calls, the current
+  result is <b>16/18</b> (range 13&ndash;16 over five runs). The two remaining failures
+  are in the report, not hidden: see section 6.</p>
+</section>
+
+<!-- ============ 3. entry paths ============ -->
+<section class=card>
+  <h2>3 &middot; Three ways in</h2>
   <p class=lede>Different evidence is available at different moments, so the chain changes
   shape. The pre-run path has no wafer and no sensors at all &mdash; the recipe <em>is</em>
   the evidence.</p>
@@ -148,7 +212,7 @@ system, not a footnote.</p>
 
 <!-- ============ 3. confidence ============ -->
 <section class=card>
-  <h2>3 &middot; Two confidence regimes, deliberately not mixed</h2>
+  <h2>4 &middot; Two confidence regimes, deliberately not mixed</h2>
   <p class=lede>This is the part most yield-analysis demos blur. We keep the two apart and
   label every response with which one produced it.</p>
 
@@ -180,7 +244,7 @@ system, not a footnote.</p>
 
 <!-- ============ 4. guards ============ -->
 <section class=card>
-  <h2>4 &middot; What keeps it honest</h2>
+  <h2>5 &middot; What keeps it honest</h2>
   <table>
     <tr><td><b>Validation first</b></td>
         <td>Garbage in gets refused, not classified. No confident answers about nothing.</td></tr>
@@ -207,7 +271,7 @@ system, not a footnote.</p>
 
 <!-- ============ 5. honest shape ============ -->
 <section class=card>
-  <h2>5 &middot; The honest shape of it</h2>
+  <h2>6 &middot; The honest shape of it</h2>
   <table>
     <tr><th>Component</th><th>Measured result</th><th>On</th></tr>
     <tr><td>Wafer defect CNN</td><td class=num>macro-F1 <b>0.9232</b> (TTA) / 0.9157 plain</td>
