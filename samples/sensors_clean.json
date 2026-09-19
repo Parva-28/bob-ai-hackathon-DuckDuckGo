@@ -1,0 +1,17 @@
+{
+  "sample_id": "SAMPLE-CLEAN-001",
+  "description": "Nominal lot. No defect pattern, all sensor channels quiet. Included so the system can be seen NOT raising an alarm.",
+  "wafer_map": "wafer_clean.npy",
+  "equipment_ids": [
+    "CMP-03"
+  ],
+  "product_id": "P-MEM-5N",
+  "fab_line": "FAB1-C",
+  "sensor_signature": {
+    "sensor_23": 0.1,
+    "sensor_24": -0.2,
+    "sensor_45": 0.0
+  },
+  "sensor_units": "sigma",
+  "expected_story": "No pattern + quiet sensors -> no excursion, low confidence"
+}

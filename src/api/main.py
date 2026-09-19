@@ -18,7 +18,7 @@ import re
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
@@ -819,6 +819,110 @@ def api_pipeline_run_custom(req: CustomPipelineRequest):
         "steps": steps_trace,
         "total_execution_ms": total_ms,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+@app.post("/api/analyze-upload")
+async def api_analyze_upload(
+    wafer_map: UploadFile = File(...),
+    sensors: str = Form("{}"),
+    equipment_ids: str = Form(""),
+    sample_id: str = Form("UPLOAD"),
+):
+    """
+    Run the full tool chain on an UPLOADED wafer map + sensor vector.
+
+    Exists so the tool calls can be watched happening on data the system has
+    never seen, rather than replayed from a fixture. Every step below is a real
+    call and the trace records what each one returned — nothing is narrated.
+
+    wafer_map: .npy, any resolution, values 0=untested 1=pass 2=fail
+    sensors:   JSON object of {sensor_name: z_score}
+    """
+    import tempfile
+    import numpy as np
+
+    try:
+        sensor_sig = json.loads(sensors) if sensors.strip() else {}
+        if not isinstance(sensor_sig, dict):
+            raise ValueError("sensors must be a JSON object")
+    except Exception as e:
+        return JSONResponse({"error": f"bad sensors payload: {e}"}, status_code=400)
+
+    raw = await wafer_map.read()
+    if len(raw) > 8_000_000:
+        return JSONResponse({"error": "wafer map too large (8 MB limit)"}, status_code=413)
+    with tempfile.NamedTemporaryFile(suffix=".npy", delete=False) as tf:
+        tf.write(raw)
+        tmp = tf.name
+    try:
+        arr = np.load(tmp, allow_pickle=False)
+    except Exception as e:
+        return JSONResponse({"error": f"not a readable .npy array: {e}"}, status_code=400)
+    if arr.ndim != 2:
+        return JSONResponse(
+            {"error": f"expected a 2-D wafer map, got shape {arr.shape}"}, status_code=400)
+
+    eq = [e.strip() for e in equipment_ids.split(",") if e.strip()]
+    trace: list[dict] = []
+
+    def step(tool, arg, result, detail):
+        trace.append({"tool": tool, "arg": arg, "returned": detail})
+        return result
+
+    cls = step("classify_wafer_map", f"{arr.shape[0]}x{arr.shape[1]} uploaded map",
+               classify(tmp), None)
+    trace[-1]["returned"] = f"{cls.get('predicted_class')} ({cls.get('confidence')})"
+
+    an = step("score_sensor_anomaly", f"{len(sensor_sig)} sensors",
+              score_anomaly(sample_id, sensor_sig, "sigma"), None)
+    trace[-1]["returned"] = f"anomaly_score={an.get('anomaly_score')}"
+
+    cases_out = step("retrieve_similar_cases", cls.get("predicted_class") or "-",
+                     retrieve_cases(cls.get("predicted_class"), sensor_sig, 5), None)
+    hits = cases_out.get("cases") or []
+    trace[-1]["returned"] = (f"{len(hits)} case(s)" + (f", top {hits[0]['case_id']} "
+                             f"(similarity {hits[0]['similarity']})" if hits
+                             else " — NO PRECEDENT"))
+
+    eq = eq or sorted({c["equipment_id"] for c in hits if c.get("equipment_id")})
+    tel = step("query_telemetry", ", ".join(eq) or "none",
+               query_telemetry(eq, "14d") if eq else {"telemetry": []}, None)
+    trace[-1]["returned"] = f"{len(tel.get('telemetry') or [])} trace(s)"
+
+    ranked = step("rank_root_causes", "4 evidence inputs",
+                  rank_causes(cls, an, cases_out, tel), None)
+    hyps = ranked.get("hypotheses") or []
+    top = hyps[0] if hyps else None
+    trace[-1]["returned"] = (f"{len(hyps)} hypothesis(es), top={top.get('category')}"
+                             if top else "no hypothesis met the evidence gate")
+
+    acts = {"actions": []}
+    if top:
+        acts = step("get_corrective_action_playbook", "top hypothesis",
+                    playbook(top), None)
+        trace[-1]["returned"] = f"{len(acts.get('actions') or [])} action(s)"
+
+    try:
+        os.unlink(tmp)
+    except OSError:
+        pass
+
+    return {
+        "sample_id": sample_id,
+        "wafer_shape": list(arr.shape),
+        "dies": {"tested": int((arr > 0).sum()), "fail": int((arr == 2).sum())},
+        "trace": trace,
+        "classification": cls,
+        "anomaly": an,
+        "cases": cases_out,
+        "telemetry": tel,
+        "ranked": ranked,
+        "actions": acts,
+        "data_provenance": {
+            "kind": "uploaded",
+            "summary": "Analysed from a file supplied at request time. The models are "
+                       "the shipped ones; no fixture was consulted.",
+        },
     }
 
 

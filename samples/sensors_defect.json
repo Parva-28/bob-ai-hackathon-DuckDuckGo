@@ -1,0 +1,17 @@
+{
+  "sample_id": "SAMPLE-DEFECT-001",
+  "description": "Etch lot with an edge-ring defect signature. RF power sensors deviating after a chamber PM; process channels corroborate.",
+  "wafer_map": "wafer_defect.npy",
+  "equipment_ids": [
+    "ETCH-07"
+  ],
+  "product_id": "P-LOGIC-3N",
+  "fab_line": "FAB2-A",
+  "sensor_signature": {
+    "sensor_23": 2.8,
+    "sensor_24": 2.2,
+    "sensor_45": 0.1
+  },
+  "sensor_units": "sigma",
+  "expected_story": "Edge-Ring pattern + RF deviation -> equipment root cause"
+}
