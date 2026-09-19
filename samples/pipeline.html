@@ -1,0 +1,241 @@
+<!doctype html><meta charset=utf-8>
+<title>YieldGuard &mdash; how the pipeline works</title>
+<style>
+:root{--ink:#1c2733;--dim:#6a7d8c;--line:#dce4e8;--bg:#f7f9fa;
+ --meas:#2f7d5b;--cons:#b07c17;--stop:#ca3b37}
+*{box-sizing:border-box}
+body{margin:0;padding:28px;background:var(--bg);color:var(--ink);
+ font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+h1{font-size:21px;margin:0 0 4px} h2{font-size:15px;margin:0 0 4px}
+h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);
+ margin:18px 0 10px;font-weight:600}
+.sub{color:var(--dim);margin:0 0 22px;max-width:76ch}
+.lede{color:var(--dim);margin:0 0 16px;max-width:76ch;font-size:13px}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;
+ padding:20px 22px;margin-bottom:18px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+/* --- flow boxes --- */
+.flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:0}
+.box{background:#fff;border:1px solid var(--line);border-radius:7px;
+ padding:9px 12px;min-width:132px;max-width:190px}
+.box b{display:block;font:600 11.5px/1.4 "IBM Plex Mono",ui-monospace,monospace}
+.box span{display:block;font-size:11px;color:var(--dim);margin-top:3px;line-height:1.4}
+.arr{align-self:center;color:var(--dim);padding:0 9px;font-size:15px;flex:none}
+.stack{display:flex;flex-direction:column;gap:8px}
+.tint-m{background:#f1f8f4;border-color:#cbe3d6}
+.tint-c{background:#fdf8ec;border-color:#eadcbd}
+.tint-s{background:#fdf1f1;border-color:#f0d2d1}
+.tint-k{background:#eef2f6;border-color:#d4dde6}
+.tag{display:inline-block;border-radius:9px;padding:1px 8px;
+ font:600 9.5px/1.7 "IBM Plex Mono",ui-monospace,monospace;vertical-align:1px}
+.tag-m{background:#e2f0e8;color:var(--meas)}
+.tag-c{background:#faeed3;color:var(--cons)}
+.tag-s{background:#f8dedd;color:var(--stop)}
+.note{margin:14px 0 0;padding:10px 12px;background:#fff8e6;border-left:3px solid #d9a441;
+ border-radius:4px;font-size:12px;color:#6b5418;max-width:84ch}
+.ok{background:#f0f7f3;border-left-color:#3f8f6a;color:#26533e}
+table{border-collapse:collapse;width:100%;margin-top:4px}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+ color:var(--dim);border-bottom:1px solid var(--line);padding:5px 12px 5px 0;font-weight:600}
+td{padding:6px 12px 6px 0;border-bottom:1px solid #f2f5f7;vertical-align:top;font-size:12.5px}
+td:first-child{width:22%}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+.big{font-size:17px;font-weight:600}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);
+ margin:0 0 20px}
+.foot{color:var(--dim);font-size:12px;max-width:84ch}
+code{background:#eef2f5;padding:1px 5px;border-radius:3px;font-size:11.5px}
+@media print{body{background:#fff;padding:0}.card{break-inside:avoid}}
+</style>
+
+<h1>How the pipeline actually works</h1>
+<p class=sub>YieldGuard is an agent that calls fourteen MCP tools over real models and real
+data. Nothing below is a mock: every box is a tool that runs, and every number is measured
+on a held-out set. The one thing the diagrams make explicit is <b>which numbers are
+calibrated and which are only ranked</b> &mdash; that distinction is the point of the
+system, not a footnote.</p>
+
+<div class=legend>
+  <span><span class="tag tag-m">MEASURED</span> real data, real labels, verifiable number</span>
+  <span><span class="tag tag-c">CONSTRUCTED</span> real parts, join made by us</span>
+  <span><span class="tag tag-s">REFUSAL</span> the system declines to answer</span>
+</div>
+
+<!-- ============ 1. the chain ============ -->
+<section class=card>
+  <h2>1 &middot; The tool chain</h2>
+  <p class=lede>Bob calls each tool separately, then passes the first five results
+  <em>into</em> the sixth. The agent does not invent evidence &mdash; it routes it.
+  A hypothesis that cites no tool output is rejected at the MCP boundary.</p>
+
+  <h3>Step 1 &mdash; get the lot</h3>
+  <div class=flow>
+    <div class="box tint-k"><b>get_lot_data</b>
+      <span>lot_id &rarr; wafer map path, 590-sensor vector, equipment list</span></div>
+    <div class=arr>&rarr;</div>
+    <div class=stack>
+      <div class="box tint-m"><b>classify_wafer_map</b>
+        <span>WaferCNN + 8-fold TTA &rarr; defect pattern <span class="tag tag-m">0.9232 F1</span></span></div>
+      <div class="box tint-m"><b>score_sensor_anomaly</b>
+        <span>IsolationForest over SECOM &rarr; anomaly score + top deviating sensors</span></div>
+      <div class="box tint-k"><b>retrieve_similar_cases</b>
+        <span>precedent &mdash; or an explicit <em>no precedent</em></span></div>
+      <div class="box tint-k"><b>query_telemetry</b>
+        <span>drift on the implicated tools</span></div>
+    </div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-c"><b>rank_root_causes</b>
+      <span>fuses all four into ranked hypotheses, each citing named evidence</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-k"><b>get_corrective_<br>action_playbook</b>
+      <span>top hypothesis &rarr; what to go check</span></div>
+  </div>
+
+  <div class="note ok"><b>Why the fan-in matters.</b> The four evidence tools never talk to
+  each other. If the CNN says <code>Center</code> and telemetry shows no drift on the
+  centre-affecting tools, the ranking has to reconcile that itself &mdash; and it shows
+  the conflict rather than smoothing it.</div>
+</section>
+
+<!-- ============ 2. entry paths ============ -->
+<section class=card>
+  <h2>2 &middot; Three ways in</h2>
+  <p class=lede>Different evidence is available at different moments, so the chain changes
+  shape. The pre-run path has no wafer and no sensors at all &mdash; the recipe <em>is</em>
+  the evidence.</p>
+
+  <h3>Post-mortem &mdash; a lot that has been tested</h3>
+  <div class=flow>
+    <div class="box tint-k"><b>tested lot</b><span>map + sensors exist</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-m"><b>classify + score</b><span>both models run</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-k"><b>precedent</b></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-k"><b>telemetry</b></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-c"><b>ranked causes</b></div>
+  </div>
+
+  <h3>Pre-run &mdash; a lot not yet started</h3>
+  <div class=flow>
+    <div class="box tint-k"><b>planned lot</b><span>no map, no sensors</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-k"><b>recipe + tool history</b><span>the only evidence there is</span></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-c"><b>flag_at_risk_batch</b><span>at_risk + matched case ids</span></div>
+  </div>
+
+  <h3>Upload &mdash; data the judge brings</h3>
+  <div class=flow>
+    <div class="box tint-k"><b>uploaded .npy / .json</b></div>
+    <div class=arr>&rarr;</div>
+    <div class="box tint-s"><b>validate.py</b>
+      <span>geometry, dims, tested fraction, |z| bounds &mdash; <b>before any model runs</b></span></div>
+    <div class=arr>&rarr;</div>
+    <div class=stack>
+      <div class="box tint-m"><b>accepted</b><span>&rarr; full chain</span></div>
+      <div class="box tint-s"><b>refused</b><span>no classification emitted at all</span></div>
+    </div>
+  </div>
+
+  <div class=note><b>Why validation comes first.</b> A softmax always returns a class. Fed
+  an empty array, the classifier reported <code>Scratch</code> at confidence 1.00 &mdash; a
+  confident answer about nothing. Confidence cannot guard against out-of-distribution input,
+  so a separate gate has to. <b>8 of 8 adversarial inputs refused; both real samples
+  accepted.</b></div>
+</section>
+
+<!-- ============ 3. confidence ============ -->
+<section class=card>
+  <h2>3 &middot; Two confidence regimes, deliberately not mixed</h2>
+  <p class=lede>This is the part most yield-analysis demos blur. We keep the two apart and
+  label every response with which one produced it.</p>
+
+  <table>
+    <tr><th></th><th>Constructed lots</th><th>PHM 2016 CMP</th></tr>
+    <tr><td>Data</td>
+        <td>SECOM sensors + WM-811K maps, <b>joined by us</b> <span class="tag tag-c">CONSTRUCTED</span></td>
+        <td>Traces and outcome from the <b>same wafer</b> <span class="tag tag-m">MEASURED</span></td></tr>
+    <tr><td>Confidence</td>
+        <td><code>llm_uncalibrated</code> &mdash; an <em>ordinal ranking</em> under policy ceilings</td>
+        <td>A conformal interval with <b>94.0% measured coverage</b></td></tr>
+    <tr><td>Can it refuse?</td>
+        <td>No. It always returns a ranking.</td>
+        <td><b>Yes</b> &mdash; the RI/GSI gate returns no interval at all</td></tr>
+    <tr><td>Valid claim</td>
+        <td>&ldquo;Check these three first.&rdquo;</td>
+        <td>&ldquo;Removal rate lands in [a, b] 90% of the time.&rdquo;</td></tr>
+    <tr><td>Invalid claim</td>
+        <td>&ldquo;88% confident it was ETCH-07.&rdquo;</td>
+        <td>&ldquo;Coverage holds in every band.&rdquo; (it is 84.0% in p75&ndash;90)</td></tr>
+  </table>
+
+  <div class="note ok"><b>The result that makes the case.</b> Same model, same runs.
+  The point estimate caught <span class="num big">34.7%</span> of excursions.
+  The conformal interval caught <span class="num big">93.9%</span>.
+  Abstaining on 42.1% of runs separated MAE 5.06 (abstained) from 2.88 (retained)
+  &mdash; a <b>1.76&times;</b> gap, which is what makes the abstention worth acting on.</div>
+</section>
+
+<!-- ============ 4. guards ============ -->
+<section class=card>
+  <h2>4 &middot; What keeps it honest</h2>
+  <table>
+    <tr><td><b>Validation first</b></td>
+        <td>Garbage in gets refused, not classified. No confident answers about nothing.</td></tr>
+    <tr><td><b>No precedent is a finding</b></td>
+        <td>Zero-similarity cases are dropped rather than served as &ldquo;the nearest
+            match.&rdquo; An empty result is the correct answer.</td></tr>
+    <tr><td><b>Evidence citation enforced</b></td>
+        <td>A hypothesis with no evidence summary is rejected by the MCP server, not by
+            the prompt.</td></tr>
+    <tr><td><b>Provenance on every response</b></td>
+        <td>Stamped <code>measured</code> or <code>constructed</code>, with the invalid
+            claims listed explicitly alongside the valid ones.</td></tr>
+    <tr><td><b>Cognitive forcing</b></td>
+        <td>The UI will not <em>fetch</em> the ranking until the engineer records their own
+            read first. Explanations raise acceptance whether or not they are correct
+            (Bansal et al., CHI 2021); only forcing functions reduce over-reliance
+            (Bu&ccedil;inca et al., 2021).</td></tr>
+    <tr><td><b>Own sensors reported</b></td>
+        <td>Deviating sensors are ranked over the caller&rsquo;s own inputs, not over the
+            imputed 582-feature vector &mdash; ranking the latter returns imputation
+            artifacts.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 5. honest shape ============ -->
+<section class=card>
+  <h2>5 &middot; The honest shape of it</h2>
+  <table>
+    <tr><th>Component</th><th>Measured result</th><th>On</th></tr>
+    <tr><td>Wafer defect CNN</td><td class=num>macro-F1 <b>0.9232</b> (TTA) / 0.9157 plain</td>
+        <td>9,357 held-out WM-811K maps</td></tr>
+    <tr><td>Sensor anomaly</td><td class=num>fail-class recall <b>0.286</b></td>
+        <td>21 failing SECOM lots</td></tr>
+    <tr><td>CMP removal rate</td><td class=num>R&sup2; <b>0.9403</b>, coverage 94.0%</td>
+        <td>PHM 2016, 2,006 labelled runs</td></tr>
+    <tr><td>Excursion sensitivity</td><td class=num>34.7% &rarr; <b>93.9%</b></td>
+        <td>point estimate vs conformal</td></tr>
+    <tr><td>Abstention gate</td><td class=num>RI works; GSI <b>ROC-AUC 0.450</b></td>
+        <td>honest negative &mdash; see below</td></tr>
+    <tr><td>End-to-end agent eval</td><td class=num><b>16/18</b> (range 13&ndash;16 over 5 runs)</td>
+        <td>live reasoning, not mocked</td></tr>
+  </table>
+
+  <div class=note><b>Two things we did not get to work, stated plainly.</b><br>
+  <b>GSI shows no signal</b> (ROC-AUC 0.450). It measures covariate shift &mdash; novel
+  <em>inputs</em>. The failure between CMP stages A and B is concept drift: the same inputs
+  map to a different output. GSI is the wrong instrument for it, and we report that rather
+  than quietly dropping the metric.<br><br>
+  <b>The reasoning layer has no abstention gate.</b> It always produces a ranking, and its
+  confidence is ordinal, not a probability &mdash; hence the <code>llm_uncalibrated</code>
+  stamp and the policy ceilings. The CMP branch is where abstention was actually solved.
+  Extending it to the reasoning layer is the next step, not something already shipped.</div>
+</section>
+
+<p class=foot>Datasets: WM-811K (811,457 maps, 9 classes) &middot; SECOM (1,567 lots, 590
+anonymised sensors, 104 fails) &middot; PHM 2016 CMP (2,006 labelled runs, 73 aggregated
+features). Track S1 &mdash; Wafer Yield Root Cause &amp; Defect Pattern Analyser.
+Team DuckDuckGo, IBM Bob AI Hackathon 2026.</p>
