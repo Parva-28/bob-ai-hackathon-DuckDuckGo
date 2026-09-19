@@ -1,11 +1,11 @@
 {
   "mcpServers": {
     "yieldguard": {
-      "command": "/Users/dhrumilamin/Projects/ddg/.venv/bin/python",
+      "command": "C:\\Users\\heet1\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
       "args": [
-        "/Users/dhrumilamin/Projects/ddg/src/mcp_server/server.py"
+        "C:\\Users\\heet1\\OneDrive\\Desktop\\College\\IBM_DDG\\src\\mcp_server\\server.py"
       ],
-      "cwd": "/Users/dhrumilamin/Projects/ddg",
+      "cwd": "C:\\Users\\heet1\\OneDrive\\Desktop\\College\\IBM_DDG",
       "env": {},
       "alwaysAllow": [],
       "disabled": false

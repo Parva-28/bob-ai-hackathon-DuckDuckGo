@@ -43,6 +43,12 @@ export default function LotAnalysisPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLot, setSelectedLot] = useState<LotItem | null>(null);
 
+  // Counted from the same lot list rendered below, so these numbers can never
+  // drift from the table or from each other (they used to be typed literals).
+  const excursionCount = LOT_REGISTRY.filter(l => l.status === "tested" && (l.yield ?? 100) < 90).length;
+  const nominalCount = LOT_REGISTRY.filter(l => l.status === "tested" && (l.yield ?? 0) >= 90).length;
+  const plannedCount = LOT_REGISTRY.filter(l => l.status === "planned").length;
+
   const filteredLots = LOT_REGISTRY.filter(lot => {
     const matchesSearch =
       lot.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,17 +106,17 @@ export default function LotAnalysisPage() {
           </div>
           <div className="metric-card metric-danger">
             <div className="metric-top"><span>Yield Excursions</span><TrendingDown size={15} /></div>
-            <div className="metric-value">6 Lots</div>
+            <div className="metric-value">{excursionCount} Lots</div>
             <div className="metric-detail">Tested &lt; 90.0% target</div>
           </div>
           <div className="metric-card metric-good">
             <div className="metric-top"><span>Nominal Tested</span><TrendingUp size={15} /></div>
-            <div className="metric-value">5 Lots</div>
+            <div className="metric-value">{nominalCount} Lots</div>
             <div className="metric-detail">Passed yield qualification</div>
           </div>
           <div className="metric-card metric-warning">
             <div className="metric-top"><span>Planned Lots</span><Target size={15} /></div>
-            <div className="metric-value">3 Lots</div>
+            <div className="metric-value">{plannedCount} Lots</div>
             <div className="metric-detail">Pre-run qualification</div>
           </div>
         </div>
@@ -139,19 +145,19 @@ export default function LotAnalysisPage() {
               className={`button small ${statusFilter === "tested-excursion" ? "primary" : "ghost"}`}
               onClick={() => setStatusFilter("tested-excursion")}
             >
-              Excursions (6)
+              Excursions ({excursionCount})
             </button>
             <button
               className={`button small ${statusFilter === "tested-nominal" ? "primary" : "ghost"}`}
               onClick={() => setStatusFilter("tested-nominal")}
             >
-              Nominal (5)
+              Nominal ({nominalCount})
             </button>
             <button
               className={`button small ${statusFilter === "planned" ? "primary" : "ghost"}`}
               onClick={() => setStatusFilter("planned")}
             >
-              Planned (3)
+              Planned ({plannedCount})
             </button>
           </div>
         </div>

@@ -93,70 +93,87 @@ export default function EquipmentPage() {
             </div>
           </div>
 
-          <div className="panel">
-            <h2>Fleet</h2>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Tool</th>
-                  <th style={{ textAlign: "left" }}>Type</th>
-                  <th style={{ textAlign: "left" }}>Chamber</th>
-                  <th style={{ textAlign: "right" }}>Days since PM</th>
-                  <th style={{ textAlign: "right" }}>Peak drift</th>
-                  <th style={{ textAlign: "left" }}>Lots</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tools.map((t) => (
-                  <tr key={t.id} onClick={() => setSelected(t.id)}
-                      style={{ cursor: "pointer",
-                               background: active?.id === t.id ? "#eef3f7" : undefined }}>
-                    <td><b>{t.id}</b>{t.shared && <span className="metric-detail"> · shared</span>}
-                        {t.metrology && <span className="metric-detail"> · metrology</span>}</td>
-                    <td>{t.toolType}</td>
-                    <td>{t.chamber}</td>
-                    <td style={{ textAlign: "right" }}>{t.daysSincePm ?? "—"}</td>
-                    <td style={{ textAlign: "right",
-                                 color: Math.abs(t.peakSigma) >= 2 ? "#b3403a" : undefined }}>
-                      {t.peakSigma > 0 ? "+" : ""}{t.peakSigma.toFixed(1)}σ
-                    </td>
-                    <td>{t.lots.length}</td>
+          <section className="panel" style={{ padding: "0" }}>
+            <div style={{ padding: "16px 18px 4px" }}>
+              <h2 style={{ margin: 0 }}>Fleet</h2>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ background: "#fcfbf9", borderBottom: "1px solid #edebe4", color: "#8a98a4", font: "600 8.5px 'IBM Plex Mono', monospace" }}>
+                    <th style={{ padding: "10px 14px" }}>TOOL</th>
+                    <th style={{ padding: "10px 14px" }}>TYPE</th>
+                    <th style={{ padding: "10px 14px" }}>CHAMBER</th>
+                    <th style={{ padding: "10px 14px", textAlign: "right" }}>DAYS SINCE PM</th>
+                    <th style={{ padding: "10px 14px", textAlign: "right" }}>PEAK DRIFT</th>
+                    <th style={{ padding: "10px 14px", textAlign: "right" }}>LOTS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {tools.map((t) => (
+                    <tr
+                      key={t.id}
+                      onClick={() => setSelected(t.id)}
+                      style={{
+                        cursor: "pointer", borderBottom: "1px solid #f4f2eb",
+                        background: active?.id === t.id ? "#eef3f7" : undefined,
+                      }}
+                    >
+                      <td style={{ padding: "11px 14px", font: "600 11px 'IBM Plex Mono', monospace", color: "#274c6b" }}>
+                        {t.id}
+                        {t.shared && <span style={{ color: "#8a98a4", fontWeight: 400 }}> · shared</span>}
+                        {t.metrology && <span style={{ color: "#8a98a4", fontWeight: 400 }}> · metrology</span>}
+                      </td>
+                      <td style={{ padding: "11px 14px", color: "#3b5062" }}>{t.toolType}</td>
+                      <td style={{ padding: "11px 14px", color: "#6a7d8c", font: "9px 'IBM Plex Mono', monospace" }}>{t.chamber}</td>
+                      <td style={{ padding: "11px 14px", textAlign: "right", color: "#3b5062" }}>{t.daysSincePm ?? "—"}</td>
+                      <td style={{
+                        padding: "11px 14px", textAlign: "right", font: "700 11px 'IBM Plex Mono', monospace",
+                        color: Math.abs(t.peakSigma) >= 2 ? "#b5473f" : "#2e6e58",
+                      }}>
+                        {t.peakSigma > 0 ? "+" : ""}{t.peakSigma.toFixed(1)}σ
+                      </td>
+                      <td style={{ padding: "11px 14px", textAlign: "right", color: "#3b5062" }}>{t.lots.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           {active && (
-            <div className="panel">
-              <h2><Wrench size={15} /> {active.id} — parameter drift</h2>
+            <section className="panel">
+              <h2 style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Wrench size={15} /> {active.id} — parameter drift
+              </h2>
               {active.traces.length === 0 && (
                 <p className="metric-detail">No drift traces returned for this tool.</p>
               )}
-              {active.traces.map((tr, i) => (
-                <div className="action-row" key={`${tr.parameter}-${i}`}>
-                  <div className="action-group">
-                    <b>{tr.parameter}</b>
-                    <span className="metric-detail">{tr.recent_trend}</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                {active.traces.map((tr, i) => (
+                  <div className="action-row" key={`${tr.parameter}-${i}`}>
+                    <div className="action-group">
+                      <b>{tr.parameter}</b>
+                      <span className="metric-detail">{tr.recent_trend}</span>
+                    </div>
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px", color: Math.abs(tr.magnitude_sigma) >= 2 ? "#b3403a" : "#2e6e58" }}>
+                      {tr.direction === "increasing" ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                      {tr.magnitude_sigma > 0 ? "+" : ""}{tr.magnitude_sigma}σ
+                    </span>
                   </div>
-                  <span style={{ color: Math.abs(tr.magnitude_sigma) >= 2 ? "#b3403a" : "#2e6e58" }}>
-                    {tr.direction === "increasing" ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-                    {" "}{tr.magnitude_sigma > 0 ? "+" : ""}{tr.magnitude_sigma}σ
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
               {active.lots.length > 0 && (
                 <div className="action-row">
                   <span>Lots on this tool</span>
-                  <span>
+                  <span style={{ display: "flex", gap: "10px" }}>
                     {active.lots.map((l) => (
-                      <Link key={l} href={`/investigation?lot=${l}`}
-                            style={{ marginLeft: 6 }}>{l}</Link>
+                      <Link key={l} href={`/investigation?lot=${l}`}>{l}</Link>
                     ))}
                   </span>
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           <footer className="page-footer">

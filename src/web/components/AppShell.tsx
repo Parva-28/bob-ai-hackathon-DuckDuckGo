@@ -5,15 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
-  BookOpen,
   Boxes,
-  BrainCircuit,
   ChevronDown,
   ChevronRight,
   Cpu,
   Crosshair,
   FileText,
-  Gauge,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,7 +20,6 @@ import {
   Sparkles,
   Wrench,
   X,
-  Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -92,21 +88,23 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
     }, 3500);
   };
 
+  // Search index is built from live data. The previous hardcoded list advertised
+  // a "Risk Score 68/100" and a "100% Pass Rate" that no endpoint produces.
+  const { data: lotsRes } = useLots();
+  const { data: eqRes } = useEquipment();
+
+  const lotCount = Object.keys(lotsRes?.lots ?? {}).length || undefined;
   const workspaceNav: [string, string, LucideIcon, number?][] = [
     ["Command center", "/overview", LayoutDashboard],
     ["Investigation", "/investigation", Crosshair],
     ["Pipeline studio", "/pipeline", Sparkles],
-    ["Lot queue", "/lot-analysis", Boxes, 8],
+    ["Lot queue", "/lot-analysis", Boxes, lotCount],
     ["Equipment", "/equipment", Cpu],
-    ["Historical cases", "/cases", BookOpen],
   ];
 
   const analysisNav: [string, string, LucideIcon][] = [
     ["Risk monitor", "/batch-risk", ShieldCheck],
     ["Action playbook", "/playbook", Wrench],
-    ["Model governance", "/governance", BrainCircuit],
-    ["18-Case benchmark", "/benchmark", Gauge],
-    ["Prediction & abstention", "/prediction", Activity],
   ];
 
   const systemNav: [string, string, LucideIcon][] = [
@@ -119,19 +117,12 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
     if (pathname.startsWith("/pipeline")) return "Pipeline Studio";
     if (pathname.startsWith("/lot-analysis")) return "Lot Queue";
     if (pathname.startsWith("/equipment")) return "Equipment Telemetry";
-    if (pathname.startsWith("/cases")) return "Historical Cases";
     if (pathname.startsWith("/batch-risk")) return "Batch Risk Triage";
     if (pathname.startsWith("/playbook")) return "Action Playbook";
-    if (pathname.startsWith("/governance")) return "Model Governance";
-    if (pathname.startsWith("/benchmark")) return "18-Case Benchmark";
     if (pathname.startsWith("/settings")) return "Workspace Settings";
     return "YieldGuard AI";
   };
 
-  // Search index is built from live data. The previous hardcoded list advertised
-  // a "Risk Score 68/100" and a "100% Pass Rate" that no endpoint produces.
-  const { data: lotsRes } = useLots();
-  const { data: eqRes } = useEquipment();
   const searchResults = useMemo(() => {
     const lots = (Object.values(lotsRes?.lots ?? {}) as any[]).map((l) => ({
       title: `Lot ${l.lot_id}`,

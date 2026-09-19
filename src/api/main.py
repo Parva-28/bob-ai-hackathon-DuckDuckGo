@@ -644,36 +644,44 @@ def api_pipeline_run_custom(req: CustomPipelineRequest):
     t1_start = time.perf_counter()
     spatial_res = _analyze_grid_spatial(grid)
 
-    # Check if a real wafer map ref exists for contract call
-    wm_ref = None
-    if req.case_id:
-        p = wm_dir / f"{req.case_id}.npy"
-        if p.exists():
-            wm_ref = str(p)
-
-    if wm_ref:
-        tool_cls = classify(wm_ref)
-        pred_class = tool_cls.get("predicted_class") or spatial_res["predicted_class"]
-        conf = tool_cls.get("confidence") or spatial_res["confidence"]
+    # classify_wafer_array runs the SAME trained WaferCNN as the file-based tool,
+    # directly on this request's grid — a preset's grid is the exact array read
+    # from its .npy fixture, and a pasted/uploaded grid the model has never seen
+    # gets the same real inference, not the heuristic below. Both predicted_class
+    # and class_probabilities now come from one real call, so they can no longer
+    # disagree the way the old file-path/heuristic split did.
+    if adapters.real_classify_wafer_array:
+        import numpy as np
+        model_out = adapters.real_classify_wafer_array(
+            np.array(grid, dtype=np.uint8), return_probs=True)
+        pred_class = model_out["predicted_class"]
+        conf = model_out["confidence"]
+        class_probs = model_out.get("class_probabilities") or spatial_res["class_probabilities"]
+        vision_meta = _read_json(_MODELS_DIR / "vision" / "holdout_results.json")
+        macro_f1 = vision_meta.get("macro_f1")
+        model_label = (f"WaferCNN with TTA-8 (Macro-F1 {macro_f1:.4f})"
+                       if macro_f1 else "WaferCNN with TTA-8")
     else:
         pred_class = spatial_res["predicted_class"]
         conf = spatial_res["confidence"]
+        class_probs = spatial_res["class_probabilities"]
+        model_label = "Spatial heuristic fallback (WaferCNN checkpoint unavailable)"
 
     cls_result = {
         "predicted_class": pred_class,
         "confidence": conf,
-        "class_probabilities": spatial_res["class_probabilities"],
+        "class_probabilities": class_probs,
         "defect_dies": spatial_res["defect_dies"],
         "total_dies": spatial_res["total_dies"],
         "defect_density_pct": spatial_res["defect_density_pct"],
-        "model": "WaferCNN with TTA-8 (Macro-F1 0.9232)",
+        "model": model_label,
     }
     t1_ms = round((time.perf_counter() - t1_start) * 1000, 2)
     steps_trace.append({
         "step_number": 1,
         "tool_name": "classify_wafer_map",
         "category": "Spatial Vision Defect Classification",
-        "model": "WaferCNN (ResNet-style with 8-fold TTA)",
+        "model": model_label,
         "input_payload": {
             "image_source": req.case_id or "custom_grid_64x64",
             "resolution": "64x64 matrix",
@@ -682,7 +690,7 @@ def api_pipeline_run_custom(req: CustomPipelineRequest):
         "output_payload": cls_result,
         "execution_ms": t1_ms,
         "status": "success",
-        "summary": f"Classified spatial defect as '{pred_class}' ({round(conf * 100)}% confidence) via WaferCNN with TTA-8.",
+        "summary": f"Classified spatial defect as '{pred_class}' ({round(conf * 100)}% confidence) via {model_label}.",
     })
 
     # ── Stage 2: score_sensor_anomaly ──

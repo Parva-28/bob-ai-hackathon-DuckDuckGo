@@ -1,17 +1,13 @@
 "use client";
 
-import { useState, useMemo, type ReactNode, useEffect } from "react";
+import { useState, useMemo, type ReactNode, useRef, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { AsyncBoundary } from "@/components/AsyncBoundary";
-import { PriorReadGate, Disposition } from "@/components/PriorRead";
 import { useLots, useAnalyze } from "@/lib/api";
 import {
-  Activity,
   AlertTriangle,
   ArrowDownRight,
-  ArrowUpRight,
   BookOpen,
-  BrainCircuit,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -22,22 +18,19 @@ import {
   Crosshair,
   Download,
   ExternalLink,
-  Gauge,
   Layers3,
   LineChart,
   MessageSquareText,
-  Plus,
   RefreshCw,
-  Search,
   Send,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Target,
   TrendingDown,
+  TrendingUp,
   Wrench,
   X,
-  Zap,
+  Activity,
 } from "lucide-react";
 
 type Severity = "critical" | "high" | "medium" | "low";
@@ -102,89 +95,99 @@ function Metric({ label, value, detail, tone = "neutral", icon }: { label: strin
   );
 }
 
-function WaferMap({ lotId = "L-4471" }: { lotId?: string }) {
-  const dots = useMemo(() => {
-    return Array.from({ length: 120 }, (_, i) => {
-      const angle = i * 2.399;
-      const radius = 22 + ((i * 17) % 160);
-      const x = 50 + (Math.cos(angle) * radius) / 2.12;
-      const y = 50 + (Math.sin(angle) * radius) / 2.12;
-      const dist = Math.sqrt((x - 50) ** 2 + (y - 50) ** 2);
-      const isEdge = dist > 31 && dist < 42;
-      return { x, y, isEdge, inWafer: dist <= 41, key: i };
-    }).filter(d => d.inWafer);
-  }, []);
+/** Draws the lot's actual 64x64 WM-811K grid (0=outside, 1=pass, 2=defect) from
+ *  /api/analyze's `wafer` field — no two lots share a grid, so this can no longer
+ *  render the same "Edge-Ring" shape regardless of which lot is selected. */
+function WaferMap({ grid, lotId, pattern, confidence }: {
+  grid: number[][] | null | undefined; lotId?: string;
+  pattern?: string; confidence?: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const stats = useMemo(() => {
+    if (!grid) return null;
+    let total = 0, defect = 0;
+    for (const row of grid) for (const v of row) { if (v !== 0) total++; if (v === 2) defect++; }
+    return { total, defect, defectRate: total ? Math.round((defect / total) * 1000) / 10 : 0 };
+  }, [grid]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !grid) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const cell = 4;
+    canvas.width = grid[0].length * cell;
+    canvas.height = grid.length * cell;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#eef1f3";
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < grid[r].length; c++) {
+        const v = grid[r][c];
+        if (v === 0) continue;
+        ctx.fillStyle = v === 2 ? "#b5473f" : "#cfe0d6";
+        ctx.fillRect(c * cell, r * cell, cell - 0.4, cell - 0.4);
+      }
+    }
+  }, [grid]);
+
+  if (!grid) {
+    return (
+      <div className="wafer-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "180px" }}>
+        <p className="metric-detail">No wafer map on file for this lot.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="wafer-shell">
       <div className="wafer-legend">
-        <span><i className="legend-defect" />Defect</span>
-        <span><i className="legend-ring" />Edge region</span>
+        <span><i className="legend-defect" />Defect die</span>
+        <span><i className="legend-ring" />Passing die</span>
       </div>
-      <svg className="wafer-map" viewBox="0 0 100 100" role="img" aria-label="Wafer defect map showing edge-ring defects">
-        <defs>
-          <radialGradient id="waferFillLight" cx="40%" cy="35%">
-            <stop offset="0%" stopColor="#f7f9fb" />
-            <stop offset="100%" stopColor="#e2e8ec" />
-          </radialGradient>
-        </defs>
-        <circle cx="50" cy="50" r="41" fill="url(#waferFillLight)" stroke="#cbd7df" strokeWidth="0.8" />
-        <circle cx="50" cy="50" r="32" fill="none" stroke="#b5473f" strokeOpacity="0.65" strokeDasharray="1.5 1.5" strokeWidth="1" />
-        <circle cx="50" cy="50" r="27" fill="none" stroke="#39886f" strokeOpacity="0.2" strokeWidth="0.5" />
-        <g>
-          {dots.map(dot => (
-            <circle
-              key={dot.key}
-              cx={dot.x}
-              cy={dot.y}
-              r={dot.isEdge ? 1.05 : 0.6}
-              fill={dot.isEdge ? "#b5473f" : "#b8852c"}
-              opacity={dot.isEdge ? 0.95 : 0.45}
-            />
-          ))}
-        </g>
-        <text x="50" y="52" textAnchor="middle" fill="#6a7d8c" fontSize="3.4" fontFamily="IBM Plex Mono" fontWeight="600">
-          {lotId}
-        </text>
-      </svg>
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label={`Wafer defect map for ${lotId}`}
+        style={{ width: "100%", height: "auto", borderRadius: "50%", background: "#f7f9fb", display: "block" }}
+      />
       <div className="wafer-caption">
-        <span>18.4 defects / wafer</span>
-        <span>Edge concentration <b>82%</b></span>
+        <span>{lotId}</span>
+        <span>
+          {stats ? `${stats.defect} of ${stats.total} dies (${stats.defectRate}%)` : "—"}
+          {pattern ? ` · ${pattern}${confidence != null ? ` ${Math.round(confidence * 100)}%` : ""}` : ""}
+        </span>
       </div>
     </div>
   );
 }
 
-function TelemetryChart() {
-  const points = "0,77 15,72 30,74 45,66 60,68 75,57 90,61 105,54 120,57 135,46 150,50 165,44 180,36 195,42 210,28 225,34 240,18 255,24 270,14 285,20 300,8";
+type DriftTrace = {
+  equipment_id: string; parameter: string; direction: string;
+  magnitude_sigma: number; recent_trend: string;
+};
+
+/** The MCP telemetry tool returns one point-in-time reading per parameter, not a
+ *  time series, so this lists the real readings instead of drawing a fabricated
+ *  continuous trend line. */
+function TelemetryList({ traces }: { traces: DriftTrace[] }) {
+  if (!traces.length) {
+    return <p className="metric-detail">No telemetry returned for this lot's equipment.</p>;
+  }
   return (
-    <div className="telemetry-chart">
-      <div className="chart-y">
-        <span>+5σ</span>
-        <span>+2σ</span>
-        <span>0</span>
-        <span>-2σ</span>
-      </div>
-      <svg viewBox="0 0 300 92" preserveAspectRatio="none" aria-label="RF power telemetry chart">
-        <defs>
-          <linearGradient id="areaLight" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#274c6b" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#274c6b" stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-        <path d="M0 77 L15 72 L30 74 L45 66 L60 68 L75 57 L90 61 L105 54 L120 57 L135 46 L150 50 L165 44 L180 36 L195 42 L210 28 L225 34 L240 18 L255 24 L270 14 L285 20 L300 8 L300 92 L0 92 Z" fill="url(#areaLight)" />
-        <line x1="0" y1="54" x2="300" y2="54" stroke="#b8852c" strokeDasharray="4 4" strokeOpacity="0.55" strokeWidth="1.2" />
-        <polyline points={points} fill="none" stroke="#274c6b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="240" cy="18" r="3.5" fill="#b5473f" stroke="#ffffff" strokeWidth="1.5" />
-        <circle cx="270" cy="14" r="3.5" fill="#b5473f" stroke="#ffffff" strokeWidth="1.5" />
-      </svg>
-      <div className="chart-x">
-        <span>05:30</span>
-        <span>06:00</span>
-        <span>06:42 PM</span>
-        <span>07:00</span>
-        <span>07:30</span>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+      {traces.map((tr, i) => (
+        <div className="action-row" key={`${tr.equipment_id}-${tr.parameter}-${i}`}>
+          <div className="action-group">
+            <b>{tr.equipment_id} · {tr.parameter}</b>
+            <span className="metric-detail">{tr.recent_trend}</span>
+          </div>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px", color: Math.abs(tr.magnitude_sigma) >= 2 ? "#b5473f" : "#2e6e58" }}>
+            {tr.direction === "increasing" ? <TrendingUp size={13} /> : tr.direction === "decreasing" ? <TrendingDown size={13} /> : null}
+            {tr.magnitude_sigma > 0 ? "+" : ""}{tr.magnitude_sigma}σ
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -209,16 +212,22 @@ export default function InvestigationPage() {
   }, [lotsRes]);
 
   const activeLotId = picked ?? LOTS[0]?.id ?? null;
-  // The ranking is gated at the FETCH, not at render: until a prior read is
-  // committed, /api/analyze is never called, so there is nothing in the page to
-  // reveal with devtools. A gate you can peek behind is not a gate.
-  const [prior, setPrior] = useState<{ category: string; hypothesis: string;
-                                       confidence: number } | null>(null);
-  const { data: an, error, loading, reload } = useAnalyze(prior ? activeLotId : null);
+  const { data: an, error, loading, reload } = useAnalyze(activeLotId);
+  const isPlanned = an?.mode === "pre_run";
 
-  // Selecting a different lot retracts the gate — a read committed for one lot
-  // does not license seeing the model's answer for another.
-  useEffect(() => { setPrior(null); }, [activeLotId]);
+  const classification = an?.classification ?? {};
+  const anomaly = an?.anomaly ?? {};
+  const casesList: any[] = an?.cases?.cases ?? [];
+  const topCase = casesList[0];
+  const telemetryList: DriftTrace[] = an?.telemetry?.telemetry ?? [];
+  const peakTrace = useMemo(() =>
+    telemetryList.reduce((m, t) => (Math.abs(t.magnitude_sigma) > Math.abs(m?.magnitude_sigma ?? 0) ? t : m),
+      undefined as DriftTrace | undefined),
+  [telemetryList]);
+  const actionsList: any[] = an?.actions?.actions ?? [];
+  const risk = an?.risk ?? {};
+  const waferGrid: number[][] | undefined = an?.wafer;
+  const stepsCount = an?.steps?.length ?? 0;
 
   // Sensor deviations as the tool reports them: SECOM channels are anonymised, so
   // no physical name, unit or baseline is shown — the previous version displayed
@@ -246,6 +255,16 @@ export default function InvestigationPage() {
       evidence: h.evidence_summary,
       contradicting: h.contradicting_evidence ?? h.what_would_change_this ?? null,
     })), [an]);
+  const topHypothesis = HYPOTHESES[0];
+
+  const waferStats = useMemo(() => {
+    if (!waferGrid) return null;
+    let total = 0, defect = 0;
+    for (const row of waferGrid) for (const v of row) { if (v !== 0) total++; if (v === 2) defect++; }
+    return { total, defect, defectRate: total ? Math.round((defect / total) * 1000) / 10 : 0 };
+  }, [waferGrid]);
+
+  const primaryEquipment = an?.lot?.equipment_ids?.[0];
 
   // Selection is an id; the row is derived, so it cannot go stale when lots reload.
   const activeLot: Lot | undefined = useMemo(
@@ -272,19 +291,29 @@ export default function InvestigationPage() {
     },
   ]);
   const [drawer, setDrawer] = useState<"wafer" | "sensor" | null>(null);
-  const [feedbackTarget, setFeedbackTarget] = useState("RF-power instability after PM");
+  const [feedbackTarget, setFeedbackTarget] = useState("");
   const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackEntries, setFeedbackEntries] = useState([
-    { target: "RF-power instability after PM", text: "Matches the post-maintenance timing. Verify RF match calibration first.", author: "Mei Sato", time: "Today · 08:14" },
-  ]);
+  const [feedbackEntries, setFeedbackEntries] = useState<
+    { target: string; text: string; author: string; time: string }[]
+  >([]);
+  const [checkedActions, setCheckedActions] = useState<Record<string, boolean>>({});
 
   const openFeedback = (target: string) => {
     setFeedbackTarget(target);
     document.getElementById("engineer-feedback")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  // Default the comment target to this lot's top hypothesis (or its first
+  // action) once analysis loads, and clear stale feedback when the lot changes.
+  useEffect(() => {
+    setFeedbackTarget(topHypothesis?.title ?? actionsList[0]?.description ?? "");
+    setFeedbackEntries([]);
+    setCheckedActions({});
+  }, [an?.lot?.lot_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const downloadAuditReport = () => {
-    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot?.id}\nStatus: ${activeLot?.status}\nFinal yield: ${activeLot?.yield} (target ${"—"})\nDefect pattern: Edge-Ring · 96% classification confidence\nPrimary hypothesis: RF-power instability after PM · 87% confidence\nSensor anomalies: RF power +4.8σ; Chamber pressure +3.2σ; ESC temperature +2.6σ\nHistorical match: CASE-1042 · 91% similarity · Yield recovered to 94.6%\nNext-lot risk: 68/100 · Elevated similarity to low-yield conditions\n\nRECOMMENDED ACTIONS\n1. Inspect RF match network\n2. Place ETCH-07 on watch\n3. Run monitor wafer\n4. Update PM checklist\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · Evidence sources linked: 9 · Human review required`;
+    const topSensors = SENSORS.slice(0, 3).map(s => `${s.name} ${s.z}`).join("; ") || "none reported";
+    const report = `YIELDGUARD AI · INVESTIGATION AUDIT REPORT\n\nLot: ${activeLot?.id}\nStatus: ${activeLot?.status}\nFinal yield: ${activeLot?.yield}\nDefect pattern: ${classification.predicted_class ?? "not available"}${classification.confidence != null ? ` · ${Math.round(classification.confidence * 100)}% classification confidence` : ""}\nPrimary hypothesis: ${topHypothesis?.title ?? "insufficient evidence to rank a root cause"}${topHypothesis?.confidence != null ? ` · ${Math.round(topHypothesis.confidence * 100)}% (uncalibrated)` : ""}\nSensor anomalies: ${topSensors}\nHistorical match: ${topCase ? `${topCase.case_id} · ${Math.round(topCase.similarity * 100)}% similarity · ${topCase.outcome}` : "no precedent above similarity threshold"}\nPre-run risk signal: ${risk.similarity_to_historical_low_yield != null ? `${Math.round(risk.similarity_to_historical_low_yield * 100)}/100 · ${risk.at_risk ? "at risk" : "below threshold"}` : "not available"}\n\nRECOMMENDED ACTIONS\n${actionsList.length ? actionsList.map((a, i) => `${i + 1}. ${a.description} (${a.priority} priority)`).join("\n") : "None returned for this lot."}\n\nENGINEER FEEDBACK\n${feedbackEntries.map(entry => `- ${entry.target}: ${entry.text} (${entry.author}, ${entry.time})`).join("\n")}\n\nGenerated by YieldGuard AI · MCP tool calls: ${stepsCount} · Human review required`;
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -320,24 +349,38 @@ export default function InvestigationPage() {
           </div>
         </div>
 
-        {/* Excursion Banner */}
+        {/* Status Banner */}
         <div className="alert-banner">
           <div className="alert-leading">
             <div className="alert-icon">
               <AlertTriangle size={17} />
             </div>
             <div>
-              <b>Yield excursion detected</b>
-              <span>
-                {activeLot?.id} is <strong>{activeLot?.yield}</strong> against a {"—"} target · Edge-ring signature flagged on {"—"} wafers.
-              </span>
+              {isPlanned ? (
+                <>
+                  <b>Pre-run lot — not yet processed</b>
+                  <span>
+                    {activeLot?.id} is scheduled and has no wafer map or sensor data yet.
+                    Risk below is assessed from planned process parameters only.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <b>Yield excursion detected</b>
+                  <span>
+                    {activeLot?.id} tested at <strong>{activeLot?.yield}</strong>
+                    {classification.predicted_class ? <> · <strong>{classification.predicted_class}</strong> defect signature</> : ""}
+                    {waferStats ? ` flagged on ${waferStats.defect} of ${waferStats.total} dies.` : "."}
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <button
             className="alert-link"
-            onClick={() => document.getElementById("root-cause")?.scrollIntoView({ behavior: "smooth" })}
+            onClick={() => document.getElementById("historical-evidence")?.scrollIntoView({ behavior: "smooth" })}
           >
-            Review hypotheses <ArrowDownRight size={14} />
+            Review evidence <ArrowDownRight size={14} />
           </button>
         </div>
 
@@ -379,33 +422,34 @@ export default function InvestigationPage() {
               </div>
             )}
 
-            {/* 4 Metric Cards */}
+            {/* 4 Metric Cards — every value below comes from this lot's own
+                /api/analyze response, so it changes when the lot changes. */}
             <div className="metrics-grid">
               <Metric
                 label="Final yield"
-                value={activeLot?.yield}
-                detail={`↓ 17.8 pts vs target · ${"—"}`}
-                tone="danger"
+                value={activeLot?.yield ?? "—"}
+                detail={isPlanned ? "Not yet run" : "Measured at test"}
+                tone={isPlanned ? "neutral" : "danger"}
                 icon={<TrendingDown size={16} />}
               />
               <Metric
                 label="Defect density"
-                value="18.4 / wafer"
-                detail="+14.2 above lot baseline"
+                value={waferStats ? `${waferStats.defect} / ${waferStats.total}` : "—"}
+                detail={waferStats ? `${waferStats.defectRate}% of scored dies` : "No wafer map for this lot"}
                 tone="warning"
                 icon={<Crosshair size={16} />}
               />
               <Metric
-                label="Analysis confidence"
-                value="87%"
-                detail="High · 9 evidence sources"
+                label="Top hypothesis confidence"
+                value={topHypothesis?.confidence != null ? `${Math.round(topHypothesis.confidence * 100)}%` : "—"}
+                detail="Uncalibrated ranking signal"
                 tone="good"
                 icon={<ShieldCheck size={16} />}
               />
               <Metric
-                label="Time to insight"
-                value="06:18"
-                detail="Analysis completed 8 min ago"
+                label="Evidence tool calls"
+                value={String(stepsCount)}
+                detail="MCP tools invoked for this lot"
                 icon={<Clock3 size={16} />}
               />
             </div>
@@ -418,26 +462,37 @@ export default function InvestigationPage() {
                   eyebrow="02 / VISION MODEL"
                   title="Wafer defect analysis"
                   icon={<Crosshair size={15} />}
-                  action={<span className="model-chip"><Sparkles size={12} />Vision v2.4</span>}
+                  action={<span className="model-chip"><Sparkles size={12} />WaferCNN</span>}
                 />
-                <div className="wafer-layout">
-                  <WaferMap lotId={activeLot?.id} />
-                  <div className="pattern-summary">
-                    <div className="pattern-label">DETECTED PATTERN</div>
-                    <div className="pattern-name">
-                      Edge-Ring <span className="confidence-badge">96%</span>
+                {isPlanned ? (
+                  <p className="metric-detail">This lot has not run — no wafer map exists yet.</p>
+                ) : (
+                  <div className="wafer-layout">
+                    <WaferMap
+                      grid={waferGrid}
+                      lotId={activeLot?.id}
+                      pattern={classification.predicted_class}
+                      confidence={classification.confidence}
+                    />
+                    <div className="pattern-summary">
+                      <div className="pattern-label">DETECTED PATTERN</div>
+                      <div className="pattern-name">
+                        {classification.predicted_class ?? "Not available"}
+                        {classification.confidence != null && (
+                          <span className="confidence-badge">{Math.round(classification.confidence * 100)}%</span>
+                        )}
+                      </div>
+                      <div className="pattern-stats">
+                        <div><span>Defect dies</span><b>{waferStats ? waferStats.defect : "—"}</b></div>
+                        <div><span>Scored dies</span><b>{waferStats ? waferStats.total : "—"}</b></div>
+                        <div><span>Defect rate</span><b>{waferStats ? `${waferStats.defectRate}%` : "—"}</b></div>
+                      </div>
+                      <button className="text-button" onClick={() => setDrawer("wafer")} disabled={!waferGrid}>
+                        <Crosshair size={13} /> Inspect map details <ExternalLink size={11} />
+                      </button>
                     </div>
-                    <p>Defects cluster within outer 4 mm perimeter ring, highest density at north-east quadrant.</p>
-                    <div className="pattern-stats">
-                      <div><span>Defect count</span><b>460</b></div>
-                      <div><span>Edge concentration</span><b>82%</b></div>
-                      <div><span>Spatial fit</span><b>Strong</b></div>
-                    </div>
-                    <button className="text-button" onClick={() => setDrawer("wafer")}>
-                      <Crosshair size={13} /> Inspect map details <ExternalLink size={11} />
-                    </button>
                   </div>
-                </div>
+                )}
               </section>
 
               {/* Sensor Anomaly Model */}
@@ -446,7 +501,11 @@ export default function InvestigationPage() {
                   eyebrow="03 / ANOMALY MODEL"
                   title="Sensor anomaly analysis"
                   icon={<Activity size={15} />}
-                  action={<span className="anomaly-score"><span>ANOMALY</span> 0.91</span>}
+                  action={
+                    <span className="anomaly-score">
+                      <span>ANOMALY</span> {anomaly.anomaly_score != null ? anomaly.anomaly_score : "—"}
+                    </span>
+                  }
                 />
                 <div className="sensor-list">
                   {SENSORS.map(sensor => (
@@ -471,11 +530,10 @@ export default function InvestigationPage() {
                 </div>
                 <div className="sensor-foot">
                   <span>
-                    <span className="signal-icon"><Zap size={12} /></span>
-                    3 parameters crossed 2σ threshold
+                    {SENSORS.filter(s => Math.abs(s.zNum) >= 2).length} of {SENSORS.length} reported parameters crossed 2σ
                   </span>
-                  <button className="text-button" onClick={() => setDrawer("sensor")}>
-                    View all 42 <ChevronRight size={12} />
+                  <button className="text-button" onClick={() => setDrawer("sensor")} disabled={!SENSORS.length}>
+                    View all {SENSORS.length} <ChevronRight size={12} />
                   </button>
                 </div>
               </section>
@@ -485,34 +543,32 @@ export default function InvestigationPage() {
             <section className="panel telemetry-panel">
               <SectionHeader
                 eyebrow="04 / IN-LINE TELEMETRY"
-                title="ETCH-07 · RF power"
+                title={primaryEquipment ? `${primaryEquipment} telemetry` : "Equipment telemetry"}
                 icon={<LineChart size={15} />}
-                action={
-                  <div className="chart-controls">
-                    <span className="legend-line cyan" /> RF power
-                    <span className="legend-line amber" /> 2σ threshold
-                  </div>
-                }
               />
-              <div className="telemetry-callout">
-                <div className="callout-icon">
-                  <ArrowUpRight size={15} />
+              {peakTrace ? (
+                <div className="telemetry-callout">
+                  <div className="callout-icon">
+                    {peakTrace.direction === "increasing" ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
+                  </div>
+                  <div>
+                    <b>{peakTrace.equipment_id} · {peakTrace.parameter} {peakTrace.magnitude_sigma > 0 ? "+" : ""}{peakTrace.magnitude_sigma}σ</b>
+                    <span>{peakTrace.recent_trend}</span>
+                  </div>
                 </div>
-                <div>
-                  <b>Deviation begins 06:55</b>
-                  <span>13 min after preventive maintenance · 3 overshoot events detected</span>
-                </div>
-              </div>
-              <TelemetryChart />
+              ) : (
+                <p className="metric-detail">No telemetry returned for this lot's equipment.</p>
+              )}
+              <TelemetryList traces={telemetryList} />
             </section>
 
             {/* 05 / TRACEABILITY EVIDENCE CHAIN */}
-            <section className="panel evidence-panel">
+            <section className="panel evidence-panel" id="historical-evidence">
               <SectionHeader
                 eyebrow="05 / TRACEABILITY"
                 title="Evidence chain"
                 icon={<Layers3 size={15} />}
-                action={<span className="evidence-count"><CheckCircle2 size={13} /> 9 sources linked</span>}
+                action={<span className="evidence-count"><CheckCircle2 size={13} /> {stepsCount} tool calls linked</span>}
               />
               <div className="tabs">
                 {["Evidence chain", "Telemetry context", "Engineer notes"].map(tab => (
@@ -531,32 +587,42 @@ export default function InvestigationPage() {
                     <div className="chain-icon cyan-bg"><Crosshair size={17} /></div>
                     <div className="chain-node-content">
                       <span className="chain-label">WAFER PATTERN</span>
-                      <b className="chain-value">Edge-Ring</b>
-                      <small className="chain-sub">96% confidence (WaferCNN)</small>
+                      <b className="chain-value">{classification.predicted_class ?? "Not available"}</b>
+                      <small className="chain-sub">
+                        {classification.confidence != null ? `${Math.round(classification.confidence * 100)}% confidence (WaferCNN)` : "no wafer map for this lot"}
+                      </small>
                     </div>
                   </div>
                   <div className="chain-node">
                     <div className="chain-icon coral-bg"><Activity size={17} /></div>
                     <div className="chain-node-content">
                       <span className="chain-label">SENSOR ANOMALY</span>
-                      <b className="chain-value">RF power +4.8σ</b>
-                      <small className="chain-sub">3 overshoot events</small>
+                      <b className="chain-value">
+                        {SENSORS[0] ? `${SENSORS[0].name} ${SENSORS[0].z}` : "No sensor data"}
+                      </b>
+                      <small className="chain-sub">
+                        {anomaly.anomaly_score != null ? `anomaly score ${anomaly.anomaly_score}` : "not scored"}
+                      </small>
                     </div>
                   </div>
                   <div className="chain-node">
                     <div className="chain-icon amber-bg"><Cpu size={17} /></div>
                     <div className="chain-node-content">
                       <span className="chain-label">EQUIPMENT</span>
-                      <b className="chain-value">Post-PM drift</b>
-                      <small className="chain-sub">13 min post-service</small>
+                      <b className="chain-value">
+                        {peakTrace ? `${peakTrace.parameter} ${peakTrace.direction}` : "No drift"}
+                      </b>
+                      <small className="chain-sub">{peakTrace ? peakTrace.equipment_id : "—"}</small>
                     </div>
                   </div>
                   <div className="chain-node">
                     <div className="chain-icon violet-bg"><BookOpen size={17} /></div>
                     <div className="chain-node-content">
                       <span className="chain-label">HISTORICAL CASE</span>
-                      <b className="chain-value">CASE-1042</b>
-                      <small className="chain-sub">91% similarity match</small>
+                      <b className="chain-value">{topCase?.case_id ?? "No precedent"}</b>
+                      <small className="chain-sub">
+                        {topCase ? `${Math.round(topCase.similarity * 100)}% similarity match` : "no case above threshold"}
+                      </small>
                     </div>
                   </div>
                 </div>
@@ -569,34 +635,23 @@ export default function InvestigationPage() {
                     </div>
                     <div className="telemetry-context-meta">
                       <b className="telemetry-context-title">Telemetry Sensor Alignment</b>
-                      <span className="telemetry-context-sub">42 in-line sensor streams aligned with lot processing window (05:30 – 07:19 UTC)</span>
+                      <span className="telemetry-context-sub">
+                        {telemetryList.length} parameter trace(s) returned for {(an?.lot?.equipment_ids ?? []).join(", ") || "this lot's equipment"}
+                      </span>
                     </div>
-                    <span className="sync-badge">
-                      <CheckCircle2 size={13} /> 100% Synchronized
-                    </span>
                   </div>
 
                   <div className="telemetry-mini-grid">
-                    <div className="telemetry-mini-item">
-                      <span className="mini-label">PRIMARY EXCURSION</span>
-                      <strong className="mini-val danger">RF Power (+4.8σ)</strong>
-                      <span className="mini-sub">1,874 W (Baseline: 1,620 W)</span>
-                    </div>
-                    <div className="telemetry-mini-item">
-                      <span className="mini-label">DRIFT ANOMALY</span>
-                      <strong className="mini-val warning">Chamber Pressure (+3.2σ)</strong>
-                      <span className="mini-sub">84.2 mT (Baseline: 78.0 mT)</span>
-                    </div>
-                    <div className="telemetry-mini-item">
-                      <span className="mini-label">THERMAL STABILITY</span>
-                      <strong className="mini-val warning">ESC Temperature (+2.6σ)</strong>
-                      <span className="mini-sub">63.1 °C (Baseline: 60.4 °C)</span>
-                    </div>
-                    <div className="telemetry-mini-item">
-                      <span className="mini-label">GAS INJECTION</span>
-                      <strong className="mini-val nominal">O₂ Gas Flow (+0.7σ)</strong>
-                      <span className="mini-sub">18.4 sccm (Baseline: 18.2 sccm)</span>
-                    </div>
+                    {telemetryList.length === 0 && <p className="metric-detail">No telemetry returned.</p>}
+                    {telemetryList.slice(0, 4).map((tr, i) => (
+                      <div className="telemetry-mini-item" key={`${tr.equipment_id}-${tr.parameter}-${i}`}>
+                        <span className="mini-label">{tr.equipment_id.toUpperCase()}</span>
+                        <strong className={`mini-val ${Math.abs(tr.magnitude_sigma) >= 2 ? "danger" : Math.abs(tr.magnitude_sigma) >= 1 ? "warning" : "nominal"}`}>
+                          {tr.parameter} ({tr.magnitude_sigma > 0 ? "+" : ""}{tr.magnitude_sigma}σ)
+                        </strong>
+                        <span className="mini-sub">{tr.recent_trend}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -657,69 +712,6 @@ export default function InvestigationPage() {
               )}
             </section>
 
-            {/* 06 / ROOT CAUSE HYPOTHESES (Prominent Primary Standout) */}
-            <section className="panel root-panel" id="root-cause">
-              <SectionHeader
-                eyebrow="06 / AI SYNTHESIS"
-                title="Root-cause hypotheses"
-                icon={<BrainCircuit size={15} />}
-                action={<div className="governance-chip"><ShieldCheck size={12} /> Human review required</div>}
-              />
-              <div className="synthesis-summary">
-                <div className="synthesis-badge">
-                  <Sparkles size={13} /> AI SYNTHESIS
-                </div>
-                <p>
-                  Ranked by <code>rank_root_causes</code> from the fused evidence. Every
-                  hypothesis cites a named sensor, case ID or telemetry parameter, and
-                  confidence is the value the ranking layer produced.
-                </p>
-              </div>
-              <PriorReadGate lotId={activeLotId} committed={prior} onCommit={setPrior}>
-              {(committed) => (
-              <>
-              <div className="hypothesis-list">
-                {HYPOTHESES.map(item => (
-                  <div className="hypothesis-card" key={item.id ?? item.rank}>
-                    <div className="hypothesis-rank">{item.rank}</div>
-                    <div className="hypothesis-body">
-                      <div className="hypothesis-top">
-                        <div>
-                          <span className="hypothesis-tag">{item.category}</span>
-                          <h3>{item.title}</h3>
-                        </div>
-                        <div className="confidence-ring">
-                          <b>{Math.round((item.confidence ?? 0) * 100)}%</b>
-                          <span>confidence</span>
-                        </div>
-                      </div>
-                      <p>{item.evidence}</p>
-                      <div className="hypothesis-evidence">
-                        {[item.evidence].filter(Boolean).map((e: string) => (
-                          <span key={e}><Check size={11} /> {e}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      className="icon-btn hypothesis-open"
-                      onClick={() => openFeedback(item.title)}
-                      aria-label={`Comment on ${item.title}`}
-                    >
-                      <MessageSquareText size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <Disposition
-                hypothesisId={HYPOTHESES[0]?.id}
-                priorCategory={committed.category}
-                modelCategory={HYPOTHESES[0]?.category}
-              />
-              </>
-              )}
-              </PriorReadGate>
-            </section>
 
             {/* 07 / ENGINEER INPUT */}
             <section className="panel feedback-workbench" id="engineer-feedback">
@@ -735,16 +727,11 @@ export default function InvestigationPage() {
               <div className="feedback-targets">
                 <span>COMMENT ON</span>
                 <select value={feedbackTarget} onChange={e => setFeedbackTarget(e.target.value)}>
-                  {(prior ? HYPOTHESES : []).map(item => (
+                  {HYPOTHESES.map(item => (
                     <option key={item.title}>{item.title}</option>
                   ))}
-                  {[
-                    "Inspect RF match network",
-                    "Place ETCH-07 on watch",
-                    "Run monitor wafer",
-                    "Update PM checklist",
-                  ].map(item => (
-                    <option key={item}>{item}</option>
+                  {actionsList.map((a, i) => (
+                    <option key={`${a.description}-${i}`}>{a.description}</option>
                   ))}
                 </select>
               </div>
@@ -794,113 +781,122 @@ export default function InvestigationPage() {
                 title="Similar historical cases"
                 icon={<BookOpen size={15} />}
               />
-              <div className="case-match">
-                <div className="case-score">91<span>%</span></div>
-                <div>
-                  <b>CASE-1042</b>
-                  <p>Edge-ring defects after RF match replacement</p>
-                  <span className="case-outcome">
-                    <CheckCircle2 size={11} /> Yield recovered to 94.6%
-                  </span>
-                </div>
-              </div>
-              <div className="case-meta">
-                <span><Clock3 size={12} /> Nov 14, 2025</span>
-                <span><Cpu size={12} /> ETCH-07</span>
-                <span><Gauge size={12} /> Similarity high</span>
-              </div>
-              <div className="case-quote">
-                “RF match calibration was out of tolerance after PM. Recalibration and chamber seasoning cleared the edge signature.”
-              </div>
+              {topCase ? (
+                <>
+                  <div className="case-match">
+                    <div className="case-score">{Math.round(topCase.similarity * 100)}<span>%</span></div>
+                    <div>
+                      <b>{topCase.case_id}</b>
+                      <p>{topCase.confirmed_root_cause}</p>
+                      <span className="case-outcome">
+                        <CheckCircle2 size={11} /> {topCase.outcome}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="case-meta">
+                    <span><Cpu size={12} /> {topCase.equipment_id ?? "—"}</span>
+                    <span>{topCase.category ?? "—"}</span>
+                    <span>{topCase.provenance ?? "constructed"}</span>
+                  </div>
+                  {casesList.length > 1 && (
+                    <div className="case-quote">
+                      +{casesList.length - 1} more precedent(s): {casesList.slice(1, 4).map(c => c.case_id).join(", ")}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="metric-detail">
+                  {an?.cases?._note ?? "No historical case scored above the similarity threshold for this lot."}
+                </p>
+              )}
             </section>
 
-            {/* 08 / RECOMMENDED ACTIONS */}
+            {/* 08 / RECOMMENDED ACTIONS — a real checklist sourced from
+                get_corrective_action_playbook for THIS lot's top hypothesis. */}
             <section className="panel actions-panel">
               <SectionHeader
                 eyebrow="08 / NEXT STEPS"
                 title="Recommended actions"
                 icon={<Wrench size={15} />}
-                action={<span className="action-count">3 actions</span>}
+                action={<span className="action-count">{actionsList.length} action{actionsList.length === 1 ? "" : "s"}</span>}
               />
-              <div className="action-group">
-                <div className="action-group-title">
-                  <span className="action-number immediate">1</span>
-                  <span>Immediate containment</span>
-                </div>
-                <button className="action-row" onClick={() => openFeedback("Inspect RF match network")}>
-                  <span className="action-check" />
-                  <span>
-                    <b>Inspect RF match network</b>
-                    <small>Compare post-PM calibration against spec</small>
-                  </span>
-                  <MessageSquareText size={13} />
-                </button>
-                <button className="action-row" onClick={() => openFeedback("Place ETCH-07 on watch")}>
-                  <span className="action-check" />
-                  <span>
-                    <b>Place ETCH-07 on watch</b>
-                    <small>Do not auto-change equipment settings</small>
-                  </span>
-                  <MessageSquareText size={13} />
-                </button>
-              </div>
-              <div className="action-group">
-                <div className="action-group-title">
-                  <span className="action-number verify">2</span>
-                  <span>Verification</span>
-                </div>
-                <button className="action-row" onClick={() => openFeedback("Run monitor wafer")}>
-                  <span className="action-check" />
-                  <span>
-                    <b>Run monitor wafer</b>
-                    <small>Verify edge uniformity after recalibration</small>
-                  </span>
-                  <MessageSquareText size={13} />
-                </button>
-              </div>
-              <div className="action-group">
-                <div className="action-group-title">
-                  <span className="action-number prevent">3</span>
-                  <span>Preventive action</span>
-                </div>
-                <button className="action-row" onClick={() => openFeedback("Update PM checklist")}>
-                  <span className="action-check" />
-                  <span>
-                    <b>Update PM checklist</b>
-                    <small>Add RF match validation step</small>
-                  </span>
-                  <MessageSquareText size={13} />
-                </button>
-              </div>
+              {actionsList.length === 0 && (
+                <p className="metric-detail">No corrective actions returned for this lot.</p>
+              )}
+              {(["high", "medium", "low"] as const).map((priority) => {
+                const group = actionsList.filter((a) => (a.priority ?? "medium") === priority);
+                if (!group.length) return null;
+                return (
+                  <div className="action-group" key={priority}>
+                    <div className="action-group-title">
+                      <span className={`action-number ${priority === "high" ? "immediate" : priority === "medium" ? "verify" : "prevent"}`}>
+                        {priority === "high" ? "!" : priority === "medium" ? "•" : "○"}
+                      </span>
+                      <span>{priority[0].toUpperCase() + priority.slice(1)} priority</span>
+                    </div>
+                    {group.map((a, i) => {
+                      const key = `${activeLotId}-${priority}-${i}`;
+                      const checked = !!checkedActions[key];
+                      return (
+                        <label className="action-row" key={key} style={{ cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setCheckedActions((prev) => ({ ...prev, [key]: !prev[key] }))}
+                            style={{ width: "15px", height: "15px", accentColor: "#274c6b" }}
+                          />
+                          <span>
+                            <b style={{ textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.6 : 1 }}>
+                              {a.description}
+                            </b>
+                            {a.is_preventive && <small>Preventive action</small>}
+                          </span>
+                          <button
+                            className="icon-btn"
+                            onClick={(e) => { e.preventDefault(); openFeedback(a.description); }}
+                            aria-label={`Comment on ${a.description}`}
+                          >
+                            <MessageSquareText size={13} />
+                          </button>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </section>
 
-            {/* 09 / NEXT LOT RISK */}
+            {/* 09 / PRE-RUN RISK SIGNAL — flag_at_risk_batch scored on THIS lot's own
+                planned process parameters against historical low-yield profiles. */}
             <section className="panel risk-panel">
               <SectionHeader
-                eyebrow="09 / NEXT LOT"
-                title="Batch risk triage"
+                eyebrow="09 / RISK SIGNAL"
+                title="Low-yield similarity"
                 icon={<ShieldCheck size={15} />}
-                action={<span className="triage-chip">Triage signal</span>}
+                action={<span className="triage-chip">{risk.at_risk ? "At risk" : "Below threshold"}</span>}
               />
               <div className="risk-score-row">
                 <div className="risk-meter">
-                  <div className="risk-meter-fill" style={{ width: "68%" }} />
+                  <div className="risk-meter-fill" style={{ width: `${Math.round((risk.similarity_to_historical_low_yield ?? 0) * 100)}%` }} />
                 </div>
-                <div className="risk-number">68<span>/100</span></div>
+                <div className="risk-number">
+                  {risk.similarity_to_historical_low_yield != null ? Math.round(risk.similarity_to_historical_low_yield * 100) : "—"}
+                  <span>/100</span>
+                </div>
               </div>
               <div className="risk-label">
-                <span className="risk-dot" /> Elevated similarity to low-yield conditions
+                <span className="risk-dot" />
+                {risk.similarity_to_historical_low_yield != null
+                  ? `Similarity to historical low-yield profiles (${Math.round((risk.threshold_used ?? 0.6) * 100)}% flag threshold)`
+                  : "Risk signal not available for this lot"}
               </div>
-              <p style={{ fontSize: "10px", color: "#6a7c8b", marginTop: "6px", lineHeight: "1.45" }}>
-                Upcoming lot <b>L-4511</b> shares the same equipment and 4 of 6 high-weight process parameters.
-              </p>
-              <div className="risk-params">
-                <div><span>RF power setpoint</span><b>+2.4%</b></div>
-                <div><span>Chamber pressure</span><b>+1.1%</b></div>
-                <div><span>Post-PM interval</span><b>12 min</b></div>
-              </div>
+              {risk.matched_case_ids?.length > 0 && (
+                <p style={{ fontSize: "10px", color: "#6a7c8b", marginTop: "6px", lineHeight: "1.45" }}>
+                  Matched historical cases: <b>{risk.matched_case_ids.join(", ")}</b>
+                </p>
+              )}
               <small className="disclaimer">
-                <CircleHelp size={11} /> Risk is a triage signal, not an automatic production decision.
+                <CircleHelp size={11} /> {risk._caveat ?? "Similarity to past low-yield profiles, not a causal prediction."}
               </small>
             </section>
 
@@ -939,8 +935,8 @@ export default function InvestigationPage() {
 
         {/* Footer */}
         <footer className="page-footer">
-          <span><span className="live-dot" /> Real-time investigation evidence grounded</span>
-          <span>YieldGuard AI · Investigation Workspace v2.4.0</span>
+          <span><span className="live-dot" /> {stepsCount} MCP tool calls grounded this analysis</span>
+          <span>YieldGuard AI · Investigation Workspace</span>
         </footer>
       </div>
 
@@ -968,54 +964,52 @@ export default function InvestigationPage() {
             {drawer === "wafer" ? (
               <>
                 <div className="drawer-wafer">
-                  <WaferMap lotId={activeLot?.id} />
+                  <WaferMap
+                    grid={waferGrid}
+                    lotId={activeLot?.id}
+                    pattern={classification.predicted_class}
+                    confidence={classification.confidence}
+                  />
                   <div className="drawer-kpis">
                     <div>
-                      <span>Pattern fit</span>
-                      <b>96%</b>
-                      <small>High confidence</small>
+                      <span>Classification confidence</span>
+                      <b>{classification.confidence != null ? `${Math.round(classification.confidence * 100)}%` : "—"}</b>
+                      <small>WaferCNN</small>
                     </div>
                     <div>
-                      <span>Defect centroid</span>
-                      <b>NE quadrant</b>
-                      <small>+18° from nominal</small>
+                      <span>Defect dies</span>
+                      <b>{waferStats ? waferStats.defect : "—"}</b>
+                      <small>of {waferStats ? waferStats.total : "—"} scored</small>
                     </div>
                     <div>
-                      <span>Ring density</span>
-                      <b>82%</b>
-                      <small>of all detected defects</small>
+                      <span>Defect rate</span>
+                      <b>{waferStats ? `${waferStats.defectRate}%` : "—"}</b>
+                      <small>of scored dies</small>
                     </div>
                   </div>
-                </div>
-                <div className="drawer-section">
-                  <div className="drawer-section-title">
-                    Spatial interpretation <span>MODEL EXPLANATION</span>
-                  </div>
-                  <p>
-                    Defects are concentrated in the outer 4 mm ring and are strongest in the north-east quadrant. The spatial signature aligns with non-uniform edge etch behavior.
-                  </p>
                 </div>
                 <div className="drawer-section">
                   <div className="drawer-section-title">Inspection checklist</div>
-                  <div className="drawer-check"><CheckCircle2 size={14} /> Compare edge exclusion against previous lots</div>
-                  <div className="drawer-check"><CheckCircle2 size={14} /> Review RF match calibration and seasoning</div>
-                  <div className="drawer-check"><CircleHelp size={14} /> Validate with monitor wafer before release</div>
+                  <div className="drawer-check"><CheckCircle2 size={14} /> Compare this map against the equipment's last qualified run</div>
+                  <div className="drawer-check"><CheckCircle2 size={14} /> Cross-check the flagged pattern against the top hypothesis category</div>
+                  <div className="drawer-check"><CircleHelp size={14} /> Validate with a monitor wafer before release</div>
                 </div>
               </>
             ) : (
               <>
                 <div className="drawer-score">
-                  <div className="big-score">0.91</div>
+                  <div className="big-score">{anomaly.anomaly_score != null ? anomaly.anomaly_score : "—"}</div>
                   <div>
                     <span>Composite anomaly score</span>
-                    <b>High severity · 3 signals above threshold</b>
-                    <small>Baseline window: previous 30 lots on ETCH-07</small>
+                    <b>{SENSORS.filter(s => Math.abs(s.zNum) >= 2).length} of {SENSORS.length} reported signals above 2σ</b>
+                    <small>Scored by the SECOM-trained Isolation Forest</small>
                   </div>
                 </div>
                 <div className="drawer-section">
                   <div className="drawer-section-title">
-                    Top abnormal parameters <span>STANDARDIZED DEVIATION</span>
+                    Reported parameters <span>STANDARDIZED DEVIATION</span>
                   </div>
+                  {SENSORS.length === 0 && <p className="metric-detail">No sensor signature reported for this lot.</p>}
                   {SENSORS.map(sensor => (
                     <div className="drawer-sensor" key={sensor.name}>
                       <div>
@@ -1034,20 +1028,20 @@ export default function InvestigationPage() {
                     </div>
                   ))}
                 </div>
-                <div className="drawer-section">
-                  <div className="drawer-section-title">
-                    Temporal read <span>CHANGE POINT</span>
-                  </div>
-                  <div className="change-point">
-                    <div className="change-point-line"><span /><i /></div>
-                    <div>
-                      <b>06:55</b>
-                      <p>
-                        Pressure drift begins 13 min after preventive maintenance. RF power overshoot follows at 07:08, strengthening the post-PM causal link.
-                      </p>
+                {peakTrace && (
+                  <div className="drawer-section">
+                    <div className="drawer-section-title">
+                      Equipment context <span>QUERY_TELEMETRY</span>
+                    </div>
+                    <div className="change-point">
+                      <div className="change-point-line"><span /><i /></div>
+                      <div>
+                        <b>{peakTrace.equipment_id} · {peakTrace.parameter}</b>
+                        <p>{peakTrace.recent_trend}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </>
             )}
           </div>

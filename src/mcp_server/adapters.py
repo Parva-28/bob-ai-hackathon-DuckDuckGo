@@ -23,6 +23,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
+
 from stores import cosine_similarity
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "eval" / "fixtures"
@@ -127,6 +129,23 @@ def _import_classify():
     return classify_wafer_map
 
 
+def _import_classify_array():
+    # Same sys.path setup as _import_classify - classify_wafer_array lives in the
+    # same module and needs the same top-level `model` import to resolve.
+    import sys
+    root = str(Path(__file__).resolve().parents[2])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    vision_dir = str(Path(root) / "src" / "models" / "vision")
+    if vision_dir not in sys.path:
+        sys.path.append(vision_dir)
+
+    from src.models.vision.classifier import classify_wafer_array  # noqa
+    from src.models.vision import classifier as _c
+    _c._get_model()
+    return classify_wafer_array
+
+
 def _import_tabular(name: str):
     def _imp():
         import sys
@@ -193,6 +212,13 @@ real_predict_removal_rate = _try(
 
 
 real_classify_wafer_map = _try("classify_wafer_map", _import_classify)
+# Array-based sibling of classify_wafer_map: used by the Pipeline Studio's
+# custom/pasted-matrix path, which never has a file on disk to point the
+# file-based tool at. Probed with a real zero grid so an untrained checkpoint
+# downgrades this to a stub too, not just the file-based entry.
+real_classify_wafer_array = _try(
+    "classify_wafer_array", _import_classify_array,
+    probe=(np.zeros((64, 64), dtype=np.uint8),))
 real_score_sensor_anomaly = _try(
     "score_sensor_anomaly", _import_tabular("score_sensor_anomaly"),
     probe=({"lot_id": "_probe", "sensors": {"sensor_12": 0.0}},))

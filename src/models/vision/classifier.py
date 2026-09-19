@@ -120,7 +120,7 @@ def _to_tensor(arr: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(arr).unsqueeze(0).unsqueeze(0)
 
 
-def _predict(arr: np.ndarray, tta: bool = True) -> dict:
+def _predict(arr: np.ndarray, tta: bool = True, return_probs: bool = False) -> dict:
     """
     Single inference path shared by both public entry points.
 
@@ -130,6 +130,11 @@ def _predict(arr: np.ndarray, tta: bool = True) -> dict:
     training augmentation. Worth +0.0075 macro-F1 on the held-out split
     (0.9157 -> 0.9232) for no retraining; 8 forward passes through a 0.6 M-param
     model is still milliseconds.
+
+    return_probs=True additionally returns the full per-class softmax
+    distribution that was already computed to pick the argmax — callers that
+    display a "class probability" breakdown should use this instead of
+    fabricating one, since the real distribution costs nothing extra here.
     """
     model = _get_model()
     x = _to_tensor(arr).to(_DEVICE)
@@ -145,10 +150,16 @@ def _predict(arr: np.ndarray, tta: bool = True) -> dict:
     probs /= len(views)
 
     pred_idx = int(probs.argmax().item())
-    return {
+    out = {
         "predicted_class": _IDX_TO_CLASS.get(pred_idx, "Unknown"),
         "confidence":      round(float(probs[pred_idx].item()), 4),
     }
+    if return_probs:
+        out["class_probabilities"] = {
+            _IDX_TO_CLASS.get(i, f"class_{i}"): round(float(p), 4)
+            for i, p in enumerate(probs.tolist())
+        }
+    return out
 
 
 # ── public contract function ──────────────────────────────────────────────────
@@ -175,7 +186,7 @@ def classify_wafer_map(image_path: str) -> dict:
 
 # ── convenience: classify from a raw numpy array ─────────────────────────────
 
-def classify_wafer_array(wafer_map: np.ndarray) -> dict:
+def classify_wafer_array(wafer_map: np.ndarray, return_probs: bool = False) -> dict:
     """
     Same as classify_wafer_map but accepts a 2-D numpy array directly.
     Useful for unit tests and the MCP server integration (no temp-file needed).
@@ -183,12 +194,14 @@ def classify_wafer_array(wafer_map: np.ndarray) -> dict:
     Args:
         wafer_map: 2-D uint8 array with values 0/1/2 (pass/fail/not-tested),
                    arbitrary resolution.
+        return_probs: also return the full 9-class softmax distribution
+                      under "class_probabilities" (see _predict).
 
-    Returns: same dict as classify_wafer_map.
+    Returns: same dict as classify_wafer_map, plus "class_probabilities" if requested.
     """
     if wafer_map.ndim != 2:
         raise ValueError(f"Expected 2-D array, got shape {wafer_map.shape}")
 
     img = Image.fromarray(wafer_map.astype(np.uint8), mode="L")
     img = img.resize((_IMG_SIZE, _IMG_SIZE), resample=Image.NEAREST)
-    return _predict(np.array(img, dtype=np.float32) / 2.0)
+    return _predict(np.array(img, dtype=np.float32) / 2.0, return_probs=return_probs)
