@@ -82,6 +82,10 @@ demo/*.mov
 demo/*.avi
 demo/*.mkv
 /videos/
+# LAM 9600 etch data: Eigenvector Research's file, fetched by src/models/etch/build.py
+src/models/etch/data/*.mat
+# PHM 2018 ion-mill etch data (NASA DASHlink), fetched locally
+src/models/ionmill/data/
 
 # ── Docker volumes / local data ───────────────────────────────────────────────
 # NOT a bare `data/`: that matches every directory named data at any depth, which
