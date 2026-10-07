@@ -1075,12 +1075,89 @@ h1 span {
   border-top: 1.5px dashed #b5473f;
 }
 
-.wafer-caption {
+.evidence-graph-head {
   display: flex;
   justify-content: space-between;
-  color: #7a8a96;
-  font: 8.5px "IBM Plex Mono", monospace;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+
+.evidence-graph-chips {
+  display: flex;
+  gap: 5px;
+}
+
+.evidence-graph-summary {
+  font-size: 10.5px;
+  color: #6a7d8c;
+}
+
+.evidence-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 10px;
+  font-size: 9.5px;
+  color: #6a7d8c;
+}
+
+.evidence-graph-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.evidence-graph-note {
+  margin-left: auto;
+  color: #8a98a4;
+}
+
+.attention-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  border: 1px solid #dcdad0;
+  border-radius: 5px;
+  padding: 4px 9px;
+  background: #ffffff;
+  color: #495d6d;
+  font-size: 10.5px;
+  font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.attention-toggle.on {
+  border-color: #b5473f;
+  color: #8c322b;
+  background: #fbf1f0;
+}
+
+.legend-heat {
+  width: 10px;
+  height: 5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(181, 71, 63, 0.15), rgba(181, 71, 63, 0.85));
+}
+
+.attention-note {
+  margin-top: 6px;
+  color: #7b8e9c;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.wafer-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+  color: #7a8a96;
+  font: 8.5px/1.4 "IBM Plex Mono", monospace;
   margin-top: 5px;
 }
 
@@ -3600,4 +3677,42 @@ h1 span {
   max-width: 100%;
   box-sizing: border-box;
   max-height: 220px;
+}
+
+/* ── Landing → console page transition (React <ViewTransition>) ── */
+::view-transition-old(.landing-exit) {
+  animation: 420ms cubic-bezier(0.4, 0, 0.2, 1) both landing-out;
+}
+
+::view-transition-new(.console-enter) {
+  animation: 520ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both console-in;
+}
+
+/* The Y mark travels from the landing header into the sidebar. */
+::view-transition-group(.brand-morph) {
+  animation-duration: 560ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes landing-out {
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+    filter: blur(6px);
+  }
+}
+
+@keyframes console-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(.landing-exit),
+  ::view-transition-new(.console-enter),
+  ::view-transition-group(.brand-morph) {
+    animation: none;
+  }
 }
