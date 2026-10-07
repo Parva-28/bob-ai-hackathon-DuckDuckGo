@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { AsyncBoundary } from "@/components/AsyncBoundary";
+import WaferFigure from "@/components/WaferFigure";
 import { useLots, useStatus, useEval } from "@/lib/api";
 import {
   AlertTriangle,
@@ -102,13 +103,16 @@ export default function OverviewPage() {
             </h1>
             <p>Real-time semiconductor manufacturing intelligence across in-line inspection and process telemetry.</p>
           </div>
-          <div className="heading-actions">
-            <button className="button ghost" onClick={exportSummary}>
-              <FileText size={14} /> Export fab summary
-            </button>
-            <button className="button primary" onClick={reload} disabled={loading}>
-              <RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh"}
-            </button>
+          <div className="heading-side">
+            <div className="heading-actions">
+              <button className="button ghost" onClick={exportSummary}>
+                <FileText size={14} /> Export fab summary
+              </button>
+              <button className="button primary" onClick={reload} disabled={loading}>
+                <RefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+            <WaferFigure />
           </div>
         </div>
 
