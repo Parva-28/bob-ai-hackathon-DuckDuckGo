@@ -605,6 +605,61 @@ h1 span {
   gap: 8px;
 }
 
+.heading-side {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.page-heading:has(.heading-side) {
+  align-items: center;
+}
+
+.wafer-hero {
+  width: 280px;
+  padding: 10px 12px 8px;
+  border: 1px solid #e6e3da;
+  border-radius: 8px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.wafer-hero-top {
+  display: flex;
+  justify-content: space-between;
+  font: 600 8.5px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  color: #8a98a4;
+}
+
+.wafer-hero-read {
+  color: #274c6b;
+  letter-spacing: 0.02em;
+  font-size: 10px;
+}
+
+.wafer-hero [data-hairline] {
+  margin: -22px 0 -18px;
+}
+
+.wafer-hero-hint {
+  position: relative;
+  margin-top: 0;
+  font-size: 9.5px;
+  color: #7b8e9c;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .page-heading {
+    flex-wrap: wrap;
+  }
+
+  .heading-side {
+    align-items: flex-start;
+  }
+}
+
 .button {
   border: 1px solid #dcdad0;
   height: 33px;

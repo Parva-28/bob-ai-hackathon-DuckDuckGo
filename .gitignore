@@ -81,6 +81,7 @@ demo/*.mp4
 demo/*.mov
 demo/*.avi
 demo/*.mkv
+/videos/
 
 # ── Docker volumes / local data ───────────────────────────────────────────────
 # NOT a bare `data/`: that matches every directory named data at any depth, which
