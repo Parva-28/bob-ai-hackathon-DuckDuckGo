@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode, useMemo } from "react";
+import { useState, useEffect, type ReactNode, useMemo, ViewTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -144,19 +144,22 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   );
 
   return (
+    <ViewTransition enter={{ "enter-console": "console-enter", default: "none" }} default="none">
     <div className="app-shell">
       {/* ── Left Sidebar (Primary Navigation) ── */}
       <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}>
         {/* Brand Header */}
         <div className="brand-row">
-          <div
-            className="brand-mark"
-            title="YieldGuard AI - Command Center"
-            onClick={() => router.push("/overview")}
-            style={{ cursor: "pointer" }}
-          >
-            <span>Y</span>
-          </div>
+          <ViewTransition name="yg-brand" share="brand-morph" default="none">
+            <div
+              className="brand-mark"
+              title="YieldGuard AI - Command Center"
+              onClick={() => router.push("/overview")}
+              style={{ cursor: "pointer" }}
+            >
+              <span>Y</span>
+            </div>
+          </ViewTransition>
           {sidebarOpen && (
             <>
               <div className="brand-text">
@@ -449,5 +452,6 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
       {/* ── Conversational AI Copilot ── */}
       <YieldGuardCopilot activeLotId={activeLotId} currentRoute={pathname} />
     </div>
+    </ViewTransition>
   );
 }

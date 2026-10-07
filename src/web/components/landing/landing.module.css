@@ -1,0 +1,315 @@
+.page {
+  position: relative;
+  background: #e6e9ec;
+  color: #1c2733;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A soft wash that rises over the scene for the final section, so the
+   explanation reads on top of it. */
+.veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(238, 240, 242, 0) 30%, rgba(238, 240, 242, 0.85) 75%);
+  transition: opacity 1.2s ease;
+}
+
+/* Keeps the hero headline readable over the busier room: a plain solid
+   gradient from the left edge, no blur. Shown on the first stop only. */
+.heroWash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(234, 237, 240, 0.94) 0%, rgba(234, 237, 240, 0.82) 30%, rgba(234, 237, 240, 0) 52%);
+  transition: opacity 0.9s ease;
+}
+
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px;
+  pointer-events: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 18px "Space Grotesk", sans-serif;
+  letter-spacing: -0.3px;
+  color: #1c2733;
+}
+
+.mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #274c6b;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+}
+
+.steps {
+  position: relative;
+  margin-top: -100vh;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.step {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 0 6vw;
+  box-sizing: border-box;
+}
+
+.right {
+  justify-content: flex-end;
+}
+
+/* Solid cards: opaque white, a hairline border and a soft shadow. They leave
+   quickly when a move starts and arrive once the camera has nearly landed. */
+.card {
+  pointer-events: auto;
+  max-width: 440px;
+  padding: 26px 28px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e3e1da;
+  box-shadow: 0 12px 32px rgba(28, 39, 51, 0.10);
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.in {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.9s, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.9s;
+}
+
+.dots {
+  position: fixed;
+  right: 26px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid #274c6b;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.dotOn {
+  background: #274c6b;
+  transform: scale(1.25);
+}
+
+.hero {
+  max-width: 560px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+}
+
+.eyebrow {
+  font: 600 11px "IBM Plex Mono", monospace;
+  letter-spacing: 1.4px;
+  color: #6a8da9;
+  margin-bottom: 12px;
+}
+
+.h1 {
+  margin: 0;
+  font: 700 clamp(40px, 5.6vw, 76px) / 1.02 "Space Grotesk", sans-serif;
+  letter-spacing: -2.5px;
+  color: #182532;
+}
+
+.h2 {
+  margin: 0 0 10px;
+  font: 700 clamp(26px, 2.6vw, 36px) / 1.1 "Space Grotesk", sans-serif;
+  letter-spacing: -1px;
+  color: #182532;
+}
+
+.lead {
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #425466;
+}
+
+.body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #425466;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.primary,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font: 600 14px "DM Sans", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primary {
+  background: #274c6b;
+  color: #ffffff;
+  border: 1px solid #274c6b;
+  box-shadow: 0 8px 22px rgba(39, 76, 107, 0.25);
+}
+
+.ghost {
+  background: rgba(255, 255, 255, 0.7);
+  color: #274c6b;
+  border: 1px solid #d7dfe4;
+}
+
+.primary:hover,
+.ghost:hover {
+  transform: translateY(-1px);
+}
+
+.barButton {
+  pointer-events: auto;
+  height: 38px;
+  font-size: 13px;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 14px 0 4px;
+  font: 700 40px "Space Grotesk", sans-serif;
+  letter-spacing: -1px;
+}
+
+.stat small {
+  font: 500 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0;
+  color: #6a7d8c;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #ffffff;
+  border: 1px solid #edebe4;
+  font-size: 14px;
+}
+
+.row b {
+  font: 600 13px "IBM Plex Mono", monospace;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font: 600 12px "IBM Plex Mono", monospace;
+  border: 1px solid currentColor;
+}
+
+.foot {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #7b8e9c;
+}
+
+.hint {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 1px;
+  color: #8a98a4;
+  transition: opacity 0.4s ease;
+}
+
+.final {
+  max-width: 560px;
+}
+
+@media (max-width: 760px) {
+  .step,
+  .right {
+    justify-content: center;
+    align-items: flex-end;
+    padding: 0 16px 10vh;
+  }
+
+  .bar {
+    padding: 14px 16px;
+  }
+}
