@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type ReactNode, useMemo, ViewTransition } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -157,7 +158,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
               onClick={() => router.push("/overview")}
               style={{ cursor: "pointer" }}
             >
-              <span>Y</span>
+              <Image src="/brand/yieldguard-mark.png" alt="YieldGuard" width={32} height={32} priority />
             </div>
           </ViewTransition>
           {sidebarOpen && (
