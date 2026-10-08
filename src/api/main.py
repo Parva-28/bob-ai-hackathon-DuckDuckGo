@@ -85,6 +85,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Live fab feed: SSE replay of recorded tool data, scored as it streams (stream.py).
+from stream import router as stream_router  # noqa: E402
+app.include_router(stream_router)
+
 
 # ── Wafer grid helper ─────────────────────────────────────────────────────────
 
