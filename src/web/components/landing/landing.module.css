@@ -61,14 +61,9 @@
 }
 
 .mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: #274c6b;
-  color: #ffffff;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
+  width: 34px;
+  height: 34px;
+  display: block;
 }
 
 .steps {
@@ -311,5 +306,54 @@
 
   .bar {
     padding: 14px 16px;
+  }
+}
+
+/* The live classification card shown when a wafer is picked: solid, opposite
+   the lifted wafer. */
+.liveCard {
+  position: fixed;
+  top: 50%;
+  z-index: 12;
+  width: 340px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e3e1da;
+  box-shadow: 0 16px 40px rgba(28, 39, 51, 0.14);
+  transform: translateY(-50%);
+  animation: liveIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+}
+
+.liveLeft {
+  left: 6vw;
+}
+
+.liveRight {
+  right: 6vw;
+}
+
+.liveClass {
+  margin: 4px 0 2px;
+  font: 700 34px "Space Grotesk", sans-serif;
+  letter-spacing: -1px;
+  color: #182532;
+}
+
+.liveClass span {
+  font: 600 16px "IBM Plex Mono", monospace;
+  color: #2e6e58;
+  letter-spacing: 0;
+}
+
+.liveCard .ghost {
+  margin-top: 16px;
+  height: 38px;
+}
+
+@keyframes liveIn {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-50% + 14px));
   }
 }

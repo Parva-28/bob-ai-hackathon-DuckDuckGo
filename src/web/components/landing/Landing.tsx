@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, ViewTransition } from "react"
 import Link from "next/link";
 import type { FabScene, LandingLot, LandingWafer } from "./FabScene";
 import type { EvidenceCheck } from "@/components/EvidenceGraph";
+import Image from "next/image";
 import s from "./landing.module.css";
 
 type LandingData = {
@@ -21,6 +22,11 @@ const MOVE_S = 1.7;                          // matches FabScene's camera flight
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const LABELS = ["Intro", "Off the line", "Probe tester", "Engineer's laptop", "YieldGuard"];
 
+type Live =
+  | { state: "loading" }
+  | { state: "live"; cls: string; confidence: number; top: [string, number][]; heat: boolean }
+  | { state: "offline"; cls: string; confidence: number };
+
 // Every number on this page comes from public/landing/data.json, written by
 // src/api/export_landing_data.py from the real models — not typed in here.
 export default function Landing() {
@@ -31,6 +37,12 @@ export default function Landing() {
   const busyUntil = useRef(0);
   const [data, setData] = useState<LandingData | null>(null);
   const [stop, setStop] = useState(0);
+  // click a wafer -> live AI
+  const pickedRef = useRef<{ slot: number; wafer: number } | null>(null);
+  const [picked, setPicked] = useState<{ slot: number; wafer: number } | null>(null);
+  const [live, setLive] = useState<Live | null>(null);
+  const [cardLeft, setCardLeft] = useState(false);
+  const [hover, setHover] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/landing/data.json").then((r) => r.json()).then(setData).catch(() => {});
@@ -66,11 +78,54 @@ export default function Landing() {
     let disposed = false;
     import("./FabScene").then(({ FabScene }) => {
       if (disposed || !canvasRef.current) return;
-      sceneRef.current = new FabScene(canvasRef.current, data.wafers, data.lot);
+      const scene = new FabScene(canvasRef.current, data.wafers, data.lot, {
+        onPick: (p) => { pickedRef.current = p; setPicked(p); if (p) classify(p); else setLive(null); },
+        onHover: setHover,
+      });
+      sceneRef.current = scene;
+      // A picked wafer is classified by the real model (the endpoint the console
+      // uses). If the API is not running, the card says so and shows the
+      // prediction exported with the page, never an invented heatmap.
+      const classify = (p: { slot: number; wafer: number }) => {
+        const wafer = data.wafers[p.wafer];
+        setLive({ state: "loading" });
+        const x = scene.pickedScreenX();
+        setCardLeft(x != null && x > 0.5);
+        fetch("/api/vision/explain", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grid: wafer.grid }),
+        })
+          .then(async (r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+          .then((r: { predicted_class: string; confidence: number; class_probabilities: Record<string, number>; cam: number[][] }) => {
+            if (pickedRef.current?.slot !== p.slot) return;          // put back meanwhile
+            const heat = r.predicted_class !== "None";
+            scene.setHeatmap(p.slot, heat ? r.cam : null);
+            const top = Object.entries(r.class_probabilities).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            setLive({ state: "live", cls: r.predicted_class, confidence: r.confidence, top, heat });
+          })
+          .catch(() => {
+            if (pickedRef.current?.slot === p.slot)
+              setLive({ state: "offline", cls: wafer.predicted_class, confidence: wafer.confidence });
+          });
+      };
       sceneRef.current.goTo(stopRef.current, true);
     });
     return () => { disposed = true; sceneRef.current?.dispose(); sceneRef.current = null; };
   }, [data]);
+
+  // The demo director (components/DemoDirector.tsx) drives the page with events.
+  useEffect(() => {
+    const onGoto = (e: Event) => goTo((e as CustomEvent<number>).detail);
+    const onPick = () => { const slot = sceneRef.current?.firstTested() ?? -1; if (slot >= 0) sceneRef.current?.pick(slot); };
+    const onRelease = () => sceneRef.current?.release();
+    window.addEventListener("yg-demo-goto", onGoto);
+    window.addEventListener("yg-demo-pick", onPick);
+    window.addEventListener("yg-demo-release", onRelease);
+    return () => {
+      window.removeEventListener("yg-demo-goto", onGoto);
+      window.removeEventListener("yg-demo-pick", onPick);
+      window.removeEventListener("yg-demo-release", onRelease);
+    };
+  }, [goTo]);
 
   // Input: wheel, keys and swipes each trigger a whole move; native scrolling
   // is held back so a flick cannot scrub the camera frame by frame.
@@ -85,6 +140,7 @@ export default function Landing() {
     let acc = 0, lastWheel = 0, lastAbs = 0, settling = false;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      if (pickedRef.current) return;              // a held wafer keeps the camera still
       const now = performance.now();
       const gap = now - lastWheel, abs = Math.abs(e.deltaY), prevAbs = lastAbs;
       lastWheel = now;
@@ -106,6 +162,8 @@ export default function Landing() {
       if (Math.abs(acc) > 40) { goTo(stopRef.current + Math.sign(acc)); acc = 0; settling = true; }
     };
     const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && pickedRef.current) { sceneRef.current?.release(); return; }
+      if (pickedRef.current) return;
       const map: Record<string, number> = { ArrowDown: 1, PageDown: 1, " ": 1, ArrowUp: -1, PageUp: -1 };
       if (e.key === "Home") { e.preventDefault(); goTo(0); return; }
       if (e.key === "End") { e.preventDefault(); goTo(STOPS - 1); return; }
@@ -156,7 +214,7 @@ export default function Landing() {
     className: `${s.step} ${i % 2 === 0 && i > 0 ? s.right : ""}`,
   });
   // A card appears once its stop is current, after the camera has mostly arrived.
-  const card = (i: number, extra = "") => `${s.card} ${extra} ${stop === i ? s.in : ""}`;
+  const card = (i: number, extra = "") => `${s.card} ${extra} ${stop === i && !picked ? s.in : ""}`;
 
   return (
     <ViewTransition exit={{ "enter-console": "landing-exit", default: "none" }} default="none">
@@ -164,9 +222,11 @@ export default function Landing() {
       <header className={s.bar}>
         <div className={s.brand}>
           <ViewTransition name="yg-brand" share="brand-morph" default="none">
-            <span className={s.mark}>Y</span>
+            <span className={s.mark}>
+              <Image src="/brand/yieldguard-mark.png" alt="" width={34} height={34} priority />
+            </span>
           </ViewTransition>
-          YieldGuard
+          <Image src="/brand/yieldguard-wordmark.png" alt="YieldGuard AI" width={161} height={21} priority />
         </div>
         <Link href="/overview" transitionTypes={TO_CONSOLE} className={`${s.ghost} ${s.barButton}`}>Enter console →</Link>
       </header>
@@ -175,8 +235,44 @@ export default function Landing() {
         <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
         <div className={s.veil} style={{ opacity: stop === STOPS - 1 ? 1 : 0 }} />
         <div className={s.heroWash} style={{ opacity: stop === 0 ? 1 : 0 }} />
-        <div className={s.hint} style={{ opacity: stop === 0 ? 1 : 0 }}>SCROLL TO FOLLOW A LOT ↓</div>
+        <div className={s.hint} style={{ opacity: hover || picked || stop <= 2 ? 1 : 0 }}>
+          {hover ?? (picked ? "ESC OR CLICK ELSEWHERE TO PUT IT BACK"
+            : stop === 0 ? "SCROLL TO FOLLOW A LOT ↓  ·  CLICK A TESTED WAFER TO CLASSIFY IT LIVE"
+            : "CLICK A TESTED WAFER TO CLASSIFY IT LIVE")}
+        </div>
       </div>
+
+      {picked && live && (
+        <aside className={`${s.liveCard} ${cardLeft ? s.liveLeft : s.liveRight}`} aria-live="polite">
+          <div className={s.eyebrow}>
+            {live.state === "offline" ? "EXPORTED PREDICTION · WaferCNN" : "LIVE · WaferCNN + TTA-8"}
+          </div>
+          {live.state === "loading" ? (
+            <p className={s.body}>Classifying this wafer&apos;s test map…</p>
+          ) : (
+            <>
+              <div className={s.liveClass}>
+                {live.cls} <span>{(live.confidence * 100).toFixed(1)}%</span>
+              </div>
+              {live.state === "live" && (
+                <div className={s.rows}>
+                  {live.top.map(([k, v]) => (
+                    <div className={s.row} key={k}><span>{k}</span><b>{(v * 100).toFixed(1)}%</b></div>
+                  ))}
+                </div>
+              )}
+              <p className={s.foot}>
+                {live.state === "offline"
+                  ? "Model API offline: showing the prediction exported with this page. Start the API to classify live."
+                  : live.heat
+                    ? "Red on the wafer: dies that most raised the predicted class's score (LayerCAM)."
+                    : "No defect pattern predicted, so there is no attention map to show."}
+              </p>
+            </>
+          )}
+          <button className={s.ghost} onClick={() => sceneRef.current?.release()}>Put it back</button>
+        </aside>
+      )}
 
       <nav className={s.dots} aria-label="Sections">
         {LABELS.map((label, i) => (

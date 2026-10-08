@@ -15,6 +15,13 @@ import { buildRoom, canvasTexture, stackLight, type Kit } from "./fabProps";
 export type LandingWafer = {
   case_id: string; grid: number[][]; predicted_class: string; confidence: number; dies: number; failed: number;
 };
+export type SceneEvents = {
+  /** A wafer was picked (index into the belt, index into the data's wafers), or released (null). */
+  onPick?: (pick: { slot: number; wafer: number } | null) => void;
+  /** What the pointer is over, for a hint line; null when nothing. */
+  onHover?: (text: string | null) => void;
+};
+
 export type LandingLot = {
   lot_id: string;
   classification: { predicted_class: string; confidence: number };
@@ -176,7 +183,21 @@ export class FabScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
-  private wafers: { group: THREE.Group; offset: number }[] = [];
+  private wafers: { group: THREE.Group; offset: number; look: number; disc: THREE.Mesh; result: THREE.Mesh;
+                     heat: THREE.Mesh | null }[] = [];
+  // picking: one wafer at a time lifts off the belt and faces the camera
+  // per wafer look: belt materials, and "top" copies for a held wafer
+  private looks: { result: THREE.Material; full: THREE.Material; pattern: THREE.Material; patternTop: THREE.Material }[] = [];
+  private silicon!: THREE.Material;
+  private siliconTop!: THREE.Material;
+  private picked: { slot: number; t0: number; phase: "up" | "down"; from: THREE.Vector3;
+                    lifted: THREE.Vector3; q: THREE.Quaternion; heatTex: THREE.Texture | null } | null = null;
+  private raycaster = new THREE.Raycaster();
+  private ndc = new THREE.Vector2();
+  private hovered = -1;
+  private hoverText: string | null = null;
+  private ring!: THREE.Mesh;
+  private removeListeners: () => void = () => {};
   private beltTex = beltTexture();
   private disposables: { dispose: () => void }[] = [];
   private frame = 0;
@@ -191,7 +212,9 @@ export class FabScene {
   private to: Pose = STOPS[0];
   private flightStart = -1;
 
-  constructor(private canvas: HTMLCanvasElement, wafers: LandingWafer[], lot: LandingLot) {
+  constructor(private canvas: HTMLCanvasElement, private data: LandingWafer[], lot: LandingLot,
+              private events: SceneEvents = {}) {
+    const wafers = data;
     const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
     r.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -314,9 +337,7 @@ export class FabScene {
     const discGeo = own(new THREE.CylinderGeometry(1.15, 1.15, 0.04, 128));
     const faceGeo = own(new THREE.CircleGeometry(1.1, 128));
     const silicon = own(new THREE.MeshPhysicalMaterial({
-      // Polished silicon reads dark grey-blue; a full-strength mirror of the bright
-      // warehouse sky turned the wafers white, so its reflection is held back.
-      // The HDRI's ceiling is far brighter than 1.0, so a sharp, full-strength
+      // Polished silicon reads dark grey-blue. The HDRI's ceiling is far brighter than 1.0, so a sharp, full-strength
       // mirror turned the far wafers white. A touch of roughness spreads those
       // highlights and a lower environment weight keeps the silicon dark.
       color: 0x5f6875, metalness: 1, roughness: 0.26, iridescence: 0.25, iridescenceIOR: 1.45,
@@ -334,6 +355,21 @@ export class FabScene {
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
       })),
     }));
+    // A held wafer floats in front of the camera, where the belt, tester or
+    // laptop could cut through it. It switches to "top" copies of its materials:
+    // drawn last (renderOrder) with no depth test, so nothing hides it. Its map
+    // copy is also unclipped, since the tilt would cross the probe-line clip.
+    const top = <M extends THREE.Material>(m: M, extra: Partial<THREE.Material> = {}) => {
+      const c = own(m.clone());
+      Object.assign(c, { depthTest: false, depthWrite: false, ...extra });
+      return c;
+    };
+    this.silicon = silicon;
+    this.siliconTop = top(silicon);
+    this.looks = looks.map((l) => ({
+      result: l.result, full: top(l.result, { clippingPlanes: [] }),
+      pattern: l.pattern, patternTop: top(l.pattern),
+    }));
     for (let i = 0; i < N_WAFERS; i++) {
       const group = new THREE.Group();
       const disc = new THREE.Mesh(discGeo, silicon);
@@ -346,9 +382,16 @@ export class FabScene {
       result.rotation.x = -Math.PI / 2;
       result.position.y = 0.028;
       group.add(disc, pattern, result);
+      disc.userData.slot = i;
       s.add(group);
-      this.wafers.push({ group, offset: i * SPACING });
+      this.wafers.push({ group, offset: i * SPACING, look: i % looks.length, disc, result, heat: null });
     }
+    // hover ring, moved onto whichever tested wafer the pointer is over
+    this.ring = new THREE.Mesh(own(new THREE.RingGeometry(1.2, 1.29, 96)),
+                               own(new THREE.MeshBasicMaterial({ color: 0x6fb2ff, transparent: true, opacity: 0.9, depthWrite: false })));
+    this.ring.rotation.x = -Math.PI / 2;
+    this.ring.position.y = 0.036;
+    this.ring.visible = false;
 
     // engineer's desk beside the line
     add(new RoundedBoxGeometry(5.6, 0.08, 3.6, 3, 0.03), mat(0xf1f1ee, 0.5), [9.2, 1.34, 6.4]);
@@ -387,11 +430,177 @@ export class FabScene {
         own(new THREE.MeshBasicMaterial({ map: own(dashboardTexture(wafers[0], lot)), toneMapped: false })),
         [0, 1.06, 0.045], hinge, false);
 
+    this.listen();
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(canvas);
     this.resize();
     this.loop = this.loop.bind(this);
     this.frame = requestAnimationFrame(this.loop);
+  }
+
+  // ── picking ──────────────────────────────────────────────────────────────
+
+  private beltX(slot: number) {
+    return ((this.wafers[slot].offset + (this.elapsed * SPEED) % LOOP) % LOOP) - LOOP / 2;
+  }
+
+  /** "tested" once the whole wafer is past the probe card: only then is there a map. */
+  private stateOf(slot: number): "tested" | "testing" | "untested" {
+    const x = this.beltX(slot);
+    if (Math.abs(x) > 13.6) return "untested";           // dipping into the end rollers
+    return x - 1.15 > SCAN_X ? "tested" : x + 1.15 > SCAN_X ? "testing" : "untested";
+  }
+
+  private hit(e: PointerEvent): number {
+    const r = this.canvas.getBoundingClientRect();
+    this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.ndc, this.camera);
+    const hit = this.raycaster.intersectObjects(this.wafers.map((w) => w.disc), false)[0];
+    return hit ? (hit.object.userData.slot as number) : -1;
+  }
+
+  private setHover(slot: number) {
+    const picked = this.picked?.slot;
+    const state = slot >= 0 && slot !== picked ? this.stateOf(slot) : null;
+    const text = state === "tested" ? "Tested wafer · click to classify it live"
+      : state === "testing" ? "Being tested at the probe card"
+      : state === "untested" ? "Not tested yet: no map to classify" : null;
+    const target = state === "tested" ? slot : -1;
+    if (target !== this.hovered) {
+      this.ring.removeFromParent();
+      this.ring.visible = target >= 0;
+      if (target >= 0) this.wafers[target].group.add(this.ring);
+      this.hovered = target;
+    }
+    this.canvas.style.cursor = state === "tested" ? "pointer" : "default";
+    if (text !== this.hoverText) { this.hoverText = text; this.events.onHover?.(text); }
+  }
+
+  private listen() {
+    let down: { x: number; y: number } | null = null;
+    const move = (e: PointerEvent) => this.setHover(this.hit(e));
+    const press = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY }; };
+    const up = (e: PointerEvent) => {
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;   // a drag, not a click
+      down = null;
+      const slot = this.hit(e);
+      if (slot >= 0 && slot !== this.picked?.slot && this.stateOf(slot) === "tested") this.pick(slot);
+      else if (this.picked && slot !== this.picked.slot) this.release();
+    };
+    const leave = () => this.setHover(-1);
+    this.canvas.addEventListener("pointermove", move);
+    this.canvas.addEventListener("pointerdown", press);
+    this.canvas.addEventListener("pointerup", up);
+    this.canvas.addEventListener("pointerleave", leave);
+    this.removeListeners = () => {
+      this.canvas.removeEventListener("pointermove", move);
+      this.canvas.removeEventListener("pointerdown", press);
+      this.canvas.removeEventListener("pointerup", up);
+      this.canvas.removeEventListener("pointerleave", leave);
+    };
+  }
+
+  /** The first tested wafer nearest the probe card (for the demo), or -1. */
+  firstTested(): number {
+    let best = -1, bestX = Infinity;
+    this.wafers.forEach((_, i) => {
+      const x = this.beltX(i);
+      if (this.stateOf(i) === "tested" && x < bestX && x < 9) { best = i; bestX = x; }
+    });
+    return best;
+  }
+
+  /** Lift wafer `slot` off the belt to face the camera. */
+  pick(slot: number) {
+    if (this.picked) this.finishRelease();
+    const w = this.wafers[slot];
+    const from = w.group.position.clone();
+    // It rises to the same framing at every stop and window size: right of
+    // centre and high enough to clear the belt rails, at the distance where its
+    // diameter fills 45% of the screen height for this lens, turned to face it.
+    // (Rising from wherever it sat on the belt, it was cropped at close stops.)
+    const FILL = 0.45, R = 1.15;
+    const dist = R / (Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * FILL);
+    const lifted = new THREE.Vector3(0.36, 0.22, 0.5).unproject(this.camera).sub(this.camera.position)
+      .setLength(dist).add(this.camera.position);
+    const toCam = this.camera.position.clone().sub(lifted).normalize();
+    const q = new THREE.Quaternion().slerpQuaternions(
+      new THREE.Quaternion(), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), toCam), 0.92);
+    this.lift(w, true);
+    this.picked = { slot, t0: performance.now(), phase: "up", from, lifted, q, heatTex: null };
+    this.setHover(-1);
+    this.events.onPick?.({ slot, wafer: w.look });
+  }
+
+  /** Swap a wafer between its belt materials and its always-on-top ones. */
+  private lift(w: (typeof this.wafers)[number], on: boolean) {
+    const look = this.looks[w.look];
+    const [disc, pattern] = [w.disc, w.group.children[1] as THREE.Mesh];
+    disc.material = on ? this.siliconTop : this.silicon;
+    pattern.material = on ? look.patternTop : look.pattern;
+    w.result.material = on ? look.full : look.result;
+    [disc, pattern, w.result].forEach((m, k) => { m.renderOrder = on ? 100 + k : 0; });
+  }
+
+  /** Paint the model's attention (64×64, 0–1) onto the picked wafer. */
+  setHeatmap(slot: number, cam: number[][] | null) {
+    if (!this.picked || this.picked.slot !== slot) return;
+    const w = this.wafers[slot];
+    this.clearHeat();
+    if (!cam) return;
+    const grid = this.data[w.look].grid;
+    const tex = canvasTexture(512, 512, (g) => {
+      const cell = 512 / 64;
+      for (let r = 0; r < 64; r++) for (let c = 0; c < 64; c++) {
+        const v = cam[r]?.[c] ?? 0;
+        if (!grid[r][c] || v < 0.08) continue;
+        g.fillStyle = `rgba(214, 40, 32, ${(0.9 * v ** 1.2).toFixed(3)})`;
+        g.fillRect(c * cell, r * cell, cell, cell);
+      }
+    });
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false,
+                                              toneMapped: false });
+    w.heat = new THREE.Mesh(w.result.geometry, mat);
+    w.heat.rotation.x = -Math.PI / 2;
+    w.heat.position.y = 0.032;
+    w.heat.renderOrder = 103;
+    w.group.add(w.heat);
+    this.picked.heatTex = tex;
+  }
+
+  private clearHeat() {
+    const w = this.picked ? this.wafers[this.picked.slot] : null;
+    if (w?.heat) {
+      w.heat.removeFromParent();
+      (w.heat.material as THREE.Material).dispose();
+      w.heat = null;
+    }
+    this.picked?.heatTex?.dispose();
+    if (this.picked) this.picked.heatTex = null;
+  }
+
+  /** Send the picked wafer back to its slot on the belt. */
+  release() {
+    if (!this.picked || this.picked.phase === "down") return;
+    this.picked.phase = "down";
+    this.picked.t0 = performance.now();
+    this.events.onPick?.(null);
+  }
+
+  private finishRelease() {
+    if (!this.picked) return;
+    this.clearHeat();
+    const w = this.wafers[this.picked.slot];
+    this.lift(w, false);
+    w.group.quaternion.identity();
+    this.picked = null;
+  }
+
+  /** Where the picked wafer sits across the screen, 0 (left) to 1 (right). */
+  pickedScreenX(): number | null {
+    if (!this.picked) return null;
+    const p = this.picked.lifted.clone().project(this.camera);
+    return (p.x + 1) / 2;
   }
 
   /** Fly the camera to stop i over MOVE_S seconds; `instant` jumps there. */
@@ -470,12 +679,32 @@ export class FabScene {
     this.placeCamera(now);
 
     const travel = (this.elapsed * SPEED) % LOOP;
-    for (const w of this.wafers) {
+    this.wafers.forEach((w, slot) => {
       const x = ((w.offset + travel) % LOOP) - LOOP / 2;
       const edge = Math.max(0, Math.abs(x) - 13.6);       // dip into the rollers at the ends
-      w.group.position.set(x, BELT_Y + 0.026 - edge * 0.6, 0);
-      w.group.scale.setScalar(Math.max(0.001, 1 - edge * 0.55));
-    }
+      const beltPos = new THREE.Vector3(x, BELT_Y + 0.026 - edge * 0.6, 0);
+      const beltScale = Math.max(0.001, 1 - edge * 0.55);
+      const p = this.picked;
+      if (p && p.slot === slot) {
+        const u = easeInOut(Math.min(1, (now - p.t0) / 900));
+        if (p.phase === "up") {
+          w.group.position.copy(p.from).lerp(p.lifted, u);
+          w.group.quaternion.slerpQuaternions(new THREE.Quaternion(), p.q, u);
+          w.group.scale.setScalar(1);
+        } else {
+          // back down to wherever its slot on the moving belt has got to
+          w.group.position.copy(p.lifted).lerp(beltPos, u);
+          w.group.quaternion.slerpQuaternions(p.q, new THREE.Quaternion(), u);
+          w.group.scale.setScalar(1 + (beltScale - 1) * u);
+          if (u >= 1) this.finishRelease();
+        }
+        return;
+      }
+      w.group.position.copy(beltPos);
+      w.group.scale.setScalar(beltScale);
+    });
+    // a hovered wafer that has moved on stops being clickable
+    if (this.hovered >= 0 && this.stateOf(this.hovered) !== "tested") this.setHover(-1);
     this.beltTex.offset.x = -(this.elapsed * SPEED) / (30.6 / 16);
     this.stackGreen.emissiveIntensity = 1.3 + 0.3 * Math.sin(this.elapsed * 2.2);
     this.updateRoom(this.elapsed);
@@ -485,6 +714,8 @@ export class FabScene {
 
   dispose() {
     cancelAnimationFrame(this.frame);
+    this.removeListeners();
+    this.clearHeat();
     this.resizeObs.disconnect();
     for (const d of this.disposables) d.dispose();
     this.renderer.dispose();

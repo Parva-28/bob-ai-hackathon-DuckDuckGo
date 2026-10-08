@@ -414,7 +414,7 @@ export default function InvestigationPage() {
                 icon={<Target size={15} />}
                 action={<StatusPill severity={activeLot?.severity}>{activeLot?.status}</StatusPill>}
               />
-              <button className="mini-link" onClick={() => setShowAllLots(!showAllLots)}>
+              <button className="mini-link" data-demo="change-lot" onClick={() => setShowAllLots(!showAllLots)}>
                 {showAllLots ? "Hide queue" : "Change lot"}
                 <ChevronDown size={13} className={showAllLots ? "rotate-180" : ""} />
               </button>
@@ -426,6 +426,7 @@ export default function InvestigationPage() {
                   <button
                     key={lot.id}
                     className={`lot-picker-row ${lot.id === activeLot?.id ? "selected" : ""}`}
+                    data-demo={`lot-${lot.id}`}
                     onClick={() => {
                       setActiveLot(lot);
                       setShowAllLots(false);
@@ -510,7 +511,7 @@ export default function InvestigationPage() {
                       <button className="text-button" onClick={() => setDrawer("wafer")} disabled={!waferGrid}>
                         <Crosshair size={13} /> Inspect map details <ExternalLink size={11} />
                       </button>
-                      <button className={`attention-toggle${showCam ? " on" : ""}`} onClick={() => setShowCam((v) => !v)}
+                      <button className={`attention-toggle${showCam ? " on" : ""}`} data-demo="attention" onClick={() => setShowCam((v) => !v)}
                               disabled={!waferGrid} aria-pressed={showCam}>
                         <i className="legend-heat" /> {showCam ? "Hide attention" : "Where the model looked"}
                       </button>
@@ -600,6 +601,7 @@ export default function InvestigationPage() {
                   <button
                     key={tab}
                     className={activeTab === tab ? "tab active" : "tab"}
+                    data-demo={`tab-${tab}`}
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab}
@@ -616,7 +618,7 @@ export default function InvestigationPage() {
                       <div className="evidence-graph-chips">
                         {HYPOTHESES.map((item, i) => (
                           <button key={item.id ?? i} className={`button small ${i === graphHyp ? "primary" : "ghost"}`}
-                                  onClick={() => setGraphHyp(i)} title={item.title}>
+                                  data-demo={`hyp-${i}`} onClick={() => setGraphHyp(i)} title={item.title}>
                             Hypothesis {item.rank}
                           </button>
                         ))}
