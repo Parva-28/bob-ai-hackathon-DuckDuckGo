@@ -498,6 +498,14 @@ export default function PipelineStudioPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        // 422 = the wafer failed validation; no stage ran, so there is nothing to reveal.
+        const err = await res.json().catch(() => ({}));
+        setIsRunning(false);
+        alert([err.error || `Request failed (${res.status})`, ...(err.wafer_map_problems || [])]
+          .join("\n• "));
+        return;
+      }
       const data: PipelineResult = await res.json();
 
       // The backend already ran and returned all 6 stages in one response, but we

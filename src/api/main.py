@@ -658,9 +658,22 @@ def api_pipeline_run_custom(req: CustomPipelineRequest):
         if p.exists():
             import numpy as np
             grid = np.load(p).astype(int).tolist()
+    # Same gate as /api/analyze-upload. There used to be an all-zeros default here,
+    # which the CNN scores as Scratch at 1.0 — a confident answer about no wafer.
+    import numpy as np
     if grid is None:
-        # Default empty/nominal grid
-        grid = [[0]*64 for _ in range(64)]
+        return JSONResponse({"error": "input rejected — no wafer map supplied, "
+                                      "so no classification was performed"},
+                            status_code=422)
+    try:
+        ok_map, map_problems, map_stats = validate_wafer_map(np.array(grid))
+    except (ValueError, TypeError) as e:   # ragged rows can't form a 2-D array
+        ok_map, map_problems, map_stats = False, [f"not a 2-D grid: {e}"], {}
+    if not ok_map:
+        return JSONResponse({"error": "input rejected — no classification was performed",
+                             "wafer_map_problems": map_problems,
+                             "wafer_map_stats": map_stats},
+                            status_code=422)
 
     # ── Stage 1: classify_wafer_map ──
     t1_start = time.perf_counter()
