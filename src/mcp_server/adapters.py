@@ -219,6 +219,35 @@ real_classify_wafer_map = _try("classify_wafer_map", _import_classify)
 real_classify_wafer_array = _try(
     "classify_wafer_array", _import_classify_array,
     probe=(np.zeros((64, 64), dtype=np.uint8),))
+# The explanation behind classify_wafer_array, for the web console only. It is
+# not an MCP tool, so it is resolved without _try: a MODE entry would count it
+# among the tools pipeline_status reports. None => the API refuses (503) rather
+# than invent a heatmap.
+real_explain_wafer_array = None
+if real_classify_wafer_array:
+    try:
+        from src.models.vision.classifier import explain_wafer_array as real_explain_wafer_array  # noqa
+    except Exception:
+        real_explain_wafer_array = None
+# The LAM 9600 etch-tool detector, which score_sensor_anomaly routes a lot to
+# when its case carries a real etch trace. Not a separate MCP tool (so no MODE
+# entry); None => those lots fall back to the SECOM path as before.
+def _import_etch():
+    import sys
+    root = str(Path(__file__).resolve().parents[2])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from src.models.etch.detector import score_etch_wafer
+    score_etch_wafer("l2901.txm")       # probe: the artifact loads and scores
+    return score_etch_wafer
+
+
+try:
+    real_score_etch_wafer = _import_etch()
+except Exception as _e:  # noqa: BLE001 - any failure means "not available"
+    real_score_etch_wafer = None
+    REASON["score_etch_wafer"] = f"{type(_e).__name__}: {_e}"
+
 real_score_sensor_anomaly = _try(
     "score_sensor_anomaly", _import_tabular("score_sensor_anomaly"),
     probe=({"lot_id": "_probe", "sensors": {"sensor_12": 0.0}},))

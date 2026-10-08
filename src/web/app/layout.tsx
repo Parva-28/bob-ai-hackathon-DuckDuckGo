@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import DemoDirector from "@/components/DemoDirector";
 
 export const metadata: Metadata = {
   title: "YieldGuard — Analyst Console",
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-ink text-text antialiased">
         {children}
+        <DemoDirector />
       </body>
     </html>
   );

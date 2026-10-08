@@ -4,6 +4,8 @@ import { useState, useMemo, type ReactNode, useRef, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { AsyncBoundary } from "@/components/AsyncBoundary";
 import { useLots, useAnalyze } from "@/lib/api";
+import { drawCamOverlay, MUTED_DIE, useWaferExplain } from "@/lib/wafer";
+import EvidenceGraph, { STATUS_STYLE, type EvidenceCheck } from "@/components/EvidenceGraph";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -98,11 +100,12 @@ function Metric({ label, value, detail, tone = "neutral", icon }: { label: strin
 /** Draws the lot's actual 64x64 WM-811K grid (0=outside, 1=pass, 2=defect) from
  *  /api/analyze's `wafer` field — no two lots share a grid, so this can no longer
  *  render the same "Edge-Ring" shape regardless of which lot is selected. */
-function WaferMap({ grid, lotId, pattern, confidence }: {
+function WaferMap({ grid, lotId, pattern, confidence, showCam = false }: {
   grid: number[][] | null | undefined; lotId?: string;
-  pattern?: string; confidence?: number;
+  pattern?: string; confidence?: number; showCam?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { data: explained, error: camError, cam } = useWaferExplain(grid, showCam);
 
   const stats = useMemo(() => {
     if (!grid) return null;
@@ -125,11 +128,12 @@ function WaferMap({ grid, lotId, pattern, confidence }: {
       for (let c = 0; c < grid[r].length; c++) {
         const v = grid[r][c];
         if (v === 0) continue;
-        ctx.fillStyle = v === 2 ? "#b5473f" : "#cfe0d6";
+        ctx.fillStyle = cam ? (v === 2 ? MUTED_DIE.fail : MUTED_DIE.pass) : v === 2 ? "#b5473f" : "#cfe0d6";
         ctx.fillRect(c * cell, r * cell, cell - 0.4, cell - 0.4);
       }
     }
-  }, [grid]);
+    if (cam) drawCamOverlay(ctx, grid, cam, cell);
+  }, [grid, cam]);
 
   if (!grid) {
     return (
@@ -142,7 +146,7 @@ function WaferMap({ grid, lotId, pattern, confidence }: {
   return (
     <div className="wafer-shell">
       <div className="wafer-legend">
-        <span><i className="legend-defect" />Defect die</span>
+        <span><i className="legend-defect" style={cam ? { background: MUTED_DIE.fail } : undefined} />Defect die</span>
         <span><i className="legend-ring" />Passing die</span>
       </div>
       <canvas
@@ -158,6 +162,14 @@ function WaferMap({ grid, lotId, pattern, confidence }: {
           {pattern ? ` · ${pattern}${confidence != null ? ` ${Math.round(confidence * 100)}%` : ""}` : ""}
         </span>
       </div>
+      {showCam && (
+        <p className="attention-note">
+          {camError ? `Attention map unavailable: ${camError}`
+            : cam ? "Red: dies that most raised the predicted class's score (LayerCAM). Where the model looked, not a root cause."
+            : explained ? "No defect pattern predicted, so there is nothing to attribute."
+            : "Computing attention map…"}
+        </p>
+      )}
     </div>
   );
 }
@@ -213,6 +225,8 @@ export default function InvestigationPage() {
 
   const activeLotId = picked ?? LOTS[0]?.id ?? null;
   const { data: an, error, loading, reload } = useAnalyze(activeLotId);
+  const [showCam, setShowCam] = useState(false);
+  const [graphHyp, setGraphHyp] = useState(0);
   const isPlanned = an?.mode === "pre_run";
 
   const classification = an?.classification ?? {};
@@ -232,8 +246,11 @@ export default function InvestigationPage() {
   // Sensor deviations as the tool reports them: SECOM channels are anonymised, so
   // no physical name, unit or baseline is shown — the previous version displayed
   // "RF power 1,874 W (baseline 1,620 W)", none of which exists in the data.
+  // The deviations the anomaly tool actually scored: for an etch lot with a real
+  // LAM 9600 trace these are the tool's own variables (RF Load, Pressure, …);
+  // otherwise they are the lot's SECOM signature, exactly as before.
   const SENSORS = useMemo(() => {
-    const sig: Record<string, number> = an?.lot?.sensor_signature ?? {};
+    const sig: Record<string, number> = an?.anomaly?._named_deviations ?? an?.lot?.sensor_signature ?? {};
     const top: string[] = an?.anomaly?.top_deviating_sensors ?? [];
     const rows = Object.entries(sig).map(([name, z]) => ({
       name, z: `${z > 0 ? "+" : ""}${z}σ`, zNum: z,
@@ -254,6 +271,7 @@ export default function InvestigationPage() {
       confidence: h.confidence,
       evidence: h.evidence_summary,
       contradicting: h.contradicting_evidence ?? h.what_would_change_this ?? null,
+      check: h.evidence_check as EvidenceCheck | undefined,
     })), [an]);
   const topHypothesis = HYPOTHESES[0];
 
@@ -396,7 +414,7 @@ export default function InvestigationPage() {
                 icon={<Target size={15} />}
                 action={<StatusPill severity={activeLot?.severity}>{activeLot?.status}</StatusPill>}
               />
-              <button className="mini-link" onClick={() => setShowAllLots(!showAllLots)}>
+              <button className="mini-link" data-demo="change-lot" onClick={() => setShowAllLots(!showAllLots)}>
                 {showAllLots ? "Hide queue" : "Change lot"}
                 <ChevronDown size={13} className={showAllLots ? "rotate-180" : ""} />
               </button>
@@ -408,6 +426,7 @@ export default function InvestigationPage() {
                   <button
                     key={lot.id}
                     className={`lot-picker-row ${lot.id === activeLot?.id ? "selected" : ""}`}
+                    data-demo={`lot-${lot.id}`}
                     onClick={() => {
                       setActiveLot(lot);
                       setShowAllLots(false);
@@ -469,10 +488,12 @@ export default function InvestigationPage() {
                 ) : (
                   <div className="wafer-layout">
                     <WaferMap
+                      key={activeLot?.id}
                       grid={waferGrid}
                       lotId={activeLot?.id}
                       pattern={classification.predicted_class}
                       confidence={classification.confidence}
+                      showCam={showCam}
                     />
                     <div className="pattern-summary">
                       <div className="pattern-label">DETECTED PATTERN</div>
@@ -489,6 +510,10 @@ export default function InvestigationPage() {
                       </div>
                       <button className="text-button" onClick={() => setDrawer("wafer")} disabled={!waferGrid}>
                         <Crosshair size={13} /> Inspect map details <ExternalLink size={11} />
+                      </button>
+                      <button className={`attention-toggle${showCam ? " on" : ""}`} data-demo="attention" onClick={() => setShowCam((v) => !v)}
+                              disabled={!waferGrid} aria-pressed={showCam}>
+                        <i className="legend-heat" /> {showCam ? "Hide attention" : "Where the model looked"}
                       </button>
                     </div>
                   </div>
@@ -536,6 +561,7 @@ export default function InvestigationPage() {
                     View all {SENSORS.length} <ChevronRight size={12} />
                   </button>
                 </div>
+                {anomaly._scored_on && <p className="attention-note">Scored on {anomaly._scored_on}.</p>}
               </section>
             </div>
 
@@ -575,58 +601,52 @@ export default function InvestigationPage() {
                   <button
                     key={tab}
                     className={activeTab === tab ? "tab active" : "tab"}
+                    data-demo={`tab-${tab}`}
                     onClick={() => setActiveTab(tab)}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
-              {activeTab === "Evidence chain" && (
-                <div className="evidence-chain">
-                  <div className="chain-node">
-                    <div className="chain-icon cyan-bg"><Crosshair size={17} /></div>
-                    <div className="chain-node-content">
-                      <span className="chain-label">WAFER PATTERN</span>
-                      <b className="chain-value">{classification.predicted_class ?? "Not available"}</b>
-                      <small className="chain-sub">
-                        {classification.confidence != null ? `${Math.round(classification.confidence * 100)}% confidence (WaferCNN)` : "no wafer map for this lot"}
-                      </small>
+              {activeTab === "Evidence chain" && (() => {
+                const h = HYPOTHESES[Math.min(graphHyp, HYPOTHESES.length - 1)];
+                if (!h?.check) return <p className="metric-detail">No ranked hypothesis to check for this lot.</p>;
+                const c = h.check.summary;
+                return (
+                  <div className="evidence-graph">
+                    <div className="evidence-graph-head">
+                      <div className="evidence-graph-chips">
+                        {HYPOTHESES.map((item, i) => (
+                          <button key={item.id ?? i} className={`button small ${i === graphHyp ? "primary" : "ghost"}`}
+                                  data-demo={`hyp-${i}`} onClick={() => setGraphHyp(i)} title={item.title}>
+                            Hypothesis {item.rank}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="evidence-graph-summary">
+                        <b style={{ color: STATUS_STYLE.verified.color }}>{c.verified} verified</b>
+                        {" · "}<b style={{ color: STATUS_STYLE.value_mismatch.color }}>{c.value_mismatch} mismatched</b>
+                        {" · "}<b style={{ color: STATUS_STYLE.not_in_evidence.color }}>{c.not_in_evidence} not in evidence</b>
+                        {" · "}<span>{c.uncited} flagged signals not cited</span>
+                      </span>
+                    </div>
+                    <EvidenceGraph title={h.title} check={h.check} onOpen={setDrawer} />
+                    <div className="evidence-graph-legend">
+                      {Object.values(STATUS_STYLE).map((st) => (
+                        <span key={st.label}>
+                          <svg width="22" height="6" aria-hidden="true">
+                            <line x1="0" y1="3" x2="22" y2="3" stroke={st.color} strokeWidth="2" strokeDasharray={st.dash} />
+                          </svg>
+                          {st.label}
+                        </span>
+                      ))}
+                      <span className="evidence-graph-note">
+                        Every reference in the hypothesis text, checked against what the tools returned.
+                      </span>
                     </div>
                   </div>
-                  <div className="chain-node">
-                    <div className="chain-icon coral-bg"><Activity size={17} /></div>
-                    <div className="chain-node-content">
-                      <span className="chain-label">SENSOR ANOMALY</span>
-                      <b className="chain-value">
-                        {SENSORS[0] ? `${SENSORS[0].name} ${SENSORS[0].z}` : "No sensor data"}
-                      </b>
-                      <small className="chain-sub">
-                        {anomaly.anomaly_score != null ? `anomaly score ${anomaly.anomaly_score}` : "not scored"}
-                      </small>
-                    </div>
-                  </div>
-                  <div className="chain-node">
-                    <div className="chain-icon amber-bg"><Cpu size={17} /></div>
-                    <div className="chain-node-content">
-                      <span className="chain-label">EQUIPMENT</span>
-                      <b className="chain-value">
-                        {peakTrace ? `${peakTrace.parameter} ${peakTrace.direction}` : "No drift"}
-                      </b>
-                      <small className="chain-sub">{peakTrace ? peakTrace.equipment_id : "—"}</small>
-                    </div>
-                  </div>
-                  <div className="chain-node">
-                    <div className="chain-icon violet-bg"><BookOpen size={17} /></div>
-                    <div className="chain-node-content">
-                      <span className="chain-label">HISTORICAL CASE</span>
-                      <b className="chain-value">{topCase?.case_id ?? "No precedent"}</b>
-                      <small className="chain-sub">
-                        {topCase ? `${Math.round(topCase.similarity * 100)}% similarity match` : "no case above threshold"}
-                      </small>
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               {activeTab === "Telemetry context" && (
                 <div className="telemetry-context-card">
                   <div className="telemetry-context-header">
@@ -965,10 +985,12 @@ export default function InvestigationPage() {
               <>
                 <div className="drawer-wafer">
                   <WaferMap
+                    key={activeLot?.id}
                     grid={waferGrid}
                     lotId={activeLot?.id}
                     pattern={classification.predicted_class}
                     confidence={classification.confidence}
+                    showCam={showCam}
                   />
                   <div className="drawer-kpis">
                     <div>

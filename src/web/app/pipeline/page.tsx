@@ -7,12 +7,14 @@ import {
   AlertTriangle,
   BookOpen,
   BrainCircuit,
+  Brush,
   Check,
   CheckCircle2,
   Code2,
   Copy,
   Cpu,
   Crosshair,
+  Eraser,
   Eye,
   Layers,
   Play,
@@ -22,6 +24,8 @@ import {
   Upload,
   Wrench,
 } from "lucide-react";
+import { blankWafer, drawCamOverlay, MUTED_DIE, useWaferExplain } from "@/lib/wafer";
+import { imageToGrid, parseNpy, swapPassFail } from "@/lib/waferImport";
 
 interface PipelineStep {
   step_number: number;
@@ -114,6 +118,30 @@ function actionText(act: { description: string; priority?: string } | string): s
   return typeof act === "string" ? act : act.description;
 }
 
+function ClassProbabilityBars({ probs, top }: { probs: Record<string, number>; top: string }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px 10px" }}>
+      {Object.entries(probs).map(([clsName, prob]) => {
+        const isTop = clsName === top;
+        const color = CLASS_COLORS[clsName] || "#274c6b";
+        return (
+          <div key={clsName}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 2 }}>
+              <span style={{ color: isTop ? "#1d2c3a" : "#8a98a4", fontWeight: isTop ? 700 : 400 }}>{clsName}</span>
+              <span style={{ color: isTop ? color : "#8a98a4", fontWeight: isTop ? 700 : 400, fontFamily: "'IBM Plex Mono', monospace" }}>
+                {(prob * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div style={{ width: "100%", height: 4, background: "#edebe4", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ width: `${Math.min(100, prob * 100)}%`, height: "100%", background: isTop ? color : "#c7d3da" }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function PipelineStudioPage() {
   const [presets, setPresets] = useState<PresetItem[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("preset-edge-ring");
@@ -124,10 +152,7 @@ export default function PipelineStudioPage() {
   const [equipmentText, setEquipmentText] = useState("ETCH-07, CMP-03");
   const [sensorJson, setSensorJson] = useState(`{
   "sensor_23": 3.42,
-  "sensor_24": 2.88,
-  "rf_power_target_w": 1750.0,
-  "chamber_pressure_mt": 82.0,
-  "he_cooling_sccm": 12.4
+  "sensor_24": 2.88
 }`);
   const [jsonError, setJsonError] = useState<string | null>(null);
 
@@ -138,6 +163,19 @@ export default function PipelineStudioPage() {
   const [canvasZoom, setCanvasZoom] = useState<number>(4);
   const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number; val: number } | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Draw mode: paint defects onto a blank wafer and WaferCNN re-classifies as
+  // you go. The attention map can also be shown on any loaded preset.
+  const [drawMode, setDrawMode] = useState(false);
+  const [brush, setBrush] = useState<1 | 2 | 3>(2);
+  const [erasing, setErasing] = useState(false);
+  const [showCam, setShowCam] = useState(false);
+  // An uploaded wafer is classified as soon as it lands, without pressing Run.
+  const [uploaded, setUploaded] = useState(false);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const liveOn = drawMode || showCam || uploaded;
+  const { data: live, error: liveError, cam } = useWaferExplain(waferGrid, liveOn);
+  const lastDie = useRef<{ x: number; y: number } | null>(null);
 
   // Raw matrix view — lets a judge see (and paste) the exact 64x64 array of
   // 0/1/2 values that gets sent as wafer_grid to classify_wafer_map, instead of
@@ -204,6 +242,9 @@ export default function PipelineStudioPage() {
   }, []);
 
   const applyPreset = (preset: PresetItem) => {
+    setDrawMode(false);
+    setUploaded(false);
+    setUploadNote(null);
     setSelectedPresetId(preset.id);
     setLotId(preset.lot_id);
     setEquipmentText(preset.equipment_ids.join(", "));
@@ -257,15 +298,65 @@ export default function PipelineStudioPage() {
         const y = r * cellSize;
 
         if (val === 1) {
-          ctx.fillStyle = "#cde7dc"; // Passing die
+          ctx.fillStyle = cam ? MUTED_DIE.pass : "#cde7dc"; // Passing die
         } else if (val === 2) {
-          ctx.fillStyle = "#b5473f"; // Defective die
+          ctx.fillStyle = cam ? MUTED_DIE.fail : "#b5473f"; // Defective die
         }
 
         ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
       }
     }
-  }, [waferGrid, canvasZoom]);
+    if (cam) drawCamOverlay(ctx, waferGrid, cam, cellSize);
+  }, [waferGrid, canvasZoom, cam]);
+
+  // The die under a pointer event, measured against the canvas as laid out
+  // (it can be scaled down by max-width), not its backing-store size.
+  const dieAt = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return {
+      x: Math.floor(((e.clientX - rect.left) / rect.width) * 64),
+      y: Math.floor(((e.clientY - rect.top) / rect.height) * 64),
+    };
+  };
+
+  // Paints a round brush `brush` dies wide: defect (2), or pass (1) when erasing
+  // or holding shift. Off-wafer cells (0) are never touched. Pointer events
+  // arrive far apart on a fast drag, so every die on the line from the previous
+  // event is painted too; otherwise a quick scratch lands as scattered dots.
+  const paint = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const end = dieAt(e);
+    const start = lastDie.current ?? end;
+    lastDie.current = end;
+    const to = erasing || e.shiftKey ? 1 : 2;
+    const rad = brush - 1;
+    const steps = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y), 1);
+    setWaferGrid((g) => {
+      let next: number[][] | null = null;
+      for (let i = 0; i <= steps; i++) {
+        const x = Math.round(start.x + ((end.x - start.x) * i) / steps);
+        const y = Math.round(start.y + ((end.y - start.y) * i) / steps);
+        for (let r = y - rad; r <= y + rad; r++) {
+          for (let c = x - rad; c <= x + rad; c++) {
+            if (r < 0 || r > 63 || c < 0 || c > 63 || Math.hypot(r - y, c - x) > rad + 0.25) continue;
+            if (g[r][c] === 0 || g[r][c] === to) continue;
+            next ??= g.map((row) => row.slice());
+            next[r][c] = to;
+          }
+        }
+      }
+      return next ?? g;
+    });
+  };
+
+  const enterDrawMode = () => {
+    setUploaded(false);
+    setUploadNote(null);
+    setSelectedPresetId("custom-upload");
+    setWaferGrid(blankWafer());
+    setShowMatrix(false);
+    setErasing(false);
+    setDrawMode(true);
+  };
 
   // Handle Canvas Mouse Move
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -306,17 +397,26 @@ export default function PipelineStudioPage() {
     }
   };
 
+  const loadUploadedGrid = (grid: number[][], note: string) => {
+    setDrawMode(false);
+    setWaferGrid(grid);
+    setSelectedPresetId("custom-upload");
+    setUploaded(true);
+    setUploadNote(note);
+  };
+
   const processFile = (file: File) => {
     const reader = new FileReader();
+    const name = file.name.toLowerCase();
 
-    if (file.name.endsWith(".json")) {
+    if (name.endsWith(".json")) {
       reader.onload = (event) => {
         try {
           const parsed = JSON.parse(event.target?.result as string);
           if (Array.isArray(parsed) && parsed.length === 64) {
-            setWaferGrid(parsed);
+            loadUploadedGrid(parsed, `${file.name} · 64×64 grid`);
           } else if (parsed.wafer_grid) {
-            setWaferGrid(parsed.wafer_grid);
+            loadUploadedGrid(parsed.wafer_grid, `${file.name} · wafer_grid`);
           } else if (typeof parsed === "object") {
             setSensorJson(JSON.stringify(parsed, null, 2));
           }
@@ -328,7 +428,22 @@ export default function PipelineStudioPage() {
       return;
     }
 
-    // Handle Image file (PNG, JPG, WebP)
+    // A raw WM-811K array (0 off-wafer, 1 pass, 2 fail), as the fixtures are stored.
+    if (name.endsWith(".npy")) {
+      reader.onload = (event) => {
+        try {
+          loadUploadedGrid(parseNpy(event.target?.result as ArrayBuffer), `${file.name} · .npy array`);
+        } catch (e) {
+          setUploadNote(`Couldn't read ${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // An image in any palette: the colours are worked out from the picture itself
+    // (lib/waferImport.ts), not assumed. Sampled without smoothing, as the
+    // classifier resizes maps, so every pixel is a real die colour, not a blend.
     if (file.type.startsWith("image/")) {
       reader.onload = (event) => {
         const img = new Image();
@@ -338,39 +453,10 @@ export default function PipelineStudioPage() {
           offCanvas.height = 64;
           const ctx = offCanvas.getContext("2d");
           if (!ctx) return;
+          ctx.imageSmoothingEnabled = false;
           ctx.drawImage(img, 0, 0, 64, 64);
-          const imgData = ctx.getImageData(0, 0, 64, 64).data;
-
-          const newGrid: number[][] = Array(64).fill(0).map(() => Array(64).fill(0));
-          const cx = 31.5;
-          const cy = 31.5;
-          const rMax = 30.5;
-
-          for (let r = 0; r < 64; r++) {
-            for (let c = 0; c < 64; c++) {
-              const dist = Math.sqrt((c - cx) ** 2 + (r - cy) ** 2);
-              if (dist > rMax) {
-                newGrid[r][c] = 0;
-                continue;
-              }
-              const idx = (r * 64 + c) * 4;
-              const red = imgData[idx];
-              const green = imgData[idx + 1];
-              const blue = imgData[idx + 2];
-              const brightness = (red + green + blue) / 3;
-
-              // If reddish or significantly darker/lighter than baseline
-              if (red > green + 30 && red > blue + 30) {
-                newGrid[r][c] = 2; // Defect die
-              } else if (brightness > 180 || (red > 100 && green > 100 && blue > 100)) {
-                newGrid[r][c] = 2; // Defect die
-              } else {
-                newGrid[r][c] = 1; // Passing die
-              }
-            }
-          }
-          setWaferGrid(newGrid);
-          setSelectedPresetId("custom-upload");
+          loadUploadedGrid(imageToGrid(ctx.getImageData(0, 0, 64, 64).data),
+                           `${file.name} · colours detected from the image`);
         };
         img.src = event.target?.result as string;
       };
@@ -472,6 +558,9 @@ export default function PipelineStudioPage() {
   // editor is ready for a genuinely new array the model has never seen —
   // pasting a preset's own array back in here would defeat the point.
   const enterLiveMatrixMode = () => {
+    setDrawMode(false);
+    setUploaded(false);
+    setUploadNote(null);
     setSelectedPresetId("custom-upload");
     setWaferGrid(Array(64).fill(0).map(() => Array(64).fill(0)));
     setShowMatrix(true);
@@ -504,7 +593,21 @@ export default function PipelineStudioPage() {
               }}
               title="Clear the loaded preset and paste a brand-new, unseen wafer matrix"
             >
-              <Sparkles size={11} /> {isLiveMatrixMode ? "Live matrix active" : "Live matrix"}
+              <Sparkles size={11} /> {isLiveMatrixMode && !drawMode ? "Live matrix active" : "Live matrix"}
+            </button>
+            <button
+              onClick={enterDrawMode}
+              className="status-pill"
+              style={{
+                cursor: "pointer",
+                border: `1px solid ${drawMode ? "#274c6b" : "#dcdad0"}`,
+                background: drawMode ? "#274c6b" : "#ffffff",
+                color: drawMode ? "#ffffff" : "#495d6d",
+                padding: "5px 11px",
+              }}
+              title="Start from a blank wafer and paint defects; WaferCNN re-classifies as you draw"
+            >
+              <Brush size={11} /> {drawMode ? "Drawing" : "Draw a defect"}
             </button>
             <button className="button primary" onClick={runFullPipeline} disabled={isRunning}>
               {isRunning ? (
@@ -597,6 +700,15 @@ export default function PipelineStudioPage() {
                   >
                     <Code2 size={11} /> Matrix
                   </button>
+                  <button
+                    onClick={() => setShowCam((v) => !v)}
+                    className={`button small ${showCam ? "primary" : "ghost"}`}
+                    style={{ padding: "0 8px", height: 24 }}
+                    title="Overlay the dies that most raised the predicted class's score (LayerCAM)"
+                    aria-pressed={showCam}
+                  >
+                    <Crosshair size={11} /> Attention
+                  </button>
                 </div>
               </div>
 
@@ -605,7 +717,16 @@ export default function PipelineStudioPage() {
                   ref={canvasRef}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseLeave={() => setHoverCoord(null)}
-                  style={{ borderRadius: 8, cursor: "crosshair", maxWidth: "100%", border: "1px solid #e7e4dc" }}
+                  onPointerDown={(e) => {
+                    if (!drawMode) return;
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    lastDie.current = null;
+                    paint(e);
+                  }}
+                  onPointerMove={(e) => { if (drawMode && e.buttons === 1) paint(e); }}
+                  onPointerUp={() => { lastDie.current = null; }}
+                  style={{ borderRadius: 8, cursor: "crosshair", maxWidth: "100%", border: "1px solid #e7e4dc",
+                           touchAction: drawMode ? "none" : undefined }}
                 />
                 <div className="wafer-caption" style={{ width: "100%", marginTop: 8 }}>
                   <span>
@@ -618,6 +739,56 @@ export default function PipelineStudioPage() {
                   </span>
                 </div>
               </div>
+
+              {drawMode && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 9.5, color: "#8a98a4", fontWeight: 600 }}>BRUSH</span>
+                  {([1, 2, 3] as const).map((b) => (
+                    <button key={b} onClick={() => setBrush(b)}
+                            className={`button small ${brush === b ? "primary" : "ghost"}`}
+                            style={{ padding: "0 8px", height: 24 }}>
+                      {b === 1 ? "1 die" : `${b * 2 - 1}×${b * 2 - 1}`}
+                    </button>
+                  ))}
+                  <button onClick={() => setErasing((v) => !v)}
+                          className={`button small ${erasing ? "primary" : "ghost"}`}
+                          style={{ padding: "0 8px", height: 24 }} aria-pressed={erasing}
+                          title="Paint dies back to pass (or hold Shift while drawing)">
+                    <Eraser size={11} /> Erase
+                  </button>
+                  <button onClick={() => setWaferGrid(blankWafer())} className="button small ghost"
+                          style={{ padding: "0 8px", height: 24 }}>
+                    <RefreshCw size={11} /> Clear
+                  </button>
+                </div>
+              )}
+
+              {liveOn && (
+                <div style={{ marginTop: 12, padding: "10px 12px", border: "1px solid #e7e4dc", borderRadius: 7, background: "#fbfbf9" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, color: "#8a98a4", fontWeight: 600, letterSpacing: 0.4 }}>
+                      LIVE · WAFERCNN + TTA-8
+                    </span>
+                    {live && (
+                      <span style={{ font: "700 13px 'Space Grotesk', sans-serif", color: CLASS_COLORS[live.predicted_class] || "#274c6b" }}>
+                        {live.predicted_class} <span style={{ fontWeight: 500, fontSize: 11 }}>{Math.round(live.confidence * 100)}%</span>
+                      </span>
+                    )}
+                  </div>
+                  {liveError ? (
+                    <p style={{ fontSize: 10, color: "#b5473f" }}>Model unavailable: {liveError}</p>
+                  ) : live ? (
+                    <ClassProbabilityBars probs={live.class_probabilities} top={live.predicted_class} />
+                  ) : (
+                    <p style={{ fontSize: 10, color: "#8a98a4" }}>Classifying…</p>
+                  )}
+                  <p style={{ fontSize: 9, color: "#7b8e9c", marginTop: 8, lineHeight: 1.4 }}>
+                    {live && !cam
+                      ? "No defect pattern predicted, so there is no attention map to show."
+                      : "Red overlay: dies that most raised the predicted class's score (LayerCAM). Where the model looked, not a root cause."}
+                  </p>
+                </div>
+              )}
 
               <div
                 onDragEnter={handleDrag}
@@ -642,9 +813,21 @@ export default function PipelineStudioPage() {
                   title="Upload wafer image, .npy or .json"
                 />
                 <span style={{ fontSize: 10.5, color: "#6a7d8c", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Upload size={13} color="#274c6b" /> Drop a wafer map or <u style={{ color: "#274c6b" }}>browse</u>
+                  <Upload size={13} color="#274c6b" /> Drop a wafer image, .npy or .json, or <u style={{ color: "#274c6b" }}>browse</u>
                 </span>
               </div>
+              {uploadNote && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <span style={{ fontSize: 9.5, color: "#6a7d8c" }}>{uploadNote}</span>
+                  {uploaded && (
+                    <button className="button small ghost" style={{ height: 22, padding: "0 7px", fontSize: 9, whiteSpace: "nowrap" }}
+                            onClick={() => setWaferGrid((g) => swapPassFail(g))}
+                            title="Defects were guessed to be the minority colour; swap if most of the wafer failed (Near-full)">
+                      <RefreshCw size={10} /> Swap pass/fail
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Raw matrix — the exact wafer_grid array sent to classify_wafer_map.
                   Loads with whichever preset is selected; paste a 64x64 array of
@@ -730,8 +913,8 @@ export default function PipelineStudioPage() {
                 <label style={{ fontSize: 9.5, color: "#8a98a4", fontWeight: 600 }}>SENSOR JSON</label>
                 <div style={{ display: "flex", gap: 4 }}>
                   {[
-                    { label: "RF spike", data: { sensor_23: 4.85, sensor_24: 3.2, rf_power_target_w: 1750.0, chamber_pressure_mt: 82.0 } },
-                    { label: "Slurry deficit", data: { sensor_12: 3.1, sensor_45: 2.45, slurry_flow_rate: 0.72, down_force_psi: 4.85 } },
+                    { label: "RF spike", data: { sensor_23: 4.85, sensor_24: 3.2 } },
+                    { label: "Slurry deficit", data: { sensor_12: 3.1, sensor_45: 2.45 } },
                     { label: "Nominal", data: { sensor_tester_01: 0.1, sensor_12: 0.05, sensor_23: 0.02, sensor_45: 0.08 } },
                   ].map((p) => (
                     <button
@@ -860,25 +1043,10 @@ export default function PipelineStudioPage() {
                     <div style={{ fontSize: 9, color: "#8a98a4", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 }}>
                       Class probabilities
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px 10px" }}>
-                      {Object.entries(pipelineResult.classification.class_probabilities || {}).map(([clsName, prob]) => {
-                        const isTop = clsName === pipelineResult.classification.predicted_class;
-                        const color = CLASS_COLORS[clsName] || "#274c6b";
-                        return (
-                          <div key={clsName}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, marginBottom: 2 }}>
-                              <span style={{ color: isTop ? "#1d2c3a" : "#8a98a4", fontWeight: isTop ? 700 : 400 }}>{clsName}</span>
-                              <span style={{ color: isTop ? color : "#8a98a4", fontWeight: isTop ? 700 : 400, fontFamily: "'IBM Plex Mono', monospace" }}>
-                                {(prob * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                            <div style={{ width: "100%", height: 4, background: "#edebe4", borderRadius: 2, overflow: "hidden" }}>
-                              <div style={{ width: `${Math.min(100, prob * 100)}%`, height: "100%", background: isTop ? color : "#c7d3da" }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <ClassProbabilityBars
+                      probs={pipelineResult.classification.class_probabilities || {}}
+                      top={pipelineResult.classification.predicted_class}
+                    />
                   </section>
                 )}
 

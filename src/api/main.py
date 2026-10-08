@@ -51,6 +51,7 @@ import adapters                                   # noqa: E402
 from validate import (validate_wafer_map, validate_sensors,   # noqa: E402
                       secom_feature_names)
 import server as tools                            # noqa: E402
+import evidence_graph                             # noqa: E402
 
 fn = lambda t: getattr(t, "fn", t)                # MCPServer wraps each tool  # noqa: E731
 get_lot_data      = fn(tools.get_lot_data)
@@ -123,6 +124,7 @@ def analyse(lot_id: str) -> dict:
             "_planned_process_params": lot.get("planned_process_params") or {},
         }
         ranked = rank_causes(None, pre_run_evidence, cases, tel)
+        evidence_graph.attach(ranked, {"lot": lot, "cases": cases, "telemetry": tel})
         steps.append({"tool": "rank_root_causes", "arg": "classification=null, anomaly=null"})
         acts = playbook(ranked["hypotheses"][0], True) if ranked.get("hypotheses") else {"actions": []}
         steps.append({"tool": "get_corrective_action_playbook", "arg": "preventive=true"})
@@ -140,6 +142,8 @@ def analyse(lot_id: str) -> dict:
     tel = query_telemetry(eq, "14d")
     steps.append({"tool": "query_telemetry", "arg": ", ".join(eq)})
     ranked = rank_causes(cls, an, cases, tel)
+    evidence_graph.attach(ranked, {"lot": lot, "classification": cls, "anomaly": an,
+                                   "cases": cases, "telemetry": tel})
     steps.append({"tool": "rank_root_causes", "arg": "4 evidence inputs"})
     acts = playbook(ranked["hypotheses"][0]) if ranked.get("hypotheses") else {"actions": []}
     steps.append({"tool": "get_corrective_action_playbook", "arg": "top hypothesis"})
@@ -408,6 +412,30 @@ class CustomPipelineRequest(BaseModel):
     sensor_data: dict[str, float] = {}
 
 
+class ExplainRequest(BaseModel):
+    grid: list[list[int]]
+
+
+@app.post("/api/vision/explain")
+def api_vision_explain(req: ExplainRequest):
+    """
+    WaferCNN's prediction for a grid, plus a LayerCAM map of the dies that most
+    raised the predicted class's score. Refuses with 503 when the checkpoint is
+    unavailable: a heatmap with no model behind it would be a fabricated
+    explanation, and there is no honest fallback for one.
+    """
+    if not adapters.real_explain_wafer_array:
+        return JSONResponse(status_code=503, content={
+            "error": "WaferCNN checkpoint unavailable; no explanation can be produced.",
+            "reason": adapters.REASON.get("classify_wafer_array")})
+    import numpy as np
+    grid = np.array(req.grid, dtype=np.int64)
+    if grid.ndim != 2 or grid.size == 0 or grid.min() < 0 or grid.max() > 2:
+        return JSONResponse(status_code=400, content={
+            "error": "grid must be a 2-D array of 0 (off-wafer), 1 (pass) and 2 (fail)"})
+    return adapters.real_explain_wafer_array(grid.astype(np.uint8))
+
+
 def _analyze_grid_spatial(grid: list[list[int]]) -> dict:
     """Analyze a 64x64 wafer grid to calculate defect metrics and 9-class probabilities."""
     import numpy as np
@@ -521,9 +549,6 @@ def api_pipeline_presets():
             "sensor_data": {
                 "sensor_23": 3.42,
                 "sensor_24": 2.88,
-                "rf_power_target_w": 1750.0,
-                "chamber_pressure_mt": 82.0,
-                "he_cooling_sccm": 12.4,
             },
             "description": "Transient RF power spike (+4.8σ) and chamber pressure drift (+3.2σ) on ETCH-07 causing radial edge degradation.",
             "wafer_grid": _get_grid("case_2a"),
@@ -540,9 +565,6 @@ def api_pipeline_presets():
             "sensor_data": {
                 "sensor_12": 3.10,
                 "sensor_45": 2.45,
-                "slurry_flow_rate": 0.72,
-                "down_force_psi": 4.85,
-                "platen_rpm": 92.0,
             },
             "description": "Slurry delivery pump deficit (-2.7%) and center nozzle blockage causing localized center over-polish.",
             "wafer_grid": _get_grid("case_1a"),
@@ -559,8 +581,6 @@ def api_pipeline_presets():
             "sensor_data": {
                 "sensor_tester_01": 0.15,
                 "sensor_12": 0.05,
-                "gripper_force_n": 14.8,
-                "arm_vibration_g": 0.42,
             },
             "description": "Linear abrasive contact scratch caused by robotic transfer arm end-effector paddle misalignment during FOUP load.",
             "wafer_grid": _get_grid("case_3a"),
@@ -577,8 +597,6 @@ def api_pipeline_presets():
             "sensor_data": {
                 "sensor_45": 2.90,
                 "sensor_87": 2.15,
-                "lens_heating_c": 26.8,
-                "focus_offset_nm": 2.85,
             },
             "description": "Annular donut pattern caused by projection lens thermal drift and focus offset during deep-UV exposure.",
             "wafer_grid": _get_grid("case_4a"),
@@ -595,8 +613,6 @@ def api_pipeline_presets():
             "sensor_data": {
                 "sensor_12": 1.85,
                 "sensor_23": 2.10,
-                "particle_counter_01": 18.0,
-                "hepa_pressure_drop_pa": 45.0,
             },
             "description": "Random airborne particulate deposition across full active area due to plenum seal bypass on bay 4.",
             "wafer_grid": _get_grid("case_5a"),
@@ -612,8 +628,6 @@ def api_pipeline_presets():
             "equipment_ids": ["TESTER-04", "CMP-03"],
             "sensor_data": {
                 "sensor_tester_01": 3.45,
-                "contact_resistance_ohm": 1.25,
-                "probe_card_cycles": 42000.0,
             },
             "description": "Near-total wafer failure caused by probe card oxide film buildup; silicon is undamaged, retest indicated.",
             "wafer_grid": _get_grid("case_6a"),
@@ -765,6 +779,10 @@ def api_pipeline_run_custom(req: CustomPipelineRequest):
     # ── Stage 5: rank_root_causes ──
     t5_start = time.perf_counter()
     ranked_result = rank_causes(cls_result, an_result, cases_result, tel_result)
+    evidence_graph.attach(ranked_result, {
+        "lot": {"sensor_signature": sensors, "equipment_ids": req.equipment_ids},
+        "classification": cls_result, "anomaly": an_result,
+        "cases": cases_result, "telemetry": tel_result})
     t5_ms = round((time.perf_counter() - t5_start) * 1000, 2)
     hypotheses = ranked_result.get("hypotheses", [])
     top_hyp = hypotheses[0] if hypotheses else {}

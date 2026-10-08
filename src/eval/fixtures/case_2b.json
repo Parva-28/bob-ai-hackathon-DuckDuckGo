@@ -8,6 +8,12 @@
     "sensor_32": -1.9,
     "sensor_33": -1.7
   },
+  "etch_trace": {
+    "tool": "LAM 9600 metal etcher",
+    "wafer": "l3319.txm",
+    "induced_fault": "Cl2 -10",
+    "provenance": "Real tool trace: Eigenvector Research metal etch data (Wise et al., 1999). Pairing it with this case's wafer map and SECOM signature is constructed."
+  },
   "planned_process_params": {
     "rf_power_w": 1500.0,
     "gas_flow_sccm": 181.0,

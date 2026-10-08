@@ -205,3 +205,72 @@ def classify_wafer_array(wafer_map: np.ndarray, return_probs: bool = False) -> d
     img = Image.fromarray(wafer_map.astype(np.uint8), mode="L")
     img = img.resize((_IMG_SIZE, _IMG_SIZE), resample=Image.NEAREST)
     return _predict(np.array(img, dtype=np.float32) / 2.0, return_probs=return_probs)
+
+
+# ── explanation: LayerCAM averaged over the TTA views ─────────────────────────
+
+def explain_wafer_array(wafer_map: np.ndarray) -> dict:
+    """
+    classify_wafer_array plus a class-activation map of where the model looked.
+
+    LayerCAM (Jiang et al., 2021): positive gradients times activations, per
+    location, at layer2 (16×16). Plain Grad-CAM was tried first and rejected on
+    the case fixtures: at layer3 (8×8) one weight per channel blurred Edge-Ring
+    onto the clean centre and put no more weight on a Scratch's failing dies
+    than on its passing ones. LayerCAM at layer2 lands on the failing dies of
+    all five pattern fixtures (1.5–2.6× their passing neighbours).
+
+    It is computed for the predicted class in each of the 8 dihedral views used
+    by TTA, mapped back to the original orientation (undo the mirror, then the
+    rotation) and averaged — so, like the prediction, the explanation is the
+    same for a wafer in any orientation.
+
+    It shows which dies most raised the predicted class's score. It is not a
+    root cause, and nothing here should be presented as one.
+
+    Returns classify_wafer_array(..., return_probs=True)'s dict plus
+    "cam": a 64×64 list of floats in [0, 1], zero off the wafer.
+    """
+    if wafer_map.ndim != 2:
+        raise ValueError(f"Expected 2-D array, got shape {wafer_map.shape}")
+
+    img = Image.fromarray(wafer_map.astype(np.uint8), mode="L")
+    img = img.resize((_IMG_SIZE, _IMG_SIZE), resample=Image.NEAREST)
+    arr = np.array(img, dtype=np.float32) / 2.0
+    out = _predict(arr, return_probs=True)
+    target = {v: k for k, v in _IDX_TO_CLASS.items()}[out["predicted_class"]]
+
+    model = _get_model()
+    x = _to_tensor(arr).to(_DEVICE)
+    acts: list[torch.Tensor] = []
+    grads: list[torch.Tensor] = []
+    h_fwd = model.layer2.register_forward_hook(lambda m, i, o: acts.append(o))
+    h_bwd = model.layer2.register_full_backward_hook(lambda m, gi, go: grads.append(go[0]))
+    cam = torch.zeros(_IMG_SIZE, _IMG_SIZE)
+    try:
+        for k in range(4):
+            for mirror in (False, True):
+                acts.clear(); grads.clear()
+                v = torch.rot90(x, k, dims=[-2, -1])
+                if mirror:
+                    v = v.flip(-1)
+                v = v.clone().requires_grad_(True)
+                model.zero_grad()
+                model(v)[0, target].backward()
+                m = (F.relu(grads[0]) * acts[0]).sum(dim=1, keepdim=True)  # (1, 1, 16, 16)
+                m = F.interpolate(m, size=(_IMG_SIZE, _IMG_SIZE), mode="bilinear",
+                                  align_corners=False)
+                if mirror:
+                    m = m.flip(-1)
+                cam += torch.rot90(m, -k, dims=[-2, -1])[0, 0].detach()
+    finally:
+        h_fwd.remove()
+        h_bwd.remove()
+
+    cam = cam.numpy()
+    cam[arr == 0] = 0.0
+    peak = float(cam.max())
+    if peak > 0:
+        cam = cam / peak
+    out["cam"] = np.round(cam, 3).tolist()
+    return out

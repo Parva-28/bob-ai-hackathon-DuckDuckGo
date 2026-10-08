@@ -122,6 +122,9 @@ def get_lot_data(lot_id: str) -> dict:
                                      "classify_wafer_map and say the image evidence "
                                      "is unavailable - do not invent a path.")
         out["sensor_signature"] = fx["sensor_signature"]
+        if fx.get("etch_trace"):
+            # score_sensor_anomaly scores this lot on the real trace, by lot_id.
+            out["etch_trace"] = fx["etch_trace"]
     return out
 
 
@@ -142,6 +145,14 @@ def classify_wafer_map(image_path: str) -> dict:
     return {"predicted_class": fx["wafer_map_pattern"], "confidence": 0.91, "_mode": "stub"}
 
 
+def _etch_trace(lot_id: str) -> str | None:
+    """The real LAM 9600 wafer behind this lot's case, if it has one. Accepts a lot_id
+    or a case_id, as the eval harness passes case ids."""
+    case_id = (_LOTS.get(lot_id) or {}).get("case_id", lot_id)
+    fx = next((f for f in adapters.FIXTURES if f["case_id"] == case_id), None)
+    return ((fx or {}).get("etch_trace") or {}).get("wafer")
+
+
 @mcp.tool(description="Score a lot's sensor vector for anomaly against the SECOM-trained "
                       "normality model. Pass the sensor_signature returned by get_lot_data - "
                       "an empty dict scores 0.0 and means NO DATA, not a clean lot. "
@@ -149,6 +160,14 @@ def classify_wafer_map(image_path: str) -> dict:
                       "away from process causes toward handling or measurement.")
 def score_sensor_anomaly(lot_id: str, sensors: dict[str, float],
                          units: str = "sigma") -> dict:
+    # An etch lot with a real tool trace is scored on that trace by the LAM 9600
+    # detector, not on a SECOM vector rebuilt around 2-3 named sensors: the trace
+    # is the tool's actual record, with its sensors named as the tool names them.
+    wafer = _etch_trace(lot_id)
+    if wafer and adapters.real_score_etch_wafer:
+        out = dict(adapters.real_score_etch_wafer(wafer))
+        out["_units_in"] = "LAM 9600 trace"
+        return out
     if not sensors:
         # An empty dict is NO DATA. Scoring it returns 0.0, which reads as "clean lot"
         # and is the opposite of the truth. Refuse rather than mislead.
