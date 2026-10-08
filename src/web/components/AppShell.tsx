@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
+  Radio,
   Search,
   Settings2,
   ShieldCheck,
@@ -97,6 +98,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   const lotCount = Object.keys(lotsRes?.lots ?? {}).length || undefined;
   const workspaceNav: [string, string, LucideIcon, number?][] = [
     ["Command center", "/overview", LayoutDashboard],
+    ["Live feed", "/live", Radio],
     ["Investigation", "/investigation", Crosshair],
     ["Pipeline studio", "/pipeline", Sparkles],
     ["Lot queue", "/lot-analysis", Boxes, lotCount],
@@ -114,6 +116,7 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
 
   const getBreadcrumbContext = () => {
     if (pathname === "/" || pathname.startsWith("/overview")) return "Command Center";
+    if (pathname.startsWith("/live")) return "Live Feed";
     if (pathname.startsWith("/investigation")) return "Investigation Workspace";
     if (pathname.startsWith("/pipeline")) return "Pipeline Studio";
     if (pathname.startsWith("/lot-analysis")) return "Lot Queue";
