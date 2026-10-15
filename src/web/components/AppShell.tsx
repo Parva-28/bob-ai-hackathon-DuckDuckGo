@@ -15,7 +15,6 @@ import {
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
-  Radio,
   Search,
   Settings2,
   ShieldCheck,
@@ -98,7 +97,6 @@ export default function AppShell({ children, activeLotId }: AppShellProps) {
   const lotCount = Object.keys(lotsRes?.lots ?? {}).length || undefined;
   const workspaceNav: [string, string, LucideIcon, number?][] = [
     ["Command center", "/overview", LayoutDashboard],
-    ["Live feed", "/live", Radio],
     ["Investigation", "/investigation", Crosshair],
     ["Pipeline studio", "/pipeline", Sparkles],
     ["Lot queue", "/lot-analysis", Boxes, lotCount],

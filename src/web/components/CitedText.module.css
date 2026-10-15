@@ -1,0 +1,17 @@
+.cite {
+  padding: 0 2px;
+  border-radius: 3px;
+  border-bottom: 1.5px solid;
+  font-weight: 600;
+  animation: citePop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes citePop {
+  0% {
+    background: transparent;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  35% {
+    box-shadow: 0 0 0 3px rgba(46, 110, 88, 0.18);
+  }
+}

@@ -309,7 +309,7 @@
   line-height: 1.4;
 }
 
-.hyp span {
+.hyp > span {
   font: 600 11px "IBM Plex Mono", monospace;
   color: #274c6b;
   white-space: nowrap;
@@ -439,5 +439,69 @@
 @keyframes liveSpin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Live reasoning: the model's answer, revealed at reading pace, citations marked */
+.thinkingDot,
+.doneDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+.thinkingDot {
+  background: #274c6b;
+  animation: livePulse 1.2s ease-out infinite;
+  box-shadow: 0 0 0 0 rgba(39, 76, 107, 0.5);
+}
+
+.doneDot {
+  background: #2e6e58;
+}
+
+.thinking {
+  font-size: 11px;
+  color: #6a7d8c;
+  font-style: italic;
+}
+
+.written {
+  padding: 8px 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: #fafaf7;
+  border: 1px solid #efece5;
+}
+
+.writtenTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.summary {
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #425466;
+}
+
+.caret {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: #274c6b;
+  animation: caretBlink 0.9s steps(2, start) infinite;
+}
+
+@keyframes caretBlink {
+  to {
+    visibility: hidden;
   }
 }

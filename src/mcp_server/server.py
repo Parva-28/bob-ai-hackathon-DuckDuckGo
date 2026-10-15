@@ -351,7 +351,12 @@ def rank_root_causes(classification: dict | None = None,
         hyps = [dict(h) for h in result.get("hypotheses", [])]
     else:
         hyps = _stub_rank(classification, anomaly, cases, telemetry)
+    return _govern_ranking(hyps, cases)
 
+
+def _govern_ranking(hyps: list[dict], cases: dict | None) -> dict:
+    """The server's policy on any ranking, wherever it came from: the MCP tool above,
+    or the live feed's streamed call (src/api/stream.py)."""
     # hypothesis_id is minted HERE, at the MCP boundary, not by Track 4.
     # The frozen contract returns no id, but submit_feedback requires one and the
     # ER model has it as a PK - so FR-10 was unimplementable as written

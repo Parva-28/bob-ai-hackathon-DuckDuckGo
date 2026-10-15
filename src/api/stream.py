@@ -21,15 +21,19 @@ On an etch alarm, YieldGuard opens an investigation itself (auto-triage): it run
 query_telemetry, retrieve_similar_cases and rank_root_causes on that wafer's
 evidence, checks every citation (evidence_graph), and sends the result as a
 `triage` event. At most one runs at a time, at least 20 s apart: in live mode each
-is an LLM call.
+is an LLM call. With live reasoning the answer streams as `triage.delta` events, each
+carrying the text so far and the citation check of it, so the page shows the hypothesis
+being written and every reference it cites being verified as it appears.
 
-Events: etch.samples, etch.wafer, mill.windows, mill.fault, stats, triage, loop.
+Events: etch.samples, etch.wafer, mill.windows, mill.fault, stats, triage.start,
+triage.delta, triage, loop.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 
@@ -66,15 +70,57 @@ def _verdict(alarm: bool, fault: str | None) -> str:
     return "missed" if fault else "clean"
 
 
-def _triage(wafer_id: str, scored: dict) -> dict:
-    """Open an investigation for an alarmed ETCH-07 wafer, with the server's own tools."""
+_STR_FIELD = re.compile(r'"(description|evidence_summary)"\s*:\s*"((?:[^"\\]|\\.)*)')
+_NUM_FIELD = re.compile(r'"confidence"\s*:\s*([0-9.]+)\s*[,}]')
+
+
+def _draft(text: str) -> list[dict]:
+    """The hypotheses written so far in a partial JSON answer, last string unterminated."""
+    hyps: list[dict] = []
+    for m in sorted([*_STR_FIELD.finditer(text), *_NUM_FIELD.finditer(text)], key=lambda m: m.start()):
+        if m.re is _NUM_FIELD:
+            if hyps:
+                hyps[-1]["confidence"] = float(m.group(1))
+            continue
+        try:
+            value = json.loads(f'"{m.group(2).rstrip(chr(92))}"')
+        except ValueError:
+            value = m.group(2)
+        if m.group(1) == "description" or not hyps:
+            hyps.append({})
+        hyps[-1][m.group(1)] = value
+    return hyps
+
+
+def _prose(hyps: list[dict]) -> str:
+    """What the citation checker reads mid-stream: the written text, minus a word still
+    being typed (a number cut at "-1" of "-19.9" would read as a wrong value)."""
+    text = " ".join(f"{h.get('description', '')} {h.get('evidence_summary', '')}" for h in hyps)
+    return text[: text.rfind(" ")] if " " in text else ""
+
+
+def _triage(wafer_id: str, scored: dict, on_draft=None) -> dict:
+    """Open an investigation for an alarmed ETCH-07 wafer, with the server's own tools.
+    With live reasoning the ranking streams: on_draft gets the hypotheses written so far
+    and the citation check of that text, chunk by chunk."""
     t0 = time.monotonic()
     anomaly = {k: scored.get(k) for k in ("anomaly_score", "top_deviating_sensors", "_named_deviations", "_scored_on")}
     tel = query_telemetry(["ETCH-07"], "14d")
     cases = retrieve_cases(None, scored.get("_named_deviations") or {}, 5)
-    ranked = rank_causes(None, anomaly, cases, tel)
-    evidence_graph.attach(ranked, {"lot": {"equipment_ids": ["ETCH-07"]}, "anomaly": anomaly,
-                                   "cases": cases, "telemetry": tel})
+    evidence = {"lot": {"equipment_ids": ["ETCH-07"]}, "anomaly": anomaly, "cases": cases, "telemetry": tel}
+    model = None
+    if adapters.real_stream_rank_root_causes and adapters.reasoning_mode() == "live":
+        def on_text(text: str):
+            hyps = _draft(text)
+            check = evidence_graph.link_evidence({"evidence_summary": _prose(hyps)}, evidence)
+            on_draft({"wafer": wafer_id, "hypotheses": hyps, "links": check["links"],
+                      "summary": check["summary"]})
+        raw, model = adapters.real_stream_rank_root_causes({}, anomaly, cases, tel, on_text)
+        # The streamed answer gets the same server policy as the MCP tool's.
+        ranked = tools._govern_ranking([dict(h) for h in raw.get("hypotheses", [])], cases)
+    else:
+        ranked = rank_causes(None, anomaly, cases, tel)
+    evidence_graph.attach(ranked, evidence)
     # Context for the engineer, not evidence for the ranking: past incidents on this tool.
     prior = [{"case_id": c["case_id"], "root_cause": c["confirmed_root_cause"]}
              for c in tools.cases._cases if c.get("equipment_id") == "ETCH-07"][:4]
@@ -84,11 +130,14 @@ def _triage(wafer_id: str, scored: dict) -> dict:
         "tool": "ETCH-07",
         "alarm_on": list((scored.get("_named_deviations") or {}).items())[:3],
         "hypotheses": [{"title": h.get("description"), "confidence": h.get("confidence"),
-                        "category": h.get("category"),
+                        "category": h.get("category"), "evidence_summary": h.get("evidence_summary"),
+                        "policy_ceiling": h.get("_policy_ceiling"), "capped_because": h.get("_capped_because"),
+                        "links": (h.get("evidence_check") or {}).get("links"),
                         "evidence_check": (h.get("evidence_check") or {}).get("summary")} for h in hyps[:2]],
         "no_precedent": bool(cases.get("_no_precedent")),
         "prior_incidents": prior,
         "reasoning_mode": adapters.reasoning_mode(),
+        "model": model,
         "tool_calls": ["score_sensor_anomaly (LAM 9600 detector)", "query_telemetry", "retrieve_similar_cases",
                        "rank_root_causes"],
         "took_s": round(time.monotonic() - t0, 2),
@@ -114,6 +163,8 @@ async def stream_fab(request: Request, speed: float = 30.0, start: str = "auto",
         t_start = last_stats = time.monotonic()
         last_triage = -1e9
         triage_task: asyncio.Task | None = None
+        triage_wafer = None
+        draft: dict = {}                       # latest streamed draft; the worker thread writes it
 
         yield _sse("hello", {
             "etch": {"tool": _ETCH["tool"], "source": _ETCH["source"], "variables": _ETCH["variables"],
@@ -152,7 +203,9 @@ async def stream_fab(request: Request, speed: float = 30.0, start: str = "auto",
                     if alarm and (triage_task is None or triage_task.done()) and now - last_triage >= TRIAGE_GAP_S:
                         last_triage = now
                         yield _sse("triage.start", {"wafer": w["id"]})
-                        triage_task = asyncio.create_task(asyncio.to_thread(_triage, w["id"], scored))
+                        triage_wafer = w["id"]
+                        triage_task = asyncio.create_task(asyncio.to_thread(
+                            _triage, w["id"], scored, lambda d: draft.__setitem__("d", d)))
                     wi, si = wi + 1, 0
                     if wi >= len(wafers):
                         wi = 0
@@ -176,12 +229,15 @@ async def stream_fab(request: Request, speed: float = 30.0, start: str = "auto",
                 mill_clock, mill_idx, mill_fault_idx = 0.0, [0] * len(mill_idx), [0] * len(mill_idx)
                 yield _sse("loop", {"source": "mill"})
 
-            # ── finished triage ──
+            # ── triage: the draft so far (latest wins), then the result ──
+            d = draft.pop("d", None)
+            if d and triage_task:
+                yield _sse("triage.delta", d)
             if triage_task and triage_task.done():
                 try:
                     yield _sse("triage", triage_task.result())
                 except Exception as e:  # noqa: BLE001 - report, keep streaming
-                    yield _sse("triage", {"error": f"{type(e).__name__}: {e}"})
+                    yield _sse("triage", {"wafer": triage_wafer, "error": f"{type(e).__name__}: {e}"})
                 triage_task = None
 
             now = time.monotonic()

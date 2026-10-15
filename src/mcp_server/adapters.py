@@ -258,6 +258,12 @@ real_flag_at_risk_batch = _try(
 real_rank_root_causes = _try("rank_root_causes", _import_reasoning("rank_root_causes"))
 real_playbook = _try("get_corrective_action_playbook",
                      _import_reasoning("get_corrective_action_playbook"))
+# rank_root_causes, streamed, for the live feed's auto-triage (src/api/stream.py).
+# Not an MCP tool, so no MODE entry; None => the feed uses the plain call.
+try:
+    real_stream_rank_root_causes = _import_reasoning("stream_rank_root_causes")()
+except Exception:  # noqa: BLE001 - any failure means "not available"
+    real_stream_rank_root_causes = None
 
 # Track 3 owns these outright - always real.
 MODE["retrieve_similar_cases"] = "real"

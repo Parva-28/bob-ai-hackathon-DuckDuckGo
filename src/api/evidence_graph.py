@@ -24,8 +24,11 @@ _NUM = r"([+-]?\d+(?:\.\d+)?)"
 _CASE = re.compile(r"\bHC-(?:FB)?\d+\b")
 _SNAKE = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
 _EQUIP = re.compile(r"\b[A-Z]{2,}(?:-[A-Z0-9]+)*-\d{2,}\b")
-# Field names, not evidence: `case_id=case_1a` cites case_1a, not "case_id".
-_FIELDS = {"case_id", "lot_id", "hypothesis_id", "wafer_map_pattern", "z_score"}
+# Field names, not evidence: `case_id=case_1a` cites case_1a, not "case_id". The
+# rank prompt labels telemetry and cases with some of these (magnitude_sigma=1.9),
+# and a model that echoes the label is citing the value next to it.
+_FIELDS = {"case_id", "lot_id", "hypothesis_id", "wafer_map_pattern", "z_score",
+           "magnitude_sigma", "root_cause", "equipment_id"}
 
 
 def _claimed_number(text: str, name: str) -> float | None:

@@ -183,6 +183,15 @@ def _build_rank_prompt(
             "    recipe setpoints it is scheduled with, absolute values and NOT z-scores):\n"
             f"{rows}\n")
 
+    # An in-process alarm (the etch detector on a wafer still in the fab) has no
+    # wafer map yet. Without saying so, the model reasons about an "Unknown" pattern.
+    source_line = ""
+    scored_on = str(anomaly.get("_scored_on") or "")
+    if not classification and "etch trace" in scored_on:
+        source_line = (f"\n    Sensor source: {scored_on}.\n"
+                       "    This is an in-process alarm: no wafer map exists yet, so skip step 1\n"
+                       "    and reason from the sensors, cases and telemetry.\n")
+
     prompt = textwrap.dedent(f"""\
     You are an expert semiconductor yield-analysis engineer performing root-cause analysis.
 
@@ -216,7 +225,7 @@ def _build_rank_prompt(
 
     Wafer defect classification: {predicted_class} (confidence={cls_confidence:.2f})
     Anomaly score: {anomaly_score:.2f}  (0=normal, 1=severe)
-    {planned_block}
+    {source_line}{planned_block}
     Top deviating sensors: {sensors_text}
 
     All sensor readings:
@@ -341,7 +350,9 @@ def _call_gemini(prompt: str) -> str:
         contents=prompt,
         config={
             "temperature": 0.15,
-            "max_output_tokens": 1024,
+            # Thinking tokens count against this limit: on gemini-3.5-flash a ranking
+            # thinks ~1,250 tokens, so 1024 cut the JSON answer off mid-string.
+            "max_output_tokens": 4096,
             "response_mime_type": "application/json",
         },
     )
@@ -1127,6 +1138,51 @@ def rank_root_causes(
     raw = _call_llm(prompt)
     logger.debug("rank_root_causes: raw LLM response (provider=%s): %s", _PROVIDER, raw[:300])
     return _extract_json(raw)
+
+
+def stream_rank_root_causes(
+    classification: dict,
+    anomaly: dict,
+    cases: dict,
+    telemetry: dict,
+    on_text,
+) -> tuple[dict, str]:
+    """
+    rank_root_causes, streamed: on_text(text_so_far) is called as each chunk of the
+    model's answer arrives, so a page can show the reasoning being written.
+    Returns (result, model_id).
+
+    Only the Gemini path streams. In mock mode, or on watsonx, this is the plain
+    call and on_text is never called: a canned answer is not typed out to look live.
+    """
+    if _USE_MOCK or _PROVIDER != "gemini":
+        return (rank_root_causes(classification, anomaly, cases, telemetry),
+                "mock" if _USE_MOCK else _WATSONX_MODEL_ID)
+
+    from google import genai
+
+    client = genai.Client(api_key=get_config("GEMINI_API_KEY"))
+    prompt = _build_rank_prompt(classification, anomaly, cases, telemetry)
+    model_id = get_config("GEMINI_MODEL_ID", "gemini-2.0-flash")
+    config = {"temperature": 0.15, "max_output_tokens": 4096,
+              "response_mime_type": "application/json"}
+
+    def run(model: str, cfg: dict) -> str:
+        text = ""
+        for chunk in client.models.generate_content_stream(model=model, contents=prompt, config=cfg):
+            if chunk.text:
+                text += chunk.text
+                on_text(text)
+        return text
+
+    try:
+        # Low thinking: first words in ~4 s rather than ~7 s, on a page people watch.
+        raw = run(model_id, {**config, "thinking_config": {"thinking_level": "low"}})
+    except Exception:
+        # Same fallback as the Copilot (src/api/main.py): the lite model on any error.
+        model_id = "gemini-3.5-flash-lite" if model_id != "gemini-3.5-flash-lite" else "gemini-3.5-flash"
+        raw = run(model_id, config)
+    return _extract_json(raw), model_id
 
 
 def get_corrective_action_playbook(top_hypothesis: dict) -> dict:

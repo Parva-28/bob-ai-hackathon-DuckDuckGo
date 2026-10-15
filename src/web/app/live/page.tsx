@@ -11,7 +11,8 @@ import Link from "next/link";
 import { Activity, ArrowRight, Bot, Pause, Play, Radio } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import StripChart, { Ring } from "@/components/StripChart";
-import { STATUS_STYLE } from "@/components/EvidenceGraph";
+import { STATUS_STYLE, type EvidenceLink } from "@/components/EvidenceGraph";
+import CitedText, { citedIn } from "@/components/CitedText";
 import s from "./live.module.css";
 
 const ETCH_VARS = ["RF Pwr", "RF Load", "Pressure", "TCP Top Pwr", "BCl3 Flow", "Cl2 Flow"];
@@ -24,11 +25,17 @@ type Verdict = "clean" | "caught" | "missed" | "false_alarm";
 type Wafer = { seq: number; id: string; index: number; score: number | null; alarm: boolean; recorded_fault: string | null; verdict: Verdict };
 type TriageResult = {
   wafer: string; alarm_on: [string, number][]; no_precedent: boolean; reasoning_mode: string; tool_calls: string[];
-  hypotheses: { title: string; confidence: number; evidence_check: Record<"verified" | "value_mismatch" | "not_in_evidence" | "uncited", number> | null }[];
+  hypotheses: {
+    title: string; confidence: number; evidence_summary?: string; links?: EvidenceLink[];
+    policy_ceiling?: number | null; capped_because?: string | null;
+    evidence_check: Record<"verified" | "value_mismatch" | "not_in_evidence" | "uncited", number> | null;
+  }[];
   prior_incidents: { case_id: string; root_cause: string }[];
-  took_s?: number; error?: string;
+  model?: string | null; took_s?: number; error?: string;
 };
-type Triage = { wafer: string; fault: string | null; startedAt: number; result?: TriageResult };
+/** What the live model has written so far, with the server's check of that text. */
+type Draft = { hypotheses: { description?: string; evidence_summary?: string; confidence?: number }[]; links: EvidenceLink[] };
+type Triage = { wafer: string; fault: string | null; startedAt: number; draft?: Draft; result?: TriageResult };
 type LogLine = { seq: number; at: string; tone: string; text: string };
 
 const VERDICT: Record<Verdict, { cls: string; glyph: string; label: string }> = {
@@ -135,6 +142,9 @@ export default function LivePage() {
       setTriages((t) => [{ wafer, fault: faultOf.current[wafer] ?? null, startedAt: performance.now() }, ...t].slice(0, 6));
       say("#274c6b", `YieldGuard opened an investigation on ${wafer} by itself.`);
     });
+
+    on("triage.delta", (d: Draft & { wafer: string }) =>
+      setTriages((t) => t.map((x) => (x.wafer === d.wafer && !x.result ? { ...x, draft: d } : x))));
 
     on("triage", (res: TriageResult & { wafer?: string }) => {
       setTriages((t) => {
@@ -321,7 +331,7 @@ export default function LivePage() {
                   (telemetry, past cases, root-cause ranking) and posts what it found here.
                 </div>
               )}
-              {triages.map((t) => <TriageCard key={`${t.wafer}-${t.startedAt}`} t={t} />)}
+              {triages.map((t, i) => <TriageCard key={`${t.wafer}-${t.startedAt}`} t={t} animate={i === 0} />)}
             </section>
 
             <section className="panel">
@@ -358,9 +368,90 @@ function Metric({ label, value, detail, tone }: { label: string; value: string; 
   );
 }
 
-function TriageCard({ t }: { t: Triage }) {
+const REVEAL_CPS = 70;   // reading pace for the live answer; the text itself is the model's
+
+/** Characters of `total` revealed so far, at reading pace. Without `animate` all of it. */
+function useReveal(total: number, animate: boolean) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (!animate) return;
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => {
+      const step = ((now - last) / 1000) * REVEAL_CPS;
+      if (step >= 1) { last = now; setShown((n) => Math.min(total, n + Math.floor(step))); }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [total, animate]);
+  return animate ? Math.min(shown, total) : total;
+}
+
+type Written = { title: string; summary: string; confidence?: number; links: EvidenceLink[];
+                 ceiling?: number | null; cappedBecause?: string | null; uncited?: number };
+
+function LiveReasoning({ t, animate }: { t: Triage; animate: boolean }) {
+  const r = t.result;
+  const done = !!r && !r.error;
+  const hyps: Written[] = done
+    ? r.hypotheses.map((h) => ({ title: h.title ?? "", summary: h.evidence_summary ?? "", confidence: h.confidence,
+                                links: h.links ?? [], ceiling: h.policy_ceiling, cappedBecause: h.capped_because,
+                                uncited: h.evidence_check?.uncited }))
+    : (t.draft?.hypotheses ?? []).slice(0, 2).map((h) => ({ title: h.description ?? "", summary: h.evidence_summary ?? "",
+                                                           links: t.draft!.links }));
+  const starts = hyps.map((_, i) => hyps.slice(0, i).reduce((n, h) => n + h.title.length + h.summary.length, 0));
+  const total = hyps.reduce((n, h) => n + h.title.length + h.summary.length, 0);
+  const revealed = useReveal(total, animate);
+  const typing = revealed < total || !r;
+
+  return (
+    <>
+      <div className={s.kicker}>
+        <span className={typing ? s.thinkingDot : s.doneDot} />
+        LIVE REASONING · {r?.model ?? "LLM"} · CITATIONS CHECKED AS THEY APPEAR
+      </div>
+      {!hyps.length && !r && <div className={s.thinking}>Thinking over the detector&apos;s signals, the case store and tool telemetry…</div>}
+      {hyps.map((h, i) => {
+        const own = revealed - starts[i];               // this hypothesis's share of what is revealed
+        const title = h.title.slice(0, Math.max(0, own));
+        const summary = h.summary.slice(0, Math.max(0, own - h.title.length));
+        if (!title) return null;
+        const complete = summary.length === h.summary.length && done;
+        const cited = citedIn(`${title} ${summary}`, h.links);
+        const count = (st: EvidenceLink["status"]) => cited.filter((l) => l.status === st).length;
+        const caretHere = typing && own > 0 && own <= h.title.length + h.summary.length;
+        return (
+          <div key={i} className={s.written}>
+            <div className={s.hyp}>
+              <div className={s.writtenTitle}><CitedText text={title} links={h.links} /></div>
+              {complete && h.confidence != null && (
+                <span title={h.cappedBecause ? `Server policy ceiling ${h.ceiling}: ${h.cappedBecause}` : "LLM ranking signal, not a calibrated probability"}>
+                  {Math.round(h.confidence * 100)}%{h.ceiling != null ? " (capped)" : ""}
+                </span>)}
+            </div>
+            {!!summary && (
+              <p className={s.summary}>
+                <CitedText text={summary} links={h.links} />{caretHere && <i className={s.caret} />}
+              </p>)}
+            {!summary && caretHere && <i className={s.caret} />}
+            <div className={s.checks}>
+              {(["verified", "value_mismatch", "not_in_evidence"] as const).map((k) => (
+                <span key={k}><i style={{ background: STATUS_STYLE[k].color }} />{count(k)} {STATUS_STYLE[k].label.toLowerCase()}</span>
+              ))}
+              {complete && h.uncited != null && (
+                <span><i style={{ background: STATUS_STYLE.uncited.color }} />{h.uncited} {STATUS_STYLE.uncited.label.toLowerCase()}</span>)}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function TriageCard({ t, animate }: { t: Triage; animate: boolean }) {
   const r = t.result;
   const top = r?.hypotheses?.[0];
+  const live = !!t.draft || r?.reasoning_mode === "live";
   return (
     <div className={s.triage}>
       <div className={s.triageHead}>
@@ -379,7 +470,9 @@ function TriageCard({ t }: { t: Triage }) {
       {t.fault && <div className={s.note} style={{ marginTop: 6 }}>Recorded fault on this wafer: <b>{t.fault}</b></div>}
 
       {r?.error && <div className={s.mock}>{r.error}</div>}
-      {top && (
+      {live && !r?.error && <LiveReasoning t={t} animate={animate} />}
+      {live && r?.no_precedent && <div className={s.note}>No past case is close enough to cite as precedent.</div>}
+      {!live && top && (
         <>
           <div className={s.kicker}>TOP HYPOTHESIS</div>
           <div className={s.hyp}>{top.title}<span>{Math.round(top.confidence * 100)}%</span></div>
@@ -413,7 +506,9 @@ function TriageCard({ t }: { t: Triage }) {
         <>
           <div className={s.calls}>{r.tool_calls.join(" → ")}</div>
           <div className={s.triageFoot}>
-            <span className="model-chip">reasoning: {r.reasoning_mode === "mock" ? "mock (canned)" : r.reasoning_mode}</span>
+            <span className="model-chip">
+              reasoning: {r.reasoning_mode === "mock" ? "mock (canned)" : r.model ? `${r.reasoning_mode} · ${r.model}` : r.reasoning_mode}
+            </span>
             <Link className="mini-link" href="/investigation?lot=L-4471">
               Open ETCH-07 lot L-4471 <ArrowRight size={12} />
             </Link>
