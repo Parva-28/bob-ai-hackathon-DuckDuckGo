@@ -159,3 +159,6 @@ src/mcp_server/data/prior_reads.jsonl
 #   python3 src/models/vision/data_prep.py     # needs LSWMD.pkl from Kaggle
 #   python3 src/models/tabular/data_prep.py
 #   python3 src/models/cmp/data_prep.py
+
+# WM-811K full-screen artifacts (regenerate with src/models/vision/screen_all.py)
+src/models/vision/data/screen/
